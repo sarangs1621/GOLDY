@@ -925,13 +925,21 @@ async def export_inventory(
     )
 
 @api_router.get("/reports/parties-export")
-async def export_parties(current_user: User = Depends(get_current_user)):
+async def export_parties(
+    party_type: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
     from fastapi.responses import StreamingResponse
     from io import BytesIO
     import openpyxl
     from openpyxl.styles import Font, PatternFill
     
-    parties = await db.parties.find({"is_deleted": False}, {"_id": 0}).to_list(10000)
+    # Build query with filters
+    query = {"is_deleted": False}
+    if party_type:
+        query['party_type'] = party_type
+    
+    parties = await db.parties.find(query, {"_id": 0}).to_list(10000)
     
     wb = openpyxl.Workbook()
     ws = wb.active
