@@ -317,6 +317,63 @@ async def get_users(current_user: User = Depends(get_current_user)):
             user['created_at'] = datetime.fromisoformat(user['created_at'])
     return users
 
+@api_router.patch("/users/{user_id}")
+async def update_user(user_id: str, update_data: dict, current_user: User = Depends(get_current_user)):
+    if current_user.role not in ['admin', 'manager']:
+        raise HTTPException(status_code=403, detail="Not authorized to update users")
+    
+    existing = await db.users.find_one({"id": user_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Don't allow password updates through this endpoint
+    if 'password' in update_data:
+        del update_data['password']
+    if 'hashed_password' in update_data:
+        del update_data['hashed_password']
+    
+    await db.users.update_one({"id": user_id}, {"$set": update_data})
+    await create_audit_log(current_user.id, current_user.full_name, "user", user_id, "update", update_data)
+    return {"message": "User updated successfully"}
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, current_user: User = Depends(get_current_user)):
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Only admins can delete users")
+    
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    existing = await db.users.find_one({"id": user_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"is_deleted": True, "deleted_at": datetime.now(timezone.utc), "deleted_by": current_user.id}}
+    )
+    await create_audit_log(current_user.id, current_user.full_name, "user", user_id, "delete")
+    return {"message": "User deleted successfully"}
+
+@api_router.post("/users/{user_id}/change-password")
+async def change_password(user_id: str, password_data: dict, current_user: User = Depends(get_current_user)):
+    # Users can change their own password, admins can change anyone's
+    if user_id != current_user.id and current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    existing = await db.users.find_one({"id": user_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_password = password_data.get('new_password')
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    hashed_password = pwd_context.hash(new_password)
+    await db.users.update_one({"id": user_id}, {"$set": {"hashed_password": hashed_password}})
+    await create_audit_log(current_user.id, current_user.full_name, "user", user_id, "password_change")
+    return {"message": "Password changed successfully"}
+
 @api_router.get("/inventory/headers", response_model=List[InventoryHeader])
 async def get_inventory_headers(current_user: User = Depends(get_current_user)):
     headers = await db.inventory_headers.find({"is_deleted": False}, {"_id": 0}).to_list(1000)
