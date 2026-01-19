@@ -716,6 +716,34 @@ async def create_account(account_data: dict, current_user: User = Depends(get_cu
     await create_audit_log(current_user.id, current_user.full_name, "account", account.id, "create")
     return account
 
+@api_router.patch("/accounts/{account_id}")
+async def update_account(account_id: str, update_data: dict, current_user: User = Depends(get_current_user)):
+    existing = await db.accounts.find_one({"id": account_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Account not found")
+    
+    await db.accounts.update_one({"id": account_id}, {"$set": update_data})
+    await create_audit_log(current_user.id, current_user.full_name, "account", account_id, "update", update_data)
+    return {"message": "Account updated successfully"}
+
+@api_router.delete("/accounts/{account_id}")
+async def delete_account(account_id: str, current_user: User = Depends(get_current_user)):
+    existing = await db.accounts.find_one({"id": account_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Account not found")
+    
+    # Check if account has transactions
+    transactions = await db.transactions.find_one({"account_id": account_id, "is_deleted": False})
+    if transactions:
+        raise HTTPException(status_code=400, detail="Cannot delete account with existing transactions")
+    
+    await db.accounts.update_one(
+        {"id": account_id},
+        {"$set": {"is_deleted": True}}
+    )
+    await create_audit_log(current_user.id, current_user.full_name, "account", account_id, "delete")
+    return {"message": "Account deleted successfully"}
+
 @api_router.get("/transactions", response_model=List[Transaction])
 async def get_transactions(current_user: User = Depends(get_current_user)):
     transactions = await db.transactions.find({"is_deleted": False}, {"_id": 0}).sort("date", -1).to_list(1000)
