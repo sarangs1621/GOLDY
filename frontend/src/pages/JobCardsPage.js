@@ -29,7 +29,10 @@ export default function JobCardsPage() {
       weight_out: 0,
       purity: 916,
       work_type: 'polish',
-      remarks: ''
+      remarks: '',
+      making_charge_type: 'flat',
+      making_charge_value: 0,
+      vat_percent: 5
     }]
   });
 
