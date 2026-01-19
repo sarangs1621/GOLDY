@@ -297,10 +297,104 @@ export default function PartiesPage() {
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
               />
             </div>
-            <Button data-testid="save-party-button" onClick={handleCreate} className="w-full">Save Party</Button>
+            <Button data-testid="save-party-button" onClick={handleCreate} className="w-full">
+              {editingParty ? 'Update Party' : 'Save Party'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showLedgerDialog} onOpenChange={setShowLedgerDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Ledger - {ledgerData?.party.name}</DialogTitle>
+          </DialogHeader>
+          {ledgerData && (
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Outstanding</p>
+                  <p className="text-2xl font-bold">{ledgerData.outstanding.toFixed(3)} OMR</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Invoices</p>
+                  <p className="text-2xl font-bold">{ledgerData.invoices.length}</p>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold mb-2">Recent Invoices</h3>
+                <div className="border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Invoice #</th>
+                        <th className="px-3 py-2 text-left">Date</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                        <th className="px-3 py-2 text-right">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledgerData.invoices.slice(0, 5).map(inv => (
+                        <tr key={inv.id} className="border-t">
+                          <td className="px-3 py-2">{inv.invoice_number}</td>
+                          <td className="px-3 py-2">{new Date(inv.date).toLocaleDateString()}</td>
+                          <td className="px-3 py-2 text-right">{inv.grand_total.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">{inv.balance_due.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-2">Recent Transactions</h3>
+                <div className="border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-3 py-2 text-left">TXN #</th>
+                        <th className="px-3 py-2 text-left">Date</th>
+                        <th className="px-3 py-2 text-left">Type</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ledgerData.transactions.slice(0, 5).map(txn => (
+                        <tr key={txn.id} className="border-t">
+                          <td className="px-3 py-2">{txn.transaction_number}</td>
+                          <td className="px-3 py-2">{new Date(txn.date).toLocaleDateString()}</td>
+                          <td className="px-3 py-2 capitalize">{txn.transaction_type}</td>
+                          <td className="px-3 py-2 text-right">{txn.amount.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{deletingParty?.name}</strong>. 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
