@@ -506,24 +506,6 @@ async def get_party_ledger(party_id: str, current_user: User = Depends(get_curre
     
     return {"invoices": invoices, "transactions": transactions, "outstanding": outstanding}
 
-@api_router.get("/parties/outstanding-summary")
-async def get_outstanding_summary(current_user: User = Depends(get_current_user)):
-    invoices = await db.invoices.find({"is_deleted": False, "payment_status": {"$ne": "paid"}}, {"_id": 0}).to_list(10000)
-    
-    total_customer_due = sum(inv.get('balance_due', 0) for inv in invoices)
-    
-    party_outstanding = {}
-    for inv in invoices:
-        cid = inv.get('customer_id')
-        if cid:
-            if cid not in party_outstanding:
-                party_outstanding[cid] = {"customer_id": cid, "customer_name": inv.get('customer_name', ''), "outstanding": 0}
-            party_outstanding[cid]['outstanding'] += inv.get('balance_due', 0)
-    
-    top_10 = sorted(party_outstanding.values(), key=lambda x: x['outstanding'], reverse=True)[:10]
-    
-    return {"total_customer_due": total_customer_due, "top_10_outstanding": top_10}
-
 @api_router.get("/jobcards", response_model=List[JobCard])
 async def get_jobcards(current_user: User = Depends(get_current_user)):
     jobcards = await db.jobcards.find({"is_deleted": False}, {"_id": 0}).sort("date_created", -1).to_list(1000)
