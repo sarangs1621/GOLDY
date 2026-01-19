@@ -855,14 +855,35 @@ async def get_audit_logs(module: Optional[str] = None, current_user: User = Depe
     return logs
 
 @api_router.get("/reports/inventory-export")
-async def export_inventory(current_user: User = Depends(get_current_user)):
+async def export_inventory(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    movement_type: Optional[str] = None,
+    category: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
     from fastapi.responses import StreamingResponse
     from io import BytesIO
     import openpyxl
     from openpyxl.styles import Font, Alignment, PatternFill
     
-    # Get all inventory data
-    movements = await db.stock_movements.find({"is_deleted": False}, {"_id": 0}).sort("date", -1).to_list(10000)
+    # Build query with filters
+    query = {"is_deleted": False}
+    if start_date:
+        query['date'] = {"$gte": datetime.fromisoformat(start_date)}
+    if end_date:
+        end_dt = datetime.fromisoformat(end_date)
+        if 'date' in query:
+            query['date']['$lte'] = end_dt
+        else:
+            query['date'] = {"$lte": end_dt}
+    if movement_type:
+        query['movement_type'] = movement_type
+    if category:
+        query['header_name'] = category
+    
+    # Get filtered inventory data
+    movements = await db.stock_movements.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
     
     # Create workbook
     wb = openpyxl.Workbook()
