@@ -1310,9 +1310,32 @@ async def get_financial_summary(
     end_date: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ):
+    """Get financial summary with optional date filtering"""
+    # Build query for invoices
+    invoice_query = {"is_deleted": False}
+    if start_date:
+        invoice_query['date'] = {"$gte": datetime.fromisoformat(start_date)}
+    if end_date:
+        end_dt = datetime.fromisoformat(end_date)
+        if 'date' in invoice_query:
+            invoice_query['date']['$lte'] = end_dt
+        else:
+            invoice_query['date'] = {"$lte": end_dt}
+    
+    # Build query for transactions
+    txn_query = {"is_deleted": False}
+    if start_date:
+        txn_query['date'] = {"$gte": datetime.fromisoformat(start_date)}
+    if end_date:
+        end_dt = datetime.fromisoformat(end_date)
+        if 'date' in txn_query:
+            txn_query['date']['$lte'] = end_dt
+        else:
+            txn_query['date'] = {"$lte": end_dt}
+    
     # Get totals for financial summary
-    invoices = await db.invoices.find({"is_deleted": False}, {"_id": 0}).to_list(10000)
-    transactions = await db.transactions.find({"is_deleted": False}, {"_id": 0}).to_list(10000)
+    invoices = await db.invoices.find(invoice_query, {"_id": 0}).to_list(10000)
+    transactions = await db.transactions.find(txn_query, {"_id": 0}).to_list(10000)
     accounts = await db.accounts.find({"is_deleted": False}, {"_id": 0}).to_list(1000)
     
     total_sales = sum(inv.get('grand_total', 0) for inv in invoices if inv.get('invoice_type') == 'sale')
