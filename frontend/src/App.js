@@ -13,7 +13,7 @@ import InvoicesPage from './pages/InvoicesPage';
 import PartiesPage from './pages/PartiesPage';
 import FinancePage from './pages/FinancePage';
 import DailyClosingPage from './pages/DailyClosingPage';
-import ReportsPage from './pages/ReportsPage';
+import ReportsPage from './pages/ReportsPageEnhanced';
 import AuditLogsPage from './pages/AuditLogsPage';
 import SettingsPage from './pages/SettingsPage';
 
