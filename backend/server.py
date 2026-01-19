@@ -388,6 +388,38 @@ async def create_party(party_data: dict, current_user: User = Depends(get_curren
     await create_audit_log(current_user.id, current_user.full_name, "party", party.id, "create")
     return party
 
+@api_router.get("/parties/{party_id}", response_model=Party)
+async def get_party(party_id: str, current_user: User = Depends(get_current_user)):
+    party = await db.parties.find_one({"id": party_id, "is_deleted": False}, {"_id": 0})
+    if not party:
+        raise HTTPException(status_code=404, detail="Party not found")
+    return Party(**party)
+
+@api_router.patch("/parties/{party_id}", response_model=Party)
+async def update_party(party_id: str, party_data: dict, current_user: User = Depends(get_current_user)):
+    existing = await db.parties.find_one({"id": party_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Party not found")
+    
+    await db.parties.update_one({"id": party_id}, {"$set": party_data})
+    await create_audit_log(current_user.id, current_user.full_name, "party", party_id, "update", party_data)
+    
+    updated = await db.parties.find_one({"id": party_id}, {"_id": 0})
+    return Party(**updated)
+
+@api_router.delete("/parties/{party_id}")
+async def delete_party(party_id: str, current_user: User = Depends(get_current_user)):
+    existing = await db.parties.find_one({"id": party_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Party not found")
+    
+    await db.parties.update_one(
+        {"id": party_id},
+        {"$set": {"is_deleted": True, "deleted_at": datetime.now(timezone.utc), "deleted_by": current_user.id}}
+    )
+    await create_audit_log(current_user.id, current_user.full_name, "party", party_id, "delete")
+    return {"message": "Party deleted successfully"}
+
 @api_router.get("/parties/{party_id}/ledger")
 async def get_party_ledger(party_id: str, current_user: User = Depends(get_current_user)):
     invoices = await db.invoices.find({"customer_id": party_id, "is_deleted": False}, {"_id": 0}).to_list(1000)
