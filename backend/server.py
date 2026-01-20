@@ -173,6 +173,9 @@ class Invoice(BaseModel):
     customer_name: Optional[str] = None
     invoice_type: str = "sale"
     payment_status: str = "unpaid"
+    status: str = "draft"  # "draft" or "finalized" - controls when stock is deducted
+    finalized_at: Optional[datetime] = None
+    finalized_by: Optional[str] = None
     items: List[InvoiceItem] = []
     subtotal: float = 0
     vat_total: float = 0
