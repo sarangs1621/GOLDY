@@ -450,17 +450,17 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
 
 @api_router.get("/inventory/stock-totals")
 async def get_stock_totals(current_user: User = Depends(get_current_user)):
-    pipeline = [
-        {"$match": {"is_deleted": False}},
-        {"$group": {
-            "_id": "$header_id",
-            "header_name": {"$first": "$header_name"},
-            "total_qty": {"$sum": "$qty_delta"},
-            "total_weight": {"$sum": "$weight_delta"}
-        }}
+    # Return current stock directly from inventory headers
+    headers = await db.inventory_headers.find({"is_deleted": False}, {"_id": 0}).to_list(1000)
+    return [
+        {
+            "header_id": h['id'], 
+            "header_name": h['name'], 
+            "total_qty": h.get('current_qty', 0), 
+            "total_weight": h.get('current_weight', 0)
+        } 
+        for h in headers
     ]
-    totals = await db.stock_movements.aggregate(pipeline).to_list(1000)
-    return [{"header_id": t['_id'], "header_name": t['header_name'], "total_qty": t['total_qty'], "total_weight": t['total_weight']} for t in totals]
 
 @api_router.get("/parties", response_model=List[Party])
 async def get_parties(party_type: Optional[str] = None, current_user: User = Depends(get_current_user)):
