@@ -697,6 +697,7 @@ async def convert_jobcard_to_invoice(jobcard_id: str, current_user: User = Depen
         line_total = gold_value + making_value + vat_amount
         
         invoice_items.append(InvoiceItem(
+            category=item.get('category', ''),  # Store category for stock tracking
             description=item.get('description', ''),
             qty=item.get('qty', 1),
             weight=weight,
