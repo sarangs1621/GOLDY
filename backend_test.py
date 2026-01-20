@@ -851,34 +851,48 @@ class GoldShopERPTester:
         
         print(f"✅ Job card locked successfully: status={updated_jobcard.get('status')}, locked={updated_jobcard.get('locked')}")
         
-        # Try to edit the locked job card (should get 400 error)
-        success, error_response = self.run_test(
-            "Try to Edit Locked Job Card (Should Fail)",
+        # Try to edit the locked job card (should get 403 error for non-admin, but admin can override)
+        # Since we're logged in as admin, this should succeed with warning
+        success, edit_response = self.run_test(
+            "Admin Try to Edit Locked Job Card (Should Succeed with Warning)",
             "PATCH",
             f"jobcards/{jobcard_id}",
-            400,  # Expecting 400 error
-            data={"notes": "Trying to edit locked job card"}
+            200,  # Admin can edit with override
+            data={"notes": "Admin editing locked job card"}
         )
         
         if not success:
-            print(f"❌ Expected 400 error when editing locked job card")
+            print(f"❌ Admin should be able to edit locked job card with override")
             return False
         
-        print(f"✅ Locked job card correctly rejected edit attempt")
+        # Verify response contains warning message
+        response_str = str(edit_response)
+        if 'locked' not in response_str.lower() or 'finalized invoice' not in response_str.lower():
+            print(f"❌ Response should contain warning about locked job card and finalized invoice")
+            return False
         
-        # Try to delete the locked job card (should get 400 error)
-        success, error_response = self.run_test(
-            "Try to Delete Locked Job Card (Should Fail)",
+        print(f"✅ Admin can edit locked job card with override and warning message")
+        
+        # Try to delete the locked job card (should get 403 error for non-admin, but admin can override)
+        # Since we're logged in as admin, this should succeed with warning
+        success, delete_response = self.run_test(
+            "Admin Try to Delete Locked Job Card (Should Succeed with Warning)",
             "DELETE",
             f"jobcards/{jobcard_id}",
-            400  # Expecting 400 error
+            200  # Admin can delete with override
         )
         
         if not success:
-            print(f"❌ Expected 400 error when deleting locked job card")
+            print(f"❌ Admin should be able to delete locked job card with override")
             return False
         
-        print(f"✅ Locked job card correctly rejected delete attempt")
+        # Verify response contains warning message
+        response_str = str(delete_response)
+        if 'locked' not in response_str.lower() or 'finalized invoice' not in response_str.lower():
+            print(f"❌ Response should contain warning about locked job card and finalized invoice")
+            return False
+        
+        print(f"✅ Admin can delete locked job card with override and warning message")
         
         # Store for other tests
         self.finalization_test_data = {
