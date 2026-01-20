@@ -2101,6 +2101,519 @@ async def get_outstanding_report(
         "parties": list(party_data.values())
     }
 
+
+# ==================== PDF EXPORT ENDPOINTS ====================
+
+@api_router.get("/reports/outstanding-pdf")
+async def export_outstanding_pdf(
+    party_id: Optional[str] = None,
+    party_type: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Export outstanding report as PDF"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    
+    # Get data from outstanding report
+    params = {}
+    if party_id:
+        params['party_id'] = party_id
+    if party_type:
+        params['party_type'] = party_type
+    if start_date:
+        params['start_date'] = start_date
+    if end_date:
+        params['end_date'] = end_date
+    
+    # Call outstanding report endpoint logic
+    from urllib.parse import urlencode
+    import httpx
+    
+    # Get outstanding data by calling the endpoint function directly
+    data = await get_outstanding_report(
+        party_id=party_id,
+        party_type=party_type,
+        start_date=start_date,
+        end_date=end_date,
+        include_paid=False,
+        current_user=current_user
+    )
+    
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    # Header
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(inch, height - inch, "Outstanding Report")
+    
+    # Date range
+    c.setFont("Helvetica", 10)
+    date_str = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    if start_date or end_date:
+        date_str += f" | Period: {start_date or 'Start'} to {end_date or 'End'}"
+    c.drawString(inch, height - inch - 0.3*inch, date_str)
+    
+    # Summary section
+    y_position = height - inch - 0.8*inch
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, "Summary")
+    y_position -= 0.3*inch
+    
+    c.setFont("Helvetica", 10)
+    summary = data['summary']
+    c.drawString(inch, y_position, f"Customer Due: {summary['customer_due']:.3f}")
+    c.drawString(inch + 2.5*inch, y_position, f"Vendor Payable: {summary['vendor_payable']:.3f}")
+    y_position -= 0.2*inch
+    c.drawString(inch, y_position, f"Total Outstanding: {summary['total_outstanding']:.3f}")
+    y_position -= 0.3*inch
+    
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(inch, y_position, "Overdue Buckets:")
+    y_position -= 0.2*inch
+    c.setFont("Helvetica", 10)
+    c.drawString(inch, y_position, f"0-7 days: {summary['total_overdue_0_7']:.3f}")
+    c.drawString(inch + 2*inch, y_position, f"8-30 days: {summary['total_overdue_8_30']:.3f}")
+    c.drawString(inch + 4*inch, y_position, f"31+ days: {summary['total_overdue_31_plus']:.3f}")
+    y_position -= 0.5*inch
+    
+    # Parties table
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, "Party-wise Outstanding")
+    y_position -= 0.3*inch
+    
+    # Create table data
+    table_data = [['Party Name', 'Type', 'Invoiced', 'Paid', 'Outstanding', '0-7d', '8-30d', '31+d']]
+    for party in data['parties'][:20]:  # Limit to 20 parties per page
+        table_data.append([
+            party['party_name'][:25],
+            party['party_type'],
+            f"{party['total_invoiced']:.2f}",
+            f"{party['total_paid']:.2f}",
+            f"{party['total_outstanding']:.2f}",
+            f"{party['overdue_0_7']:.2f}",
+            f"{party['overdue_8_30']:.2f}",
+            f"{party['overdue_31_plus']:.2f}"
+        ])
+    
+    # Create table
+    table = Table(table_data, colWidths=[2*inch, 0.7*inch, 0.8*inch, 0.8*inch, 0.9*inch, 0.6*inch, 0.7*inch, 0.7*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    # Draw table
+    table.wrapOn(c, width, height)
+    table.drawOn(c, inch, y_position - len(table_data) * 0.25*inch)
+    
+    c.save()
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=outstanding_report_{datetime.now().strftime('%Y%m%d')}.pdf"}
+    )
+
+
+@api_router.get("/reports/invoices-pdf")
+async def export_invoices_pdf(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    invoice_type: Optional[str] = None,
+    payment_status: Optional[str] = None,
+    party_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Export invoices report as PDF"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    
+    # Get data
+    data = await view_invoices_report(
+        start_date=start_date,
+        end_date=end_date,
+        invoice_type=invoice_type,
+        payment_status=payment_status,
+        party_id=party_id,
+        sort_by=None,
+        current_user=current_user
+    )
+    
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    # Header
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(inch, height - inch, "Invoices Report")
+    
+    c.setFont("Helvetica", 10)
+    date_str = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    if start_date or end_date:
+        date_str += f" | Period: {start_date or 'Start'} to {end_date or 'End'}"
+    c.drawString(inch, height - inch - 0.3*inch, date_str)
+    
+    # Summary
+    y_position = height - inch - 0.8*inch
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, "Summary")
+    y_position -= 0.3*inch
+    
+    c.setFont("Helvetica", 10)
+    summary = data['summary']
+    c.drawString(inch, y_position, f"Total Amount: {summary['total_amount']:.3f}")
+    c.drawString(inch + 2.5*inch, y_position, f"Total Paid: {summary['total_paid']:.3f}")
+    y_position -= 0.2*inch
+    c.drawString(inch, y_position, f"Total Balance: {summary['total_balance']:.3f}")
+    c.drawString(inch + 2.5*inch, y_position, f"Count: {data['count']}")
+    y_position -= 0.5*inch
+    
+    # Table
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, "Invoices")
+    y_position -= 0.3*inch
+    
+    table_data = [['Invoice #', 'Date', 'Customer', 'Type', 'Amount', 'Paid', 'Balance']]
+    for inv in data['invoices'][:25]:
+        inv_date = inv.get('date', '')
+        if isinstance(inv_date, str):
+            inv_date = inv_date[:10]
+        elif hasattr(inv_date, 'strftime'):
+            inv_date = inv_date.strftime('%Y-%m-%d')
+        
+        customer = inv.get('customer_name') or inv.get('walk_in_name') or 'N/A'
+        table_data.append([
+            inv.get('invoice_number', '')[:15],
+            inv_date,
+            customer[:20],
+            inv.get('invoice_type', '')[:4],
+            f"{inv.get('grand_total', 0):.2f}",
+            f"{inv.get('paid_amount', 0):.2f}",
+            f"{inv.get('balance_due', 0):.2f}"
+        ])
+    
+    table = Table(table_data, colWidths=[1.2*inch, 0.9*inch, 1.5*inch, 0.6*inch, 0.8*inch, 0.8*inch, 0.8*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    table.wrapOn(c, width, height)
+    table.drawOn(c, inch, y_position - len(table_data) * 0.25*inch)
+    
+    c.save()
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=invoices_report_{datetime.now().strftime('%Y%m%d')}.pdf"}
+    )
+
+
+@api_router.get("/reports/parties-pdf")
+async def export_parties_pdf(
+    party_type: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Export parties report as PDF"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    
+    # Get data
+    data = await view_parties_report(
+        party_type=party_type,
+        sort_by="outstanding_desc",
+        current_user=current_user
+    )
+    
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    # Header
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(inch, height - inch, "Parties Report")
+    
+    c.setFont("Helvetica", 10)
+    c.drawString(inch, height - inch - 0.3*inch, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    
+    # Table
+    y_position = height - inch - 0.8*inch
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, f"Total Parties: {data['count']}")
+    y_position -= 0.4*inch
+    
+    table_data = [['Party Name', 'Type', 'Phone', 'Email', 'Outstanding']]
+    for party in data['parties'][:30]:
+        table_data.append([
+            party.get('name', '')[:25],
+            party.get('party_type', '')[:8],
+            party.get('phone', '')[:15],
+            party.get('email', '')[:20],
+            f"{party.get('outstanding', 0):.2f}"
+        ])
+    
+    table = Table(table_data, colWidths=[2*inch, 0.8*inch, 1.2*inch, 1.5*inch, 1*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    table.wrapOn(c, width, height)
+    table.drawOn(c, inch, y_position - len(table_data) * 0.25*inch)
+    
+    c.save()
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=parties_report_{datetime.now().strftime('%Y%m%d')}.pdf"}
+    )
+
+
+@api_router.get("/reports/transactions-pdf")
+async def export_transactions_pdf(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    transaction_type: Optional[str] = None,
+    party_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Export transactions report as PDF"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    
+    # Get data
+    data = await view_transactions_report(
+        start_date=start_date,
+        end_date=end_date,
+        transaction_type=transaction_type,
+        account_id=None,
+        party_id=party_id,
+        sort_by=None,
+        current_user=current_user
+    )
+    
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    # Header
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(inch, height - inch, "Transactions Report")
+    
+    c.setFont("Helvetica", 10)
+    date_str = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    if start_date or end_date:
+        date_str += f" | Period: {start_date or 'Start'} to {end_date or 'End'}"
+    c.drawString(inch, height - inch - 0.3*inch, date_str)
+    
+    # Summary
+    y_position = height - inch - 0.8*inch
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, "Summary")
+    y_position -= 0.3*inch
+    
+    c.setFont("Helvetica", 10)
+    summary = data['summary']
+    c.drawString(inch, y_position, f"Total Credit: {summary['total_credit']:.3f}")
+    c.drawString(inch + 2.5*inch, y_position, f"Total Debit: {summary['total_debit']:.3f}")
+    y_position -= 0.2*inch
+    c.drawString(inch, y_position, f"Net Balance: {summary['net_balance']:.3f}")
+    c.drawString(inch + 2.5*inch, y_position, f"Count: {data['count']}")
+    y_position -= 0.5*inch
+    
+    # Table
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, "Transactions")
+    y_position -= 0.3*inch
+    
+    table_data = [['TXN #', 'Date', 'Type', 'Account', 'Party', 'Amount']]
+    for txn in data['transactions'][:30]:
+        txn_date = txn.get('date', '')
+        if isinstance(txn_date, str):
+            txn_date = txn_date[:10]
+        elif hasattr(txn_date, 'strftime'):
+            txn_date = txn_date.strftime('%Y-%m-%d')
+        
+        table_data.append([
+            txn.get('transaction_number', '')[:15],
+            txn_date,
+            txn.get('transaction_type', '')[:6],
+            txn.get('account_name', '')[:20],
+            txn.get('party_name', 'N/A')[:15],
+            f"{txn.get('amount', 0):.2f}"
+        ])
+    
+    table = Table(table_data, colWidths=[1.2*inch, 0.9*inch, 0.7*inch, 1.5*inch, 1.2*inch, 0.8*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    table.wrapOn(c, width, height)
+    table.drawOn(c, inch, y_position - len(table_data) * 0.25*inch)
+    
+    c.save()
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=transactions_report_{datetime.now().strftime('%Y%m%d')}.pdf"}
+    )
+
+
+@api_router.get("/reports/inventory-pdf")
+async def export_inventory_pdf(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    movement_type: Optional[str] = None,
+    category: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Export inventory report as PDF"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    
+    # Get data
+    data = await view_inventory_report(
+        start_date=start_date,
+        end_date=end_date,
+        movement_type=movement_type,
+        category=category,
+        sort_by=None,
+        current_user=current_user
+    )
+    
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    
+    # Header
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(inch, height - inch, "Inventory Report")
+    
+    c.setFont("Helvetica", 10)
+    date_str = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    if start_date or end_date:
+        date_str += f" | Period: {start_date or 'Start'} to {end_date or 'End'}"
+    c.drawString(inch, height - inch - 0.3*inch, date_str)
+    
+    # Summary
+    y_position = height - inch - 0.8*inch
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, "Summary")
+    y_position -= 0.3*inch
+    
+    c.setFont("Helvetica", 10)
+    summary = data['summary']
+    c.drawString(inch, y_position, f"Total In: {summary['total_in']:.2f} pcs")
+    c.drawString(inch + 2.5*inch, y_position, f"Total Out: {summary['total_out']:.2f} pcs")
+    y_position -= 0.2*inch
+    c.drawString(inch, y_position, f"Weight In: {summary['total_weight_in']:.3f} g")
+    c.drawString(inch + 2.5*inch, y_position, f"Weight Out: {summary['total_weight_out']:.3f} g")
+    y_position -= 0.5*inch
+    
+    # Table
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(inch, y_position, "Stock Movements")
+    y_position -= 0.3*inch
+    
+    table_data = [['Date', 'Category', 'Type', 'Qty', 'Weight', 'Reference']]
+    for mov in data['movements'][:30]:
+        mov_date = mov.get('date', '')
+        if isinstance(mov_date, str):
+            mov_date = mov_date[:10]
+        elif hasattr(mov_date, 'strftime'):
+            mov_date = mov_date.strftime('%Y-%m-%d')
+        
+        table_data.append([
+            mov_date,
+            mov.get('header_name', '')[:15],
+            mov.get('movement_type', '')[:10],
+            f"{mov.get('qty_delta', 0):.1f}",
+            f"{mov.get('weight_delta', 0):.2f}",
+            mov.get('reference_type', '')[:12]
+        ])
+    
+    table = Table(table_data, colWidths=[0.9*inch, 1.3*inch, 1*inch, 0.7*inch, 0.9*inch, 1.2*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    table.wrapOn(c, width, height)
+    table.drawOn(c, inch, y_position - len(table_data) * 0.25*inch)
+    
+    c.save()
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=inventory_report_{datetime.now().strftime('%Y%m%d')}.pdf"}
+    )
+
+
 app.include_router(api_router)
 
 app.add_middleware(
