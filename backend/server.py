@@ -424,7 +424,27 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
         created_by=current_user.id
     )
     
+    # Insert stock movement for audit trail
     await db.stock_movements.insert_one(movement.model_dump())
+    
+    # DIRECT UPDATE: Update header's current quantity and weight
+    new_qty = header.get('current_qty', 0) + movement_data['qty_delta']
+    new_weight = header.get('current_weight', 0) + movement_data['weight_delta']
+    
+    # Validate stock doesn't go negative
+    if new_qty < 0 or new_weight < 0:
+        # Delete the movement we just created
+        await db.stock_movements.delete_one({"id": movement.id})
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Insufficient stock. Available: {header.get('current_qty', 0)} qty, {header.get('current_weight', 0)}g. Requested: {abs(movement_data['qty_delta'])} qty, {abs(movement_data['weight_delta'])}g"
+        )
+    
+    await db.inventory_headers.update_one(
+        {"id": movement_data['header_id']},
+        {"$set": {"current_qty": new_qty, "current_weight": new_weight}}
+    )
+    
     await create_audit_log(current_user.id, current_user.full_name, "stock_movement", movement.id, "create")
     return movement
 
