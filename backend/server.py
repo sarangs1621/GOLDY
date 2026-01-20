@@ -662,9 +662,9 @@ async def convert_jobcard_to_invoice(jobcard_id: str, current_user: User = Depen
         # Use making charge from job card if provided, otherwise use default
         if item.get('making_charge_value') is not None:
             if item.get('making_charge_type') == 'per_gram':
-                making_value = item.get('making_charge_value', 0) * weight
+                making_value = float(item.get('making_charge_value', 0)) * weight
             else:  # flat
-                making_value = item.get('making_charge_value', 0)
+                making_value = float(item.get('making_charge_value', 0))
         else:
             making_value = 5.0  # Default
         
