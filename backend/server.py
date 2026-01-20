@@ -665,10 +665,21 @@ async def delete_jobcard(jobcard_id: str, current_user: User = Depends(get_curre
     return {"message": "Job card deleted successfully"}
 
 @api_router.post("/jobcards/{jobcard_id}/convert-to-invoice")
-async def convert_jobcard_to_invoice(jobcard_id: str, current_user: User = Depends(get_current_user)):
+async def convert_jobcard_to_invoice(jobcard_id: str, invoice_data: dict, current_user: User = Depends(get_current_user)):
     jobcard = await db.jobcards.find_one({"id": jobcard_id, "is_deleted": False}, {"_id": 0})
     if not jobcard:
         raise HTTPException(status_code=404, detail="Job card not found")
+    
+    # Extract customer type and details from invoice_data
+    customer_type = invoice_data.get('customer_type', 'saved')
+    
+    # Validate customer data based on type
+    if customer_type == 'saved':
+        if not invoice_data.get('customer_id'):
+            raise HTTPException(status_code=400, detail="customer_id is required for saved customers")
+    elif customer_type == 'walk_in':
+        if not invoice_data.get('walk_in_name'):
+            raise HTTPException(status_code=400, detail="walk_in_name is required for walk-in customers")
     
     year = datetime.now(timezone.utc).year
     count = await db.invoices.count_documents({"invoice_number": {"$regex": f"^INV-{year}"}})
@@ -718,19 +729,29 @@ async def convert_jobcard_to_invoice(jobcard_id: str, current_user: User = Depen
     
     grand_total = subtotal + vat_total
     
-    invoice = Invoice(
-        invoice_number=invoice_number,
-        customer_id=jobcard.get('customer_id'),
-        customer_name=jobcard.get('customer_name'),
-        invoice_type="service",
-        items=invoice_items,
-        subtotal=subtotal,
-        vat_total=vat_total,
-        grand_total=grand_total,
-        balance_due=grand_total,
-        jobcard_id=jobcard_id,
-        created_by=current_user.id
-    )
+    # Create invoice with customer type specific fields
+    invoice_dict = {
+        "invoice_number": invoice_number,
+        "customer_type": customer_type,
+        "invoice_type": "service",
+        "items": [item.model_dump() for item in invoice_items],
+        "subtotal": subtotal,
+        "vat_total": vat_total,
+        "grand_total": grand_total,
+        "balance_due": grand_total,
+        "jobcard_id": jobcard_id,
+        "created_by": current_user.id
+    }
+    
+    # Add customer-specific fields
+    if customer_type == 'saved':
+        invoice_dict["customer_id"] = invoice_data.get('customer_id')
+        invoice_dict["customer_name"] = invoice_data.get('customer_name')
+    else:  # walk_in
+        invoice_dict["walk_in_name"] = invoice_data.get('walk_in_name')
+        invoice_dict["walk_in_phone"] = invoice_data.get('walk_in_phone', '')
+    
+    invoice = Invoice(**invoice_dict)
     
     await db.invoices.insert_one(invoice.model_dump())
     await create_audit_log(current_user.id, current_user.full_name, "invoice", invoice.id, "create_from_jobcard")
