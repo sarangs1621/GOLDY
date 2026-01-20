@@ -964,7 +964,8 @@ class GoldShopERPTester:
         
         # Check transaction number format (TXN-YYYY-NNNN)
         txn_number = ledger_entry.get('transaction_number', '')
-        if not txn_number.startswith('TXN-2025-'):
+        import re
+        if not re.match(r'^TXN-\d{4}-\d{4}$', txn_number):
             print(f"❌ Transaction number format incorrect: {txn_number}")
             return False
         
