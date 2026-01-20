@@ -282,7 +282,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Job Card Locking with Admin Override - COMPLETED - All scenarios tested successfully"
+    - "Invoice Finalization UI - CRITICAL - Test that users can now finalize draft invoices via UI"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
