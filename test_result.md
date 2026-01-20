@@ -126,7 +126,7 @@ backend:
     file: "backend/server.py"
     stuck_count: 0
     priority: "critical"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
@@ -143,6 +143,21 @@ backend:
       - working: true
         agent: "testing"
         comment: "🎯 COMPREHENSIVE INVOICE FINALIZATION WORKFLOW TESTING COMPLETED - ALL 7 CRITICAL TEST SCENARIOS PASSED (100% SUCCESS RATE): ✅ TEST 1: Draft Invoice Creation - NO Stock Deduction: Draft invoices created with status='draft', NO stock movements created (verified empty stock_movements collection), invoices can be retrieved successfully. ✅ TEST 2: Invoice Finalization - Stock Deduction Happens: Finalization endpoint returns 200 status, invoice status changes to 'finalized', finalized_at and finalized_by fields populated, stock movements created with movement_type='Stock OUT', all movements have NEGATIVE qty_delta and weight_delta values, movements correctly reference invoice (reference_type='invoice', reference_id=invoice_id). ✅ TEST 3: Finalized Invoice Cannot Be Edited: Edit attempts return 400 status with error message mentioning immutability and financial integrity. ✅ TEST 4: Finalized Invoice Cannot Be Deleted: Delete attempts return 400 status with error message about finalized invoices being immutable. ✅ TEST 5: Cannot Re-Finalize Invoice: Re-finalization attempts return 400 status with 'Invoice is already finalized' message, no duplicate stock movements created. ✅ TEST 6: Job Card Locking on Finalization: Job cards properly locked (locked=True, locked_at populated, locked_by populated, status='invoiced'), admin can edit locked job cards with override and warning message. ✅ TEST 7: Customer Ledger Entry Creation: Transaction records created with correct party_id, amount=grand_total, category='Sales Invoice', transaction_number follows TXN-YYYY-NNNN format, customer outstanding balance updated correctly. 🔥 CRITICAL BUSINESS LOGIC VERIFICATION: Stock deduction happens ATOMICALLY ONLY on finalization (not on creation), all financial integrity constraints maintained, complete audit trail preserved. INVOICE FINALIZATION WORKFLOW IS FULLY FUNCTIONAL AND SECURE."
+      - working: "NA"
+        agent: "main"
+        comment: "MAJOR ARCHITECTURAL CHANGE - Direct Inventory Reduction: Changed stock tracking from ledger-style (sum of movements) to direct balance system. Changes: (1) Added current_qty and current_weight fields to InventoryHeader model for direct stock tracking. (2) Modified POST /api/inventory/movements endpoint to DIRECTLY update header current values when movements are created, with validation to prevent negative stock. (3) Modified GET /api/inventory/stock-totals to return current values from headers instead of aggregating movements. (4) CRITICAL CHANGE in POST /api/invoices/{id}/finalize - Now DIRECTLY reduces current_qty and current_weight from inventory headers based on invoice item categories. Stock movements still created as audit trail. Validation added to prevent insufficient stock errors. (5) Added category field to InvoiceItem model to track which inventory category to reduce from. (6) Updated job card to invoice conversion to include category field. (7) Created migration script to initialize current stock values from existing movements. This ensures stock is reduced directly from categories instead of using separate dedication/movement records, while maintaining complete audit trail for compliance."
+  
+  - task: "Direct Stock Reduction from Categories"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "IMPLEMENTED - Stock deduction now directly reduces from inventory category quantities and weights. Key changes: (1) InventoryHeader now has current_qty and current_weight fields that store actual stock levels. (2) When invoice is finalized, system matches invoice items to inventory categories by name and directly reduces the current stock values. (3) Stock movements are still created for audit trail but inventory totals come from header fields, not movement calculations. (4) Added validation to prevent stock from going negative with clear error messages showing available vs required quantities. (5) Migration script created to calculate current stock from existing movements for backward compatibility. Ready for testing to verify: (a) Stock movements update header values, (b) Invoice finalization reduces stock directly from headers, (c) Insufficient stock validation works, (d) Audit trail is maintained through movements, (e) Stock totals display correctly from header values."
   
   - task: "Job Card Schema Enhancement - Making Charge & VAT"
     implemented: true
