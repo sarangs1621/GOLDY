@@ -815,22 +815,61 @@ async def finalize_invoice(invoice_id: str, current_user: User = Depends(get_cur
         }
     )
     
-    # Step 2: Create stock movements (Stock OUT) for all items
+    # Step 2: DIRECTLY REDUCE from inventory headers and create audit trail
+    stock_errors = []
     for item in invoice.items:
-        if item.weight > 0:
-            movement = StockMovement(
-                movement_type="Stock OUT",
-                header_id="",
-                header_name=item.description,
-                description=f"Invoice {invoice.invoice_number} - Finalized",
-                qty_delta=-item.qty,
-                weight_delta=-item.weight,
-                purity=item.purity,
-                reference_type="invoice",
-                reference_id=invoice.id,
-                created_by=current_user.id
+        if item.weight > 0 and item.category:
+            # Find the inventory header by category name
+            header = await db.inventory_headers.find_one(
+                {"name": item.category, "is_deleted": False}, 
+                {"_id": 0}
             )
-            await db.stock_movements.insert_one(movement.model_dump())
+            
+            if header:
+                # Calculate new stock values
+                current_qty = header.get('current_qty', 0)
+                current_weight = header.get('current_weight', 0)
+                new_qty = current_qty - item.qty
+                new_weight = current_weight - item.weight
+                
+                # Check for insufficient stock
+                if new_qty < 0 or new_weight < 0:
+                    stock_errors.append(
+                        f"{item.category}: Need {item.qty} qty/{item.weight}g, but only {current_qty} qty/{current_weight}g available"
+                    )
+                    continue
+                
+                # DIRECT UPDATE: Reduce from inventory header
+                await db.inventory_headers.update_one(
+                    {"id": header['id']},
+                    {"$set": {"current_qty": new_qty, "current_weight": new_weight}}
+                )
+                
+                # Create stock movement for audit trail
+                movement = StockMovement(
+                    movement_type="Stock OUT",
+                    header_id=header['id'],
+                    header_name=header['name'],
+                    description=f"Invoice {invoice.invoice_number} - Finalized",
+                    qty_delta=-item.qty,
+                    weight_delta=-item.weight,
+                    purity=item.purity,
+                    reference_type="invoice",
+                    reference_id=invoice.id,
+                    created_by=current_user.id
+                )
+                await db.stock_movements.insert_one(movement.model_dump())
+    
+    # If there were stock errors, rollback the invoice finalization
+    if stock_errors:
+        await db.invoices.update_one(
+            {"id": invoice_id},
+            {"$set": {"status": "draft", "finalized_at": None, "finalized_by": None}}
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient stock: {'; '.join(stock_errors)}"
+        )
     
     # Step 3: Lock the linked job card (make it read-only)
     if invoice.jobcard_id:
