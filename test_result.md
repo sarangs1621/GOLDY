@@ -362,15 +362,18 @@ frontend:
 
   - task: "Reports & Filters - Global Filter Component"
     implemented: true
-    working: "NA"
+    working: true
     file: "frontend/src/pages/ReportsPageEnhanced.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "IMPLEMENTED - Created GlobalFilters reusable component with comprehensive filtering. Features: (1) Date Presets dropdown: All Time, Today, Yesterday, This Week (Monday start per ISO), This Month, Custom Range. (2) Custom Date Range: Start Date and End Date inputs (shown when custom selected). (3) Party Filter dropdown: All Parties option + searchable list of all parties with type display. (4) Sort By dropdown: Latest First (date_desc), Oldest First (date_asc), Highest Amount (amount_desc), Highest Outstanding (outstanding_desc). (5) Clear Filters button to reset all filters. (6) Export buttons: Export PDF and Export Excel (shown when exportType prop provided). Component accepts props: showPartyFilter, showSorting, exportType for tab-specific customization. All filters trigger auto-reload when changed. Ready for testing."
+      - working: true
+        agent: "main"
+        comment: "FIXED & VERIFIED - Fixed critical React error where Select.Item components had empty string values. Changed all empty string values to 'all' and updated filter logic to treat 'all' as no filter. Updated all API parameter checks to exclude 'all' value (e.g., if (selectedPartyId && selectedPartyId !== 'all')). All report tabs now loading correctly: Overview tab shows all financial summary cards (Total Sales, Total Purchases, Net Profit, Outstanding, Cash Balance, Bank Balance, Total Credit, Total Debit, Net Flow, Daily Closing Difference). Outstanding tab shows Customer Due, Vendor Payable, Total Outstanding with Overdue Buckets (0-7, 8-30, 31+ days). Invoices tab shows comprehensive filters (Date Range, Party, Sort By, Invoice Type, Payment Status). All global filters working correctly across all tabs. Export buttons (PDF & Excel) present on all applicable tabs. Reports & Filters system is now fully functional and production-ready."
 
   - task: "Reports & Filters - Outstanding Report Tab"
     implemented: true
