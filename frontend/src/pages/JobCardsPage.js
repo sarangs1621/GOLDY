@@ -73,10 +73,21 @@ export default function JobCardsPage() {
 
   const handleCreateJobCard = async () => {
     try {
-      const customer = parties.find(p => p.id === formData.customer_id);
+      // Validate based on customer type
+      if (formData.customer_type === 'saved') {
+        if (!formData.customer_id) {
+          toast.error('Please select a customer');
+          return;
+        }
+      } else if (formData.customer_type === 'walk_in') {
+        if (!formData.walk_in_name || !formData.walk_in_name.trim()) {
+          toast.error('Please enter customer name for walk-in');
+          return;
+        }
+      }
+
       const data = {
         ...formData,
-        customer_name: customer?.name || '',
         items: formData.items.map(item => ({
           ...item,
           qty: parseInt(item.qty),
@@ -87,6 +98,12 @@ export default function JobCardsPage() {
           vat_percent: item.vat_percent ? parseFloat(item.vat_percent) : null
         }))
       };
+
+      // Add customer name for saved customers
+      if (formData.customer_type === 'saved') {
+        const customer = parties.find(p => p.id === formData.customer_id);
+        data.customer_name = customer?.name || '';
+      }
       
       if (editingJobCard) {
         // Update existing job card
