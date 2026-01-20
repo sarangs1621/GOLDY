@@ -2312,7 +2312,16 @@ class GoldShopERPTester:
             "🔥 Direct Invoice Finalization": self.test_enhanced_invoice_finalization_direct_invoice(),
             "🔥 Default Sales Account Creation": self.test_enhanced_invoice_finalization_sales_account(),
             "🔥 Full Workflow Test": self.test_enhanced_invoice_finalization_full_workflow(),
-            "🔥 Error Cases Testing": self.test_enhanced_invoice_finalization_error_cases()
+            "🔥 Error Cases Testing": self.test_enhanced_invoice_finalization_error_cases(),
+            
+            # JOB CARD LOCKING WITH ADMIN OVERRIDE TESTS
+            "🔒 Job Card Locking Setup": self.test_job_card_locking_admin_override_setup(),
+            "🔒 Non-Admin Edit Attempt": self.test_job_card_locking_non_admin_edit_attempt(),
+            "🔒 Non-Admin Delete Attempt": self.test_job_card_locking_non_admin_delete_attempt(),
+            "🔒 Admin Edit Override": self.test_job_card_locking_admin_edit_override(),
+            "🔒 Admin Delete Override": self.test_job_card_locking_admin_delete_override(),
+            "🔒 Audit Log Verification": self.test_job_card_locking_audit_log_verification(),
+            "🔒 Normal Job Card Operations": self.test_job_card_locking_normal_operations()
         }
 
         # Print results summary
