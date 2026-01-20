@@ -303,23 +303,39 @@ async def register(user_data: UserCreate):
 
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
+    print(f"🔍 LOGIN ATTEMPT: username={credentials.username}")
     user_doc = await db.users.find_one({"username": credentials.username, "is_deleted": False}, {"_id": 0})
     if not user_doc:
+        print(f"❌ User not found: {credentials.username}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    print(f"✅ User found: {user_doc.get('username')}, has_email: {'email' in user_doc}")
     
     if not pwd_context.verify(credentials.password, user_doc.get('hashed_password', '')):
+        print(f"❌ Password verification failed")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    print(f"✅ Password verified")
+    
     if not user_doc.get('is_active', False):
+        print(f"❌ User is not active")
         raise HTTPException(status_code=403, detail="User is inactive")
     
-    user = User(**user_doc)
+    print(f"✅ User is active, creating User model...")
+    try:
+        user = User(**user_doc)
+        print(f"✅ User model created successfully")
+    except Exception as e:
+        print(f"❌ Error creating User model: {e}")
+        raise
+    
     token = jwt.encode(
         {"user_id": user.id, "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)},
         JWT_SECRET,
         algorithm=JWT_ALGORITHM
     )
     
+    print(f"✅ Login successful for {user.username}")
     return TokenResponse(access_token=token, user=user)
 
 @api_router.get("/auth/me", response_model=User)
