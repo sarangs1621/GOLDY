@@ -12,17 +12,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { toast } from 'sonner';
 import { 
   Download, FileSpreadsheet, TrendingUp, DollarSign, Package, 
-  Filter, Eye, Search, Calendar, RefreshCw 
+  Filter, Eye, Search, Calendar, RefreshCw, AlertCircle, ArrowUpCircle, ArrowDownCircle, Wallet, Building2
 } from 'lucide-react';
 
 export default function ReportsPageEnhanced() {
   const [loading, setLoading] = useState(false);
   const [financialSummary, setFinancialSummary] = useState(null);
+  const [outstandingData, setOutstandingData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   
-  // Filter states
+  // Global Filter states
+  const [datePreset, setDatePreset] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [selectedPartyId, setSelectedPartyId] = useState('');
+  const [sortBy, setSortBy] = useState('date_desc');
+  
+  // Type filters
   const [invoiceType, setInvoiceType] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('');
   const [partyType, setPartyType] = useState('');
@@ -37,6 +43,7 @@ export default function ReportsPageEnhanced() {
   const [transactionsData, setTransactionsData] = useState(null);
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [parties, setParties] = useState([]);
   
   // Detail view states
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -48,7 +55,73 @@ export default function ReportsPageEnhanced() {
     loadFinancialSummary();
     loadCategories();
     loadAccounts();
+    loadParties();
   }, []);
+
+  useEffect(() => {
+    // Reload data when filters change
+    if (activeTab === 'overview') {
+      loadFinancialSummary();
+    } else if (activeTab === 'outstanding') {
+      loadOutstandingReport();
+    } else if (activeTab === 'inventory') {
+      loadInventoryReport();
+    } else if (activeTab === 'parties') {
+      loadPartiesReport();
+    } else if (activeTab === 'invoices') {
+      loadInvoicesReport();
+    } else if (activeTab === 'transactions') {
+      loadTransactionsReport();
+    }
+  }, [datePreset, startDate, endDate, selectedPartyId, sortBy]);
+
+  // Date preset handler
+  const applyDatePreset = (preset) => {
+    const today = new Date();
+    let start, end;
+    
+    switch (preset) {
+      case 'today':
+        start = end = today.toISOString().split('T')[0];
+        break;
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        start = end = yesterday.toISOString().split('T')[0];
+        break;
+      case 'this_week':
+        // Week starts on Monday (ISO standard)
+        const dayOfWeek = today.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + mondayOffset);
+        start = monday.toISOString().split('T')[0];
+        end = today.toISOString().split('T')[0];
+        break;
+      case 'this_month':
+        start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+        end = today.toISOString().split('T')[0];
+        break;
+      case 'custom':
+        // User will set dates manually
+        return;
+      default:
+        start = end = '';
+    }
+    
+    setStartDate(start);
+    setEndDate(end);
+    setDatePreset(preset);
+  };
+
+  const loadParties = async () => {
+    try {
+      const response = await axios.get(`${API}/parties`);
+      setParties(response.data);
+    } catch (error) {
+      console.error('Failed to load parties');
+    }
+  };
 
   const loadFinancialSummary = async () => {
     try {
@@ -60,6 +133,24 @@ export default function ReportsPageEnhanced() {
       setFinancialSummary(response.data);
     } catch (error) {
       console.error('Failed to load financial summary');
+    }
+  };
+
+  const loadOutstandingReport = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (partyType) params.party_type = partyType;
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+      
+      const response = await axios.get(`${API}/reports/outstanding`, { params });
+      setOutstandingData(response.data);
+    } catch (error) {
+      toast.error('Failed to load outstanding report');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,6 +180,7 @@ export default function ReportsPageEnhanced() {
       if (endDate) params.end_date = endDate;
       if (movementType) params.movement_type = movementType;
       if (category) params.category = category;
+      if (sortBy) params.sort_by = sortBy;
       
       const response = await axios.get(`${API}/reports/inventory-view`, { params });
       setInventoryData(response.data);
@@ -104,6 +196,7 @@ export default function ReportsPageEnhanced() {
       setLoading(true);
       const params = {};
       if (partyType) params.party_type = partyType;
+      if (sortBy) params.sort_by = sortBy;
       
       const response = await axios.get(`${API}/reports/parties-view`, { params });
       setPartiesData(response.data);
@@ -122,6 +215,8 @@ export default function ReportsPageEnhanced() {
       if (endDate) params.end_date = endDate;
       if (invoiceType) params.invoice_type = invoiceType;
       if (paymentStatus) params.payment_status = paymentStatus;
+      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (sortBy) params.sort_by = sortBy;
       
       const response = await axios.get(`${API}/reports/invoices-view`, { params });
       setInvoicesData(response.data);
@@ -139,6 +234,8 @@ export default function ReportsPageEnhanced() {
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
       if (transactionType) params.transaction_type = transactionType;
+      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (sortBy) params.sort_by = sortBy;
       
       const response = await axios.get(`${API}/reports/transactions-view`, { params });
       setTransactionsData(response.data);
@@ -149,94 +246,76 @@ export default function ReportsPageEnhanced() {
     }
   };
 
-  const handleExport = async (type) => {
+  const exportPDF = async (reportType) => {
     try {
-      setLoading(true);
       const params = {};
-      
-      // Add common filters
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
+      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (invoiceType) params.invoice_type = invoiceType;
+      if (paymentStatus) params.payment_status = paymentStatus;
+      if (partyType) params.party_type = partyType;
+      if (movementType) params.movement_type = movementType;
+      if (category) params.category = category;
+      if (transactionType) params.transaction_type = transactionType;
       
-      // Add type-specific filters
-      if (type === 'inventory') {
-        if (movementType) params.movement_type = movementType;
-        if (category) params.category = category;
-      } else if (type === 'invoices') {
-        if (invoiceType) params.invoice_type = invoiceType;
-        if (paymentStatus) params.payment_status = paymentStatus;
-      } else if (type === 'parties') {
-        if (partyType) params.party_type = partyType;
-      }
-
-      const endpoints = {
-        inventory: '/reports/inventory-export',
-        parties: '/reports/parties-export',
-        invoices: '/reports/invoices-export'
-      };
-
-      const response = await axios.get(`${API}${endpoints[type]}`, {
+      const response = await axios.get(`${API}/reports/${reportType}-pdf`, {
         params,
         responseType: 'blob'
       });
-
+      
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${type}_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      link.setAttribute('download', `${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       
-      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} exported successfully`);
+      toast.success('PDF exported successfully');
     } catch (error) {
-      toast.error('Failed to export data');
-    } finally {
-      setLoading(false);
+      toast.error('Failed to export PDF');
     }
   };
 
-  const viewInvoiceDetail = async (invoiceId) => {
-    try {
-      const response = await axios.get(`${API}/reports/invoice/${invoiceId}`);
-      setSelectedInvoice(response.data);
-      setDetailDialogOpen(true);
-    } catch (error) {
-      toast.error('Failed to load invoice details');
-    }
-  };
-
-  const viewPartyLedger = async (partyId) => {
+  const exportExcel = async (reportType) => {
     try {
       const params = {};
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
+      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (invoiceType) params.invoice_type = invoiceType;
+      if (paymentStatus) params.payment_status = paymentStatus;
+      if (partyType) params.party_type = partyType;
+      if (movementType) params.movement_type = movementType;
+      if (category) params.category = category;
+      if (transactionType) params.transaction_type = transactionType;
       
-      const response = await axios.get(`${API}/reports/party/${partyId}/ledger-report`, { params });
-      setSelectedParty(response.data);
-      setDetailDialogOpen(true);
-    } catch (error) {
-      toast.error('Failed to load party ledger');
-    }
-  };
-
-  const viewCategoryStock = async (headerId) => {
-    try {
-      const params = {};
-      if (startDate) params.start_date = startDate;
-      if (endDate) params.end_date = endDate;
+      const response = await axios.get(`${API}/reports/${reportType}-export`, {
+        params,
+        responseType: 'blob'
+      });
       
-      const response = await axios.get(`${API}/reports/inventory/${headerId}/stock-report`, { params });
-      setSelectedCategory(response.data);
-      setDetailDialogOpen(true);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${reportType}_report_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      toast.success('Excel exported successfully');
     } catch (error) {
-      toast.error('Failed to load stock report');
+      toast.error('Failed to export Excel');
     }
   };
 
   const clearFilters = () => {
+    setDatePreset('');
     setStartDate('');
     setEndDate('');
+    setSelectedPartyId('');
+    setSortBy('date_desc');
     setInvoiceType('');
     setPaymentStatus('');
     setPartyType('');
@@ -245,432 +324,528 @@ export default function ReportsPageEnhanced() {
     setTransactionType('');
   };
 
-  const applyFilters = () => {
-    loadFinancialSummary();
-    if (activeTab === 'inventory') loadInventoryReport();
-    if (activeTab === 'invoices') loadInvoicesReport();
-    if (activeTab === 'parties') loadPartiesReport();
-    if (activeTab === 'transactions') loadTransactionsReport();
-  };
+  // Global Filters Component
+  const GlobalFilters = ({ showPartyFilter = true, showSorting = true, exportType = null }) => (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Filter className="h-5 w-5" />
+          Filters
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Date Presets */}
+          <div>
+            <Label>Date Range</Label>
+            <Select value={datePreset} onValueChange={applyDatePreset}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="yesterday">Yesterday</SelectItem>
+                <SelectItem value="this_week">This Week</SelectItem>
+                <SelectItem value="this_month">This Month</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Custom Date Range */}
+          {(datePreset === 'custom' || startDate || endDate) && (
+            <>
+              <div>
+                <Label>Start Date</Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>End Date</Label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Party Filter */}
+          {showPartyFilter && (
+            <div>
+              <Label>Party</Label>
+              <Select value={selectedPartyId} onValueChange={setSelectedPartyId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Parties" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Parties</SelectItem>
+                  {parties.map(party => (
+                    <SelectItem key={party.id} value={party.id}>
+                      {party.name} ({party.party_type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Sorting */}
+          {showSorting && (
+            <div>
+              <Label>Sort By</Label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">Latest First</SelectItem>
+                  <SelectItem value="date_asc">Oldest First</SelectItem>
+                  <SelectItem value="amount_desc">Highest Amount</SelectItem>
+                  <SelectItem value="outstanding_desc">Highest Outstanding</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 mt-4">
+          <Button onClick={clearFilters} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Clear Filters
+          </Button>
+          
+          {exportType && (
+            <>
+              <Button onClick={() => exportPDF(exportType)} variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
+              <Button onClick={() => exportExcel(exportType)} variant="outline" size="sm">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
-    <div data-testid="reports-page">
-      <div className="mb-8">
-        <h1 className="text-4xl font-serif font-semibold text-gray-900 mb-2">Reports & Analytics</h1>
-        <p className="text-muted-foreground">Comprehensive reports with advanced filtering</p>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Reports & Analytics</h1>
       </div>
 
-      {/* Financial Summary Cards */}
-      {financialSummary && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="outstanding">Outstanding</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="parties">Parties</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="inventory">Inventory</TabsTrigger>
+        </TabsList>
+
+        {/* OVERVIEW TAB - Enhanced Finance Summary */}
+        <TabsContent value="overview" className="space-y-6">
+          <GlobalFilters showPartyFilter={false} showSorting={false} />
+
+          {financialSummary && (
+            <>
+              {/* Main Financial Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary.total_sales?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Total Purchases</CardTitle>
+                    <Package className="h-4 w-4 text-blue-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary.total_purchases?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary.net_profit?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
+                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary.total_outstanding?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Cash Flow & Balance Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Cash Balance</CardTitle>
+                    <Wallet className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary.cash_balance?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Bank Balance</CardTitle>
+                    <Building2 className="h-4 w-4 text-blue-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary.bank_balance?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Total Credit</CardTitle>
+                    <ArrowUpCircle className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary.total_credit?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Total Debit</CardTitle>
+                    <ArrowDownCircle className="h-4 w-4 text-red-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary.total_debit?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Net Flow & Daily Closing */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Net Flow</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-3xl font-bold ${financialSummary.net_flow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {financialSummary.net_flow >= 0 ? '+' : ''}{financialSummary.net_flow?.toFixed(3)} OMR
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">Total Credit - Total Debit</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Daily Closing Difference</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-3xl font-bold ${financialSummary.daily_closing_difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {financialSummary.daily_closing_difference >= 0 ? '+' : ''}{financialSummary.daily_closing_difference?.toFixed(3)} OMR
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">Actual - Expected Closing</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        {/* OUTSTANDING TAB */}
+        <TabsContent value="outstanding" className="space-y-6">
+          <GlobalFilters showPartyFilter={true} showSorting={false} exportType="outstanding" />
+
+          {/* Type Filter for Outstanding */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Sales</CardTitle>
-              <TrendingUp className="w-4 h-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{financialSummary.total_sales.toFixed(2)} OMR</div>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div>
+                  <Label>Party Type</Label>
+                  <Select value={partyType} onValueChange={setPartyType}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Types</SelectItem>
+                      <SelectItem value="customer">Customers Only</SelectItem>
+                      <SelectItem value="vendor">Vendors Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={loadOutstandingReport}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Load Report
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Purchases</CardTitle>
-              <Package className="w-4 h-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{financialSummary.total_purchases.toFixed(2)} OMR</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Net Profit</CardTitle>
-              <DollarSign className="w-4 h-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{financialSummary.net_profit.toFixed(2)} OMR</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Outstanding</CardTitle>
-              <TrendingUp className="w-4 h-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{financialSummary.total_outstanding.toFixed(2)} OMR</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Filter Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {/* Date Range */}
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input 
-                type="date" 
-                value={startDate} 
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+          {loading && (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+              <p className="mt-2 text-gray-500">Loading outstanding report...</p>
             </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input 
-                type="date" 
-                value={endDate} 
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
+          )}
 
-            {/* Type-specific filters based on active tab */}
-            {activeTab === 'invoices' && (
-              <>
-                <div className="space-y-2">
+          {outstandingData && !loading && (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Customer Due (Receivable)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">
+                      {outstandingData.summary.customer_due?.toFixed(3)} OMR
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Money to receive from customers</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Vendor Payable</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">
+                      {outstandingData.summary.vendor_payable?.toFixed(3)} OMR
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Money to pay to vendors</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Total Outstanding</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {outstandingData.summary.total_outstanding?.toFixed(3)} OMR
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Net outstanding balance</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Overdue Buckets */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Overdue Buckets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-yellow-800">0-7 Days</span>
+                        <AlertCircle className="h-5 w-5 text-yellow-600" />
+                      </div>
+                      <div className="text-2xl font-bold text-yellow-700 mt-2">
+                        {outstandingData.summary.total_overdue_0_7?.toFixed(3)} OMR
+                      </div>
+                    </div>
+
+                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-orange-800">8-30 Days</span>
+                        <AlertCircle className="h-5 w-5 text-orange-600" />
+                      </div>
+                      <div className="text-2xl font-bold text-orange-700 mt-2">
+                        {outstandingData.summary.total_overdue_8_30?.toFixed(3)} OMR
+                      </div>
+                    </div>
+
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-red-800">31+ Days</span>
+                        <AlertCircle className="h-5 w-5 text-red-600" />
+                      </div>
+                      <div className="text-2xl font-bold text-red-700 mt-2">
+                        {outstandingData.summary.total_overdue_31_plus?.toFixed(3)} OMR
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Party-wise Outstanding Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Party-wise Outstanding Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Party Name</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead className="text-right">Total Invoiced</TableHead>
+                          <TableHead className="text-right">Total Paid</TableHead>
+                          <TableHead className="text-right">Outstanding</TableHead>
+                          <TableHead className="text-right">0-7d</TableHead>
+                          <TableHead className="text-right">8-30d</TableHead>
+                          <TableHead className="text-right">31+d</TableHead>
+                          <TableHead>Last Invoice</TableHead>
+                          <TableHead>Last Payment</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {outstandingData.parties.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                              No outstanding records found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          outstandingData.parties.map((party, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-medium">{party.party_name}</TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  party.party_type === 'customer' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {party.party_type}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">{party.total_invoiced?.toFixed(3)}</TableCell>
+                              <TableCell className="text-right">{party.total_paid?.toFixed(3)}</TableCell>
+                              <TableCell className="text-right font-bold">{party.total_outstanding?.toFixed(3)}</TableCell>
+                              <TableCell className="text-right text-yellow-600">{party.overdue_0_7?.toFixed(3)}</TableCell>
+                              <TableCell className="text-right text-orange-600">{party.overdue_8_30?.toFixed(3)}</TableCell>
+                              <TableCell className="text-right text-red-600">{party.overdue_31_plus?.toFixed(3)}</TableCell>
+                              <TableCell>
+                                {party.last_invoice_date ? new Date(party.last_invoice_date).toLocaleDateString() : '-'}
+                              </TableCell>
+                              <TableCell>
+                                {party.last_payment_date ? new Date(party.last_payment_date).toLocaleDateString() : '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        {/* INVOICES TAB */}
+        <TabsContent value="invoices" className="space-y-6">
+          <GlobalFilters showPartyFilter={true} showSorting={true} exportType="invoices" />
+
+          {/* Invoice Type Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div>
                   <Label>Invoice Type</Label>
                   <Select value={invoiceType} onValueChange={setInvoiceType}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-48">
                       <SelectValue placeholder="All Types" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">All Types</SelectItem>
                       <SelectItem value="sale">Sale</SelectItem>
                       <SelectItem value="purchase">Purchase</SelectItem>
-                      <SelectItem value="service">Service</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div>
                   <Label>Payment Status</Label>
                   <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-48">
                       <SelectValue placeholder="All Status" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">All Status</SelectItem>
                       <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="unpaid">Unpaid</SelectItem>
                       <SelectItem value="partial">Partial</SelectItem>
+                      <SelectItem value="unpaid">Unpaid</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </>
-            )}
-
-            {activeTab === 'parties' && (
-              <div className="space-y-2">
-                <Label>Party Type</Label>
-                <Select value={partyType} onValueChange={setPartyType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
-                    <SelectItem value="customer">Customer</SelectItem>
-                    <SelectItem value="vendor">Vendor</SelectItem>
-                    <SelectItem value="worker">Worker</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-end">
+                  <Button onClick={loadInvoicesReport}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Load Report
+                  </Button>
+                </div>
               </div>
-            )}
-
-            {activeTab === 'inventory' && (
-              <>
-                <div className="space-y-2">
-                  <Label>Movement Type</Label>
-                  <Select value={movementType} onValueChange={setMovementType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All Types</SelectItem>
-                      <SelectItem value="in">In</SelectItem>
-                      <SelectItem value="out">Out</SelectItem>
-                      <SelectItem value="adjustment">Adjustment</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All Categories</SelectItem>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.name}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-
-            {activeTab === 'transactions' && (
-              <div className="space-y-2">
-                <Label>Transaction Type</Label>
-                <Select value={transactionType} onValueChange={setTransactionType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
-                    <SelectItem value="credit">Credit</SelectItem>
-                    <SelectItem value="debit">Debit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2 mt-4">
-            <Button onClick={applyFilters} disabled={loading}>
-              <Search className="w-4 h-4 mr-2" />
-              Apply Filters
-            </Button>
-            <Button variant="outline" onClick={clearFilters}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Clear
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabbed Reports */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="inventory">Inventory</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="parties">Parties</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl font-serif flex items-center gap-2">
-                  <Package className="w-5 h-5" />
-                  Inventory Report
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Export all inventory movements and stock levels to Excel
-                </p>
-                <Button 
-                  onClick={() => handleExport('inventory')} 
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  <FileSpreadsheet className="w-4 h-4 mr-2" />
-                  Export Inventory
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl font-serif flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Parties Report
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Export all customers and vendors with their details
-                </p>
-                <Button 
-                  onClick={() => handleExport('parties')} 
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  <FileSpreadsheet className="w-4 h-4 mr-2" />
-                  Export Parties
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl font-serif flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  Invoices Report
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Export all invoices with payment status and amounts
-                </p>
-                <Button 
-                  onClick={() => handleExport('invoices')} 
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  <FileSpreadsheet className="w-4 h-4 mr-2" />
-                  Export Invoices
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="text-xl font-serif">Financial Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {financialSummary ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Total Credit</p>
-                    <p className="text-lg font-bold">{financialSummary.total_credit.toFixed(2)} OMR</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Total Debit</p>
-                    <p className="text-lg font-bold">{financialSummary.total_debit.toFixed(2)} OMR</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Account Balance</p>
-                    <p className="text-lg font-bold">{financialSummary.total_account_balance.toFixed(2)} OMR</p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">Loading financial summary...</p>
-              )}
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Inventory Tab */}
-        <TabsContent value="inventory">
-          <Card className="mt-6">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Inventory Movements</CardTitle>
-              <div className="flex gap-2">
-                <Button onClick={loadInventoryReport} disabled={loading}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Report
-                </Button>
-                <Button onClick={() => handleExport('inventory')} disabled={loading}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+          {loading && (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          )}
+
+          {invoicesData && !loading && (
+            <>
+              {/* Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Amount</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{invoicesData.summary.total_amount?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Paid</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{invoicesData.summary.total_paid?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Balance Due</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-orange-600">{invoicesData.summary.total_balance?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardHeader>
-            <CardContent>
-              {inventoryData ? (
-                <>
-                  <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total In</p>
-                      <p className="text-lg font-bold">{inventoryData.summary.total_in} pcs</p>
-                      <p className="text-sm">{inventoryData.summary.total_weight_in.toFixed(2)}g</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Out</p>
-                      <p className="text-lg font-bold">{inventoryData.summary.total_out} pcs</p>
-                      <p className="text-sm">{inventoryData.summary.total_weight_out.toFixed(2)}g</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Net Stock</p>
-                      <p className="text-lg font-bold">{inventoryData.summary.net_quantity} pcs</p>
-                      <p className="text-sm">{inventoryData.summary.net_weight.toFixed(2)}g</p>
-                    </div>
-                  </div>
 
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Qty</TableHead>
-                          <TableHead>Weight (g)</TableHead>
-                          <TableHead>Purity</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {inventoryData.movements.map((movement) => (
-                          <TableRow key={movement.id}>
-                            <TableCell>{new Date(movement.date).toLocaleDateString()}</TableCell>
-                            <TableCell>{movement.movement_type}</TableCell>
-                            <TableCell>{movement.header_name}</TableCell>
-                            <TableCell>{movement.description}</TableCell>
-                            <TableCell>{movement.qty_delta}</TableCell>
-                            <TableCell>{movement.weight_delta}</TableCell>
-                            <TableCell>{movement.purity}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Showing {inventoryData.count} movements
-                  </p>
-                </>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Click "View Report" to load inventory data
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Invoices Tab */}
-        <TabsContent value="invoices">
-          <Card className="mt-6">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Invoices Report</CardTitle>
-              <div className="flex gap-2">
-                <Button onClick={loadInvoicesReport} disabled={loading}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Report
-                </Button>
-                <Button onClick={() => handleExport('invoices')} disabled={loading}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {invoicesData ? (
-                <>
-                  <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <p className="text-lg font-bold">{invoicesData.summary.total_amount.toFixed(2)} OMR</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Paid</p>
-                      <p className="text-lg font-bold">{invoicesData.summary.total_paid.toFixed(2)} OMR</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Balance</p>
-                      <p className="text-lg font-bold">{invoicesData.summary.total_balance.toFixed(2)} OMR</p>
-                    </div>
-                  </div>
-
+              {/* Invoices Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Invoices ({invoicesData.count})</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -679,148 +854,217 @@ export default function ReportsPageEnhanced() {
                           <TableHead>Date</TableHead>
                           <TableHead>Customer</TableHead>
                           <TableHead>Type</TableHead>
-                          <TableHead>Amount</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead className="text-right">Paid</TableHead>
+                          <TableHead className="text-right">Balance</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {invoicesData.invoices.map((invoice) => (
-                          <TableRow key={invoice.id}>
-                            <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                            <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                            <TableCell>{invoice.customer_name}</TableCell>
-                            <TableCell className="capitalize">{invoice.invoice_type}</TableCell>
-                            <TableCell>{invoice.grand_total.toFixed(2)} OMR</TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                invoice.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
-                                invoice.payment_status === 'unpaid' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {invoice.payment_status}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => viewInvoiceDetail(invoice.id)}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
+                        {invoicesData.invoices.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                              No invoices found
                             </TableCell>
                           </TableRow>
-                        ))}
+                        ) : (
+                          invoicesData.invoices.map((inv) => (
+                            <TableRow key={inv.id}>
+                              <TableCell className="font-medium">{inv.invoice_number}</TableCell>
+                              <TableCell>{new Date(inv.date).toLocaleDateString()}</TableCell>
+                              <TableCell>{inv.customer_name || inv.walk_in_name || 'N/A'}</TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  inv.invoice_type === 'sale' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {inv.invoice_type}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  inv.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+                                  inv.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {inv.payment_status}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">{inv.grand_total?.toFixed(3)}</TableCell>
+                              <TableCell className="text-right">{inv.paid_amount?.toFixed(3)}</TableCell>
+                              <TableCell className="text-right font-bold">{inv.balance_due?.toFixed(3)}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Showing {invoicesData.count} invoices
-                  </p>
-                </>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Click "View Report" to load invoices data
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
-        {/* Parties Tab */}
-        <TabsContent value="parties">
-          <Card className="mt-6">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Parties Report</CardTitle>
-              <div className="flex gap-2">
-                <Button onClick={loadPartiesReport} disabled={loading}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Report
-                </Button>
-                <Button onClick={() => handleExport('parties')} disabled={loading}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
+        {/* PARTIES TAB */}
+        <TabsContent value="parties" className="space-y-6">
+          <GlobalFilters showPartyFilter={false} showSorting={true} exportType="parties" />
+
+          {/* Party Type Filter */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div>
+                  <Label>Party Type</Label>
+                  <Select value={partyType} onValueChange={setPartyType}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Types</SelectItem>
+                      <SelectItem value="customer">Customers</SelectItem>
+                      <SelectItem value="vendor">Vendors</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={loadPartiesReport}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Load Report
+                  </Button>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              {partiesData ? (
-                <>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+            </CardContent>
+          </Card>
+
+          {loading && (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          )}
+
+          {partiesData && !loading && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Parties ({partiesData.count})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead className="text-right">Outstanding</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {partiesData.parties.length === 0 ? (
                         <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Phone</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Outstanding</TableHead>
-                          <TableHead>Actions</TableHead>
+                          <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                            No parties found
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {partiesData.parties.map((party) => (
+                      ) : (
+                        partiesData.parties.map((party) => (
                           <TableRow key={party.id}>
                             <TableCell className="font-medium">{party.name}</TableCell>
-                            <TableCell>{party.phone}</TableCell>
-                            <TableCell className="capitalize">{party.party_type}</TableCell>
-                            <TableCell>{party.outstanding.toFixed(2)} OMR</TableCell>
                             <TableCell>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => viewPartyLedger(party.id)}
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                Ledger
-                              </Button>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                party.party_type === 'customer' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {party.party_type}
+                              </span>
                             </TableCell>
+                            <TableCell>{party.phone || '-'}</TableCell>
+                            <TableCell>{party.email || '-'}</TableCell>
+                            <TableCell className="text-right font-bold">{party.outstanding?.toFixed(3)}</TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Showing {partiesData.count} parties
-                  </p>
-                </>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Click "View Report" to load parties data
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
-        {/* Transactions Tab */}
-        <TabsContent value="transactions">
-          <Card className="mt-6">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Financial Transactions</CardTitle>
-              <Button onClick={loadTransactionsReport} disabled={loading}>
-                <Eye className="w-4 h-4 mr-2" />
-                View Report
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {transactionsData ? (
-                <>
-                  <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-50 rounded">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Credit</p>
-                      <p className="text-lg font-bold">{transactionsData.summary.total_credit.toFixed(2)} OMR</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Debit</p>
-                      <p className="text-lg font-bold">{transactionsData.summary.total_debit.toFixed(2)} OMR</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Net Balance</p>
-                      <p className="text-lg font-bold">{transactionsData.summary.net_balance.toFixed(2)} OMR</p>
-                    </div>
-                  </div>
+        {/* TRANSACTIONS TAB */}
+        <TabsContent value="transactions" className="space-y-6">
+          <GlobalFilters showPartyFilter={true} showSorting={true} exportType="transactions" />
 
+          {/* Transaction Type Filter */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div>
+                  <Label>Transaction Type</Label>
+                  <Select value={transactionType} onValueChange={setTransactionType}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Types</SelectItem>
+                      <SelectItem value="credit">Credit</SelectItem>
+                      <SelectItem value="debit">Debit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={loadTransactionsReport}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Load Report
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {loading && (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          )}
+
+          {transactionsData && !loading && (
+            <>
+              {/* Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Credit</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{transactionsData.summary.total_credit?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Debit</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">{transactionsData.summary.total_debit?.toFixed(3)} OMR</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Net Balance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-2xl font-bold ${transactionsData.summary.net_balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {transactionsData.summary.net_balance?.toFixed(3)} OMR
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Transactions Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transactions ({transactionsData.count})</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -828,220 +1072,192 @@ export default function ReportsPageEnhanced() {
                           <TableHead>Transaction #</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Type</TableHead>
+                          <TableHead>Mode</TableHead>
                           <TableHead>Account</TableHead>
                           <TableHead>Party</TableHead>
-                          <TableHead>Amount</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {transactionsData.transactions.map((txn) => (
-                          <TableRow key={txn.id}>
-                            <TableCell className="font-medium">{txn.transaction_number}</TableCell>
-                            <TableCell>{new Date(txn.date).toLocaleDateString()}</TableCell>
-                            <TableCell className="capitalize">
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                txn.transaction_type === 'credit' ? 'bg-green-100 text-green-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {txn.transaction_type}
-                              </span>
+                        {transactionsData.transactions.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                              No transactions found
                             </TableCell>
-                            <TableCell>{txn.account_name}</TableCell>
-                            <TableCell>{txn.party_name || '-'}</TableCell>
-                            <TableCell>{txn.amount.toFixed(2)} OMR</TableCell>
                           </TableRow>
-                        ))}
+                        ) : (
+                          transactionsData.transactions.map((txn) => (
+                            <TableRow key={txn.id}>
+                              <TableCell className="font-medium">{txn.transaction_number}</TableCell>
+                              <TableCell>{new Date(txn.date).toLocaleDateString()}</TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  txn.transaction_type === 'credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {txn.transaction_type}
+                                </span>
+                              </TableCell>
+                              <TableCell>{txn.mode}</TableCell>
+                              <TableCell>{txn.account_name}</TableCell>
+                              <TableCell>{txn.party_name || '-'}</TableCell>
+                              <TableCell className="text-right font-bold">{txn.amount?.toFixed(3)}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Showing {transactionsData.count} transactions
-                  </p>
-                </>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  Click "View Report" to load transactions data
-                </p>
-              )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        {/* INVENTORY TAB */}
+        <TabsContent value="inventory" className="space-y-6">
+          <GlobalFilters showPartyFilter={false} showSorting={true} exportType="inventory" />
+
+          {/* Inventory Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div>
+                  <Label>Movement Type</Label>
+                  <Select value={movementType} onValueChange={setMovementType}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Types</SelectItem>
+                      <SelectItem value="Stock IN">Stock IN</SelectItem>
+                      <SelectItem value="Stock OUT">Stock OUT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Category</Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Categories</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={loadInventoryReport}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Load Report
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
+
+          {loading && (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          )}
+
+          {inventoryData && !loading && (
+            <>
+              {/* Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total IN (Qty)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{inventoryData.summary.total_in?.toFixed(2)}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total OUT (Qty)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">{inventoryData.summary.total_out?.toFixed(2)}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Weight IN (g)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{inventoryData.summary.total_weight_in?.toFixed(3)}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Weight OUT (g)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">{inventoryData.summary.total_weight_out?.toFixed(3)}</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Inventory Movements Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Stock Movements ({inventoryData.count})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Movement Type</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
+                          <TableHead className="text-right">Weight (g)</TableHead>
+                          <TableHead>Reference</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {inventoryData.movements.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                              No movements found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          inventoryData.movements.map((mov, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell>{new Date(mov.date).toLocaleDateString()}</TableCell>
+                              <TableCell className="font-medium">{mov.header_name}</TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  mov.movement_type === 'Stock IN' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {mov.movement_type}
+                                </span>
+                              </TableCell>
+                              <TableCell className={`text-right font-bold ${mov.qty_delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {mov.qty_delta >= 0 ? '+' : ''}{mov.qty_delta?.toFixed(2)}
+                              </TableCell>
+                              <TableCell className={`text-right font-bold ${mov.weight_delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {mov.weight_delta >= 0 ? '+' : ''}{mov.weight_delta?.toFixed(3)}
+                              </TableCell>
+                              <TableCell>{mov.reference_type || '-'}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
-
-      {/* Detail Dialog */}
-      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedInvoice && 'Invoice Details'}
-              {selectedParty && 'Party Ledger'}
-              {selectedCategory && 'Stock Report'}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {/* Invoice Detail */}
-          {selectedInvoice && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Invoice Number</p>
-                  <p className="font-medium">{selectedInvoice.invoice.invoice_number}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Customer</p>
-                  <p className="font-medium">{selectedInvoice.invoice.customer_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Grand Total</p>
-                  <p className="font-medium">{selectedInvoice.invoice.grand_total.toFixed(2)} OMR</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Payment Status</p>
-                  <p className="font-medium capitalize">{selectedInvoice.invoice.payment_status}</p>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Items</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Weight</TableHead>
-                      <TableHead>Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedInvoice.invoice.items.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.description}</TableCell>
-                        <TableCell>{item.qty}</TableCell>
-                        <TableCell>{item.weight}g</TableCell>
-                        <TableCell>{item.line_total.toFixed(2)} OMR</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-
-          {/* Party Ledger */}
-          {selectedParty && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Invoiced</p>
-                  <p className="font-bold">{selectedParty.summary.total_invoiced.toFixed(2)} OMR</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Paid</p>
-                  <p className="font-bold">{selectedParty.summary.total_paid.toFixed(2)} OMR</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Outstanding</p>
-                  <p className="font-bold">{selectedParty.summary.total_outstanding.toFixed(2)} OMR</p>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Invoices</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedParty.invoices.map((inv) => (
-                      <TableRow key={inv.id}>
-                        <TableCell>{inv.invoice_number}</TableCell>
-                        <TableCell>{new Date(inv.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{inv.grand_total.toFixed(2)} OMR</TableCell>
-                        <TableCell>{inv.balance_due.toFixed(2)} OMR</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Transactions</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transaction #</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedParty.transactions.map((txn) => (
-                      <TableRow key={txn.id}>
-                        <TableCell>{txn.transaction_number}</TableCell>
-                        <TableCell>{new Date(txn.date).toLocaleDateString()}</TableCell>
-                        <TableCell className="capitalize">{txn.transaction_type}</TableCell>
-                        <TableCell>{txn.amount.toFixed(2)} OMR</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-
-          {/* Category Stock Report */}
-          {selectedCategory && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded">
-                <div>
-                  <p className="text-sm text-muted-foreground">Current Stock</p>
-                  <p className="font-bold">{selectedCategory.summary.current_stock} pcs</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Current Weight</p>
-                  <p className="font-bold">{selectedCategory.summary.current_weight.toFixed(2)}g</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Movements</p>
-                  <p className="font-bold">{selectedCategory.count}</p>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Recent Movements</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Weight</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedCategory.movements.slice(0, 10).map((mov) => (
-                      <TableRow key={mov.id}>
-                        <TableCell>{new Date(mov.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{mov.movement_type}</TableCell>
-                        <TableCell>{mov.description}</TableCell>
-                        <TableCell>{mov.qty_delta}</TableCell>
-                        <TableCell>{mov.weight_delta}g</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
