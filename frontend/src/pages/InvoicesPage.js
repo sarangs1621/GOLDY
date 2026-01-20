@@ -177,6 +177,23 @@ export default function InvoicesPage() {
         </div>
       </div>
 
+      {/* Info Card about Draft/Finalized workflow */}
+      <Card className="mb-6 border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900 mb-1">Invoice Workflow</h3>
+              <p className="text-sm text-blue-800">
+                <strong>Draft Invoices:</strong> Can be edited or deleted. Stock is NOT deducted yet.
+                <br />
+                <strong>Finalized Invoices:</strong> Stock is deducted, invoice is locked, job card is locked, and customer ledger entry is created. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-serif">All Invoices</CardTitle>
