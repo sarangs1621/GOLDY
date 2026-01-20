@@ -3,15 +3,28 @@ import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
-import { FileText, Printer, CheckCircle, Lock } from 'lucide-react';
+import { FileText, Printer, CheckCircle, Lock, DollarSign, AlertTriangle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [finalizing, setFinalizing] = useState(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [paymentData, setPaymentData] = useState({
+    amount: '',
+    payment_mode: 'Cash',
+    account_id: '',
+    notes: ''
+  });
 
   useEffect(() => {
     loadInvoices();
