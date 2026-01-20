@@ -666,6 +666,74 @@ async def update_invoice(invoice_id: str, update_data: dict, current_user: User 
     await create_audit_log(current_user.id, current_user.full_name, "invoice", invoice_id, "update", update_data)
     return {"message": "Invoice updated successfully"}
 
+
+@api_router.post("/invoices/{invoice_id}/finalize")
+async def finalize_invoice(invoice_id: str, current_user: User = Depends(get_current_user)):
+    """
+    Finalize a draft invoice - this is when stock deduction happens.
+    Once finalized, the invoice becomes immutable to maintain financial integrity.
+    """
+    # Fetch the invoice
+    existing = await db.invoices.find_one({"id": invoice_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Validate invoice is in draft state
+    current_status = existing.get("status", "draft")
+    if current_status == "finalized":
+        raise HTTPException(
+            status_code=400, 
+            detail="Invoice is already finalized"
+        )
+    
+    # Parse invoice data
+    invoice = Invoice(**decimal_to_float(existing))
+    
+    # ATOMIC OPERATION: Update invoice status AND create stock movements
+    # Step 1: Update invoice to finalized status
+    finalized_at = datetime.now(timezone.utc)
+    await db.invoices.update_one(
+        {"id": invoice_id},
+        {
+            "$set": {
+                "status": "finalized",
+                "finalized_at": finalized_at,
+                "finalized_by": current_user.id
+            }
+        }
+    )
+    
+    # Step 2: Create stock movements (Stock OUT) for all items
+    for item in invoice.items:
+        if item.weight > 0:
+            movement = StockMovement(
+                movement_type="Stock OUT",
+                header_id="",
+                header_name=item.description,
+                description=f"Invoice {invoice.invoice_number} - Finalized",
+                qty_delta=-item.qty,
+                weight_delta=-item.weight,
+                purity=item.purity,
+                reference_type="invoice",
+                reference_id=invoice.id,
+                created_by=current_user.id
+            )
+            await db.stock_movements.insert_one(movement.model_dump())
+    
+    # Create audit log
+    await create_audit_log(
+        current_user.id, 
+        current_user.full_name, 
+        "invoice", 
+        invoice.id, 
+        "finalize", 
+        {"status": "finalized", "finalized_at": finalized_at.isoformat()}
+    )
+    
+    # Fetch and return updated invoice
+    updated_invoice = await db.invoices.find_one({"id": invoice_id})
+    return decimal_to_float(updated_invoice)
+
 @api_router.delete("/invoices/{invoice_id}")
 async def delete_invoice(invoice_id: str, current_user: User = Depends(get_current_user)):
     existing = await db.invoices.find_one({"id": invoice_id, "is_deleted": False})
