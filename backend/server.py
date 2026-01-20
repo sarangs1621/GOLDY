@@ -835,7 +835,7 @@ async def generate_invoice_pdf(invoice_id: str, current_user: User = Depends(get
     p.drawString(450, y_position, f"{invoice.get('balance_due', 0):.2f} OMR")
     
     # Footer
-    p.setFont("Helvetica-Italic", 8)
+    p.setFont("Helvetica-Oblique", 8)
     p.drawString(50, 50, "Thank you for your business!")
     
     p.save()
