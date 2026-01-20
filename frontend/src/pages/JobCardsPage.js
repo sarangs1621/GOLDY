@@ -179,7 +179,11 @@ export default function JobCardsPage() {
     const deliveryDate = jobcard.delivery_date ? new Date(jobcard.delivery_date).toISOString().split('T')[0] : '';
     setFormData({
       card_type: jobcard.card_type,
+      customer_type: jobcard.customer_type || 'saved',
       customer_id: jobcard.customer_id || '',
+      customer_name: jobcard.customer_name || '',
+      walk_in_name: jobcard.walk_in_name || '',
+      walk_in_phone: jobcard.walk_in_phone || '',
       worker_id: jobcard.worker_id || '',
       delivery_date: deliveryDate,
       notes: jobcard.notes || '',
