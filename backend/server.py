@@ -555,6 +555,16 @@ async def get_jobcards(current_user: User = Depends(get_current_user)):
 
 @api_router.post("/jobcards", response_model=JobCard)
 async def create_jobcard(jobcard_data: dict, current_user: User = Depends(get_current_user)):
+    # Validate customer type data
+    customer_type = jobcard_data.get('customer_type', 'saved')
+    
+    if customer_type == 'saved':
+        if not jobcard_data.get('customer_id'):
+            raise HTTPException(status_code=400, detail="customer_id is required for saved customers")
+    elif customer_type == 'walk_in':
+        if not jobcard_data.get('walk_in_name'):
+            raise HTTPException(status_code=400, detail="walk_in_name is required for walk-in customers")
+    
     year = datetime.now(timezone.utc).year
     count = await db.jobcards.count_documents({"job_card_number": {"$regex": f"^JC-{year}"}})
     job_card_number = f"JC-{year}-{str(count + 1).zfill(4)}"
