@@ -234,6 +234,12 @@ metadata:
 
 test_plan:
   current_focus:
+    - "CRITICAL: Test invoice state management - create draft invoice, verify NO stock deduction"
+    - "CRITICAL: Test invoice finalization - finalize invoice, verify stock deduction happens atomically"
+    - "CRITICAL: Test editing draft invoice - should allow edits"
+    - "CRITICAL: Test editing finalized invoice - should reject with error"
+    - "CRITICAL: Test deleting draft invoice - should allow deletion"
+    - "CRITICAL: Test deleting finalized invoice - should reject with error"
     - "Test job card creation with new making charge and VAT fields"
     - "Test job card creation without new fields (backward compatibility)"
     - "Test removing items from job card form"
