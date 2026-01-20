@@ -124,15 +124,29 @@ export default function JobCardsPage() {
   };
 
   const handleConvertToInvoice = async (jobcard) => {
-    // Open dialog to select customer type
+    // Open dialog to select customer type - pre-populate based on job card
     setConvertingJobCard(jobcard);
-    setConvertData({
-      customer_type: 'saved',
-      customer_id: jobcard.customer_id || '',
-      customer_name: jobcard.customer_name || '',
-      walk_in_name: '',
-      walk_in_phone: ''
-    });
+    
+    if (jobcard.customer_type === 'walk_in') {
+      // Job card is for walk-in customer
+      setConvertData({
+        customer_type: 'walk_in',
+        customer_id: '',
+        customer_name: '',
+        walk_in_name: jobcard.walk_in_name || '',
+        walk_in_phone: jobcard.walk_in_phone || ''
+      });
+    } else {
+      // Job card is for saved customer
+      setConvertData({
+        customer_type: 'saved',
+        customer_id: jobcard.customer_id || '',
+        customer_name: jobcard.customer_name || '',
+        walk_in_name: '',
+        walk_in_phone: ''
+      });
+    }
+    
     setShowConvertDialog(true);
   };
 
