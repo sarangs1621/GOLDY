@@ -252,18 +252,15 @@ metadata:
 
 test_plan:
   current_focus:
-    - "CRITICAL: Test invoice state management - create draft invoice, verify NO stock deduction"
-    - "CRITICAL: Test invoice finalization - finalize invoice, verify stock deduction happens atomically"
-    - "CRITICAL: Test editing draft invoice - should allow edits"
-    - "CRITICAL: Test editing finalized invoice - should reject with error"
-    - "CRITICAL: Test deleting draft invoice - should allow deletion"
-    - "CRITICAL: Test deleting finalized invoice - should reject with error"
-    - "Test job card creation with new making charge and VAT fields"
-    - "Test job card creation without new fields (backward compatibility)"
-    - "Test removing items from job card form"
-    - "Test daily closing creation with calculations"
-    - "Test invoice PDF generation with improved formatting"
-    - "Test all report tabs load correctly (overview, inventory, invoices, parties, transactions)"
+    - "CRITICAL: Test enhanced invoice finalization with job card locking"
+    - "CRITICAL: Test invoice finalization creates customer ledger entry (Transaction)"
+    - "CRITICAL: Verify locked job card cannot be edited (should return 400 error)"
+    - "CRITICAL: Verify locked job card cannot be deleted (should return 400 error)"
+    - "CRITICAL: Verify customer ledger entry is created with correct amount and party_id"
+    - "CRITICAL: Verify outstanding balance is properly tracked in party ledger"
+    - "CRITICAL: Test full workflow - create job card, convert to invoice (draft), finalize, verify all atomic operations"
+    - "Test invoice finalization without job card (direct invoice)"
+    - "Test invoice finalization for purchase returns (credit transactions)"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -273,6 +270,8 @@ agent_communication:
     message: "PHASE COMPLETE: Fixed all requested issues. Backend: Added optional making_charge and VAT fields to JobCardItem (backward compatible). Frontend: Enhanced job card form with making charge type, value, VAT %, and remove item button. Implemented complete daily closing page. Improved invoice PDF generation with better formatting and error handling. All report APIs already exist. Ready for backend testing."
   - agent: "main"
     message: "CRITICAL BUSINESS LOGIC FIX IMPLEMENTED: Invoice state management now properly implemented. Invoices are created in 'draft' status with NO stock deduction. Stock OUT movements ONLY happen when invoice is explicitly finalized via new POST /api/invoices/{id}/finalize endpoint. Finalized invoices are immutable (cannot be edited or deleted). This ensures financial integrity and prevents premature inventory deduction. READY FOR COMPREHENSIVE TESTING - please test all invoice workflows: create draft, edit draft, finalize, attempt to edit finalized (should fail), verify stock movements only happen on finalization."
+  - agent: "main"
+    message: "ENHANCED INVOICE FINALIZATION LOGIC - Implemented all 5 required atomic operations: (1) Lock invoice ✅ DONE. (2) Create Stock OUT movements ✅ DONE. (3) Lock linked job card ✅ NEW - Added locked, locked_at, locked_by fields to JobCard model. When invoice is finalized, linked job card is locked (status='invoiced', locked=True). Prevented editing/deleting locked job cards in update_jobcard and delete_jobcard endpoints. (4) Create customer ledger entry ✅ NEW - Creates Transaction record with party_id, amount=grand_total, category='Sales Invoice', auto-generated transaction_number. Creates default 'Sales' account if needed. (5) Update outstanding balance ✅ AUTOMATIC - Party ledger calculations use invoice.balance_due. READY FOR COMPREHENSIVE TESTING of new features."
   - agent: "testing"
     message: "COMPREHENSIVE BACKEND TESTING COMPLETED: ✅ CRITICAL SUCCESS - Invoice state management working perfectly (100% test success rate). All 7 critical scenarios tested and passed. Stock deduction ONLY happens on finalization as required. ✅ Job card enhancements working with new making charge and VAT fields. ✅ Daily closing APIs functional. ✅ Invoice PDF generation working (fixed font and datetime issues). ✅ All report APIs working correctly with filtering. Overall backend health: 93.6% (44/47 tests passed). The critical business logic for invoice state management is now fully functional and maintains financial integrity. Ready for main agent to summarize and finish."
     implemented: false
