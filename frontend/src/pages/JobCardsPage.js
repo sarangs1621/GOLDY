@@ -327,7 +327,14 @@ export default function JobCardsPage() {
                 {jobcards.map((jc) => (
                   <tr key={jc.id} className="border-t hover:bg-muted/30">
                     <td className="px-4 py-3 font-mono font-semibold">{jc.job_card_number}</td>
-                    <td className="px-4 py-3">{jc.customer_name || '-'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span>{jc.customer_type === 'walk_in' ? jc.walk_in_name : jc.customer_name || '-'}</span>
+                        {jc.customer_type === 'walk_in' && (
+                          <Badge className="bg-amber-100 text-amber-800 text-xs">Walk-in</Badge>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-sm">{new Date(jc.date_created).toLocaleDateString()}</td>
                     <td className="px-4 py-3">{getStatusBadge(jc.status)}</td>
                     <td className="px-4 py-3 text-sm">{jc.items.length} items</td>
