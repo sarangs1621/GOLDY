@@ -195,7 +195,7 @@ export default function ReportsPageEnhanced() {
     try {
       setLoading(true);
       const params = {};
-      if (partyType) params.party_type = partyType;
+      if (partyType && partyType !== 'all') params.party_type = partyType;
       if (sortBy) params.sort_by = sortBy;
       
       const response = await axios.get(`${API}/reports/parties-view`, { params });
@@ -254,7 +254,7 @@ export default function ReportsPageEnhanced() {
       if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (invoiceType) params.invoice_type = invoiceType;
       if (paymentStatus) params.payment_status = paymentStatus;
-      if (partyType) params.party_type = partyType;
+      if (partyType && partyType !== 'all') params.party_type = partyType;
       if (movementType) params.movement_type = movementType;
       if (category) params.category = category;
       if (transactionType) params.transaction_type = transactionType;
@@ -286,7 +286,7 @@ export default function ReportsPageEnhanced() {
       if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (invoiceType) params.invoice_type = invoiceType;
       if (paymentStatus) params.payment_status = paymentStatus;
-      if (partyType) params.party_type = partyType;
+      if (partyType && partyType !== 'all') params.party_type = partyType;
       if (movementType) params.movement_type = movementType;
       if (category) params.category = category;
       if (transactionType) params.transaction_type = transactionType;
