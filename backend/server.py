@@ -647,6 +647,21 @@ async def update_invoice(invoice_id: str, update_data: dict, current_user: User 
     if not existing:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
+    # CRITICAL: Only allow editing draft invoices - finalized invoices are immutable
+    if existing.get("status") == "finalized":
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot edit finalized invoice. Finalized invoices are immutable to maintain financial integrity."
+        )
+    
+    # Prevent changing status through this endpoint - use /finalize endpoint instead
+    if "status" in update_data:
+        del update_data["status"]
+    if "finalized_at" in update_data:
+        del update_data["finalized_at"]
+    if "finalized_by" in update_data:
+        del update_data["finalized_by"]
+    
     await db.invoices.update_one({"id": invoice_id}, {"$set": update_data})
     await create_audit_log(current_user.id, current_user.full_name, "invoice", invoice_id, "update", update_data)
     return {"message": "Invoice updated successfully"}
