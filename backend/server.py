@@ -85,6 +85,8 @@ class InventoryHeader(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
+    current_qty: float = 0.0  # Direct stock tracking
+    current_weight: float = 0.0  # Direct weight tracking in grams
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
