@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Fix invoice print issues, complete daily closing, make all reports load correctly, add making-charge (flat/per-gram) and VAT options in create job card, and allow removing/editing items in new job cards. All changes must be backward-compatible. CRITICAL: Implement invoice state management (Draft/Finalized) to fix stock deduction logic - stock should ONLY be deducted when invoice is finalized, not on creation. ADDITIONAL: Implement job card locking with admin override and audit logging."
+user_problem_statement: "Fix invoice print issues, complete daily closing, make all reports load correctly, add making-charge (flat/per-gram) and VAT options in create job card, and allow removing/editing items in new job cards. All changes must be backward-compatible. CRITICAL: Implement invoice state management (Draft/Finalized) to fix stock deduction logic - stock should ONLY be deducted when invoice is finalized, not on creation. ADDITIONAL: Implement job card locking with admin override and audit logging. NEW REQUIREMENT: Change stock deduction to directly reduce from inventory category quantities and weights instead of using separate dedication records."
 
 backend:
   - task: "Job Card Locking with Admin Override"
