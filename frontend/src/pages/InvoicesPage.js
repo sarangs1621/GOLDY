@@ -355,6 +355,131 @@ export default function InvoicesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Payment - {selectedInvoice?.invoice_number}</DialogTitle>
+          </DialogHeader>
+
+          {selectedInvoice && (
+            <div className="space-y-6">
+              {/* Invoice Summary */}
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Grand Total:</span>
+                  <span className="font-mono font-semibold">{selectedInvoice.grand_total.toFixed(3)} OMR</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Paid Amount:</span>
+                  <span className="font-mono">{selectedInvoice.paid_amount.toFixed(3)} OMR</span>
+                </div>
+                <div className="flex justify-between text-base font-semibold border-t pt-2">
+                  <span>Balance Due:</span>
+                  <span className="font-mono text-red-600">{selectedInvoice.balance_due.toFixed(3)} OMR</span>
+                </div>
+              </div>
+
+              {/* Walk-in Warning */}
+              {selectedInvoice.customer_type === 'walk_in' && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-semibold">Walk-in Customer</p>
+                    <p>Full payment is recommended. Outstanding balance tracking is limited for walk-in customers.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Form */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Payment Amount (OMR) *</Label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={paymentData.amount}
+                    onChange={(e) => setPaymentData({...paymentData, amount: e.target.value})}
+                    placeholder="Enter payment amount"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPaymentData({...paymentData, amount: selectedInvoice.balance_due.toFixed(3)})}
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    Set to full balance ({selectedInvoice.balance_due.toFixed(3)} OMR)
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Payment Mode *</Label>
+                  <Select 
+                    value={paymentData.payment_mode} 
+                    onValueChange={(value) => setPaymentData({...paymentData, payment_mode: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Cash">Cash</SelectItem>
+                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="Card">Card</SelectItem>
+                      <SelectItem value="UPI/Online">UPI/Online</SelectItem>
+                      <SelectItem value="Cheque">Cheque</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Account (Where money goes) *</Label>
+                  <Select 
+                    value={paymentData.account_id} 
+                    onValueChange={(value) => setPaymentData({...paymentData, account_id: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name} ({account.account_type})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Notes (Optional)</Label>
+                  <Input
+                    value={paymentData.notes}
+                    onChange={(e) => setPaymentData({...paymentData, notes: e.target.value})}
+                    placeholder="Payment notes or reference"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPaymentDialog(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddPayment}
+                  className="flex-1"
+                >
+                  Add Payment
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
