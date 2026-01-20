@@ -140,8 +140,8 @@ export default function ReportsPageEnhanced() {
     try {
       setLoading(true);
       const params = {};
-      if (selectedPartyId) params.party_id = selectedPartyId;
-      if (partyType) params.party_type = partyType;
+      if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
+      if (partyType && partyType !== 'all') params.party_type = partyType;
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
       
