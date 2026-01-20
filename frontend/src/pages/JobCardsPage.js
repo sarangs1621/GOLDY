@@ -497,7 +497,9 @@ export default function JobCardsPage() {
               ))}
             </div>
 
-            <Button data-testid="save-jobcard-button" onClick={handleCreateJobCard} className="w-full">Create Job Card</Button>
+            <Button data-testid="save-jobcard-button" onClick={handleCreateJobCard} className="w-full">
+              {editingJobCard ? 'Update Job Card' : 'Create Job Card'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
