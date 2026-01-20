@@ -296,6 +296,19 @@ frontend:
     file: "frontend/src/pages/InvoicesPage.js"
     stuck_count: 0
     priority: "high"
+
+  - task: "Walk-in vs Saved Customer UI - Invoice Creation & Payment"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/pages/JobCardsPage.js, frontend/src/pages/InvoicesPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "IMPLEMENTED - Complete walk-in vs saved customer handling UI. JobCardsPage changes: (1) Updated handleConvertToInvoice to show customer type selection dialog before conversion. (2) Added convertData state for customer type, customer selection, walk-in name/phone. (3) Created Convert Dialog with radio buttons for customer type selection. For 'Saved Customer': Shows party dropdown with existing customers, displays info about ledger tracking and outstanding. For 'Walk-in Customer': Shows name input (required) and phone input (optional), displays warning that walk-in customers are NOT saved in Parties and full payment is recommended. (4) Updated Convert to Invoice button to pass entire jobcard object instead of just ID. InvoicesPage changes: (1) Added payment dialog functionality with accounts loading. (2) Updated invoice table to show 'Walk-in' badge for walk-in customers with walk_in_name display. (3) Added 'Add Payment' button for all invoices with balance_due > 0. (4) Created payment dialog with: amount input (default to full balance), payment mode dropdown (Cash/Bank Transfer/Card/UPI/Online/Cheque), account selection (where money goes), notes field. Shows walk-in warning for partial payments. (5) handleAddPayment function calls POST /api/invoices/{id}/add-payment and shows warning toast for walk-in partial payments. All features integrated and ready for testing."
+
     needs_retesting: true
     status_history:
       - working: true
