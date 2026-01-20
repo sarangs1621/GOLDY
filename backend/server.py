@@ -655,7 +655,8 @@ async def convert_jobcard_to_invoice(jobcard_id: str, current_user: User = Depen
     
     for item in jobcard.get('items', []):
         metal_rate = 20.0
-        weight = item.get('weight_out', item.get('weight_in', 0))
+        weight = item.get('weight_out') or item.get('weight_in') or 0
+        weight = float(weight) if weight else 0.0
         gold_value = weight * metal_rate
         
         # Use making charge from job card if provided, otherwise use default
