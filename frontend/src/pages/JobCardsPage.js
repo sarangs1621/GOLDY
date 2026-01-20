@@ -714,13 +714,24 @@ export default function JobCardsPage() {
       <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Convert to Invoice - Select Customer Type</DialogTitle>
+            <DialogTitle>Convert to Invoice - Customer Details</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6">
+            {/* Info about job card customer type */}
+            {convertingJobCard && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                <span className="font-semibold">Job Card Customer: </span>
+                {convertingJobCard.customer_type === 'walk_in' 
+                  ? `Walk-in (${convertingJobCard.walk_in_name})`
+                  : `Saved Customer (${convertingJobCard.customer_name})`
+                }
+              </div>
+            )}
+            
             {/* Customer Type Selection */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold">Customer Type *</Label>
+              <Label className="text-base font-semibold">Invoice Customer Type *</Label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
