@@ -562,6 +562,13 @@ async def delete_jobcard(jobcard_id: str, current_user: User = Depends(get_curre
     if not existing:
         raise HTTPException(status_code=404, detail="Job card not found")
     
+    # Prevent deleting locked job cards
+    if existing.get("locked", False):
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete locked job card. This job card is linked to a finalized invoice."
+        )
+    
     await db.jobcards.update_one(
         {"id": jobcard_id},
         {"$set": {"is_deleted": True}}
