@@ -335,9 +335,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Direct Stock Reduction - Test that inventory is reduced directly from category headers"
-    - "Stock Movement Validation - Test that negative stock is prevented"
-    - "Invoice Finalization with Direct Stock Reduction"
+    - "Walk-in vs Saved Customer Handling - Test customer type selection in invoice creation"
+    - "Walk-in Customer Invoice - Test walk-in name/phone storage without saving to Parties"
+    - "Payment Collection - Test add-payment endpoint with transaction record creation"
+    - "Walk-in Partial Payment Warning - Test warning for walk-in customers with outstanding balance"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
