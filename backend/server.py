@@ -175,6 +175,7 @@ class Invoice(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     invoice_number: str
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    due_date: Optional[datetime] = None  # For overdue calculations, defaults to invoice date
     customer_type: str = "saved"  # "saved" or "walk_in"
     customer_id: Optional[str] = None  # For saved customers only
     customer_name: Optional[str] = None  # For saved customers only
