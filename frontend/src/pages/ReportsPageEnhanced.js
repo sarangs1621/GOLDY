@@ -215,7 +215,7 @@ export default function ReportsPageEnhanced() {
       if (endDate) params.end_date = endDate;
       if (invoiceType) params.invoice_type = invoiceType;
       if (paymentStatus) params.payment_status = paymentStatus;
-      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (sortBy) params.sort_by = sortBy;
       
       const response = await axios.get(`${API}/reports/invoices-view`, { params });
@@ -234,7 +234,7 @@ export default function ReportsPageEnhanced() {
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
       if (transactionType) params.transaction_type = transactionType;
-      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (sortBy) params.sort_by = sortBy;
       
       const response = await axios.get(`${API}/reports/transactions-view`, { params });
@@ -251,7 +251,7 @@ export default function ReportsPageEnhanced() {
       const params = {};
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
-      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (invoiceType) params.invoice_type = invoiceType;
       if (paymentStatus) params.payment_status = paymentStatus;
       if (partyType) params.party_type = partyType;
@@ -283,7 +283,7 @@ export default function ReportsPageEnhanced() {
       const params = {};
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
-      if (selectedPartyId) params.party_id = selectedPartyId;
+      if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (invoiceType) params.invoice_type = invoiceType;
       if (paymentStatus) params.payment_status = paymentStatus;
       if (partyType) params.party_type = partyType;
