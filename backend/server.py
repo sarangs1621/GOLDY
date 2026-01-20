@@ -740,6 +740,14 @@ async def delete_invoice(invoice_id: str, current_user: User = Depends(get_curre
     if not existing:
         raise HTTPException(status_code=404, detail="Invoice not found")
     
+    # CRITICAL: Only allow deleting draft invoices
+    # Finalized invoices should not be deleted to maintain financial integrity
+    if existing.get("status") == "finalized":
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete finalized invoice. Finalized invoices are immutable to maintain financial integrity."
+        )
+    
     await db.invoices.update_one(
         {"id": invoice_id},
         {"$set": {"is_deleted": True}}
