@@ -1582,6 +1582,7 @@ async def view_inventory_report(
 @api_router.get("/reports/parties-view")
 async def view_parties_report(
     party_type: Optional[str] = None,
+    sort_by: Optional[str] = None,  # NEW: "outstanding_desc", "name_asc"
     current_user: User = Depends(get_current_user)
 ):
     """View parties with filters - returns JSON for UI"""
@@ -1598,6 +1599,12 @@ async def view_parties_report(
             {"_id": 0, "balance_due": 1}
         ).to_list(1000)
         party['outstanding'] = sum(inv.get('balance_due', 0) for inv in invoices)
+    
+    # Apply sorting
+    if sort_by == "outstanding_desc":
+        parties = sorted(parties, key=lambda x: x.get('outstanding', 0), reverse=True)
+    elif sort_by == "name_asc":
+        parties = sorted(parties, key=lambda x: x.get('name', '').lower())
     
     return {
         "parties": parties,
