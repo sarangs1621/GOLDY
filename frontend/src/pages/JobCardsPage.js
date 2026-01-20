@@ -394,6 +394,45 @@ export default function JobCardsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-6 mt-4">
+            {/* Customer Type Selection */}
+            <div className="mb-6 space-y-3 p-4 bg-gray-50 rounded-lg border">
+              <Label className="text-base font-semibold">Customer Type *</Label>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="job_customer_type"
+                    value="saved"
+                    checked={formData.customer_type === 'saved'}
+                    onChange={(e) => setFormData({
+                      ...formData, 
+                      customer_type: e.target.value,
+                      walk_in_name: '',
+                      walk_in_phone: ''
+                    })}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">Saved Customer</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="job_customer_type"
+                    value="walk_in"
+                    checked={formData.customer_type === 'walk_in'}
+                    onChange={(e) => setFormData({
+                      ...formData, 
+                      customer_type: e.target.value,
+                      customer_id: '',
+                      customer_name: ''
+                    })}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">Walk-in Customer</span>
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Card Type</Label>
@@ -407,19 +446,61 @@ export default function JobCardsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Customer</Label>
-                <Select value={formData.customer_id} onValueChange={(val) => setFormData({...formData, customer_id: val})}>
-                  <SelectTrigger data-testid="customer-select">
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {parties.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              
+              {/* Saved Customer Section */}
+              {formData.customer_type === 'saved' && (
+                <div>
+                  <Label>Customer *</Label>
+                  <Select value={formData.customer_id} onValueChange={(val) => {
+                    const selected = parties.find(p => p.id === val);
+                    setFormData({
+                      ...formData, 
+                      customer_id: val,
+                      customer_name: selected?.name || ''
+                    });
+                  }}>
+                    <SelectTrigger data-testid="customer-select">
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parties.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ✓ Ledger tracking and outstanding balance enabled
+                  </p>
+                </div>
+              )}
+              
+              {/* Walk-in Customer Section */}
+              {formData.customer_type === 'walk_in' && (
+                <>
+                  <div>
+                    <Label>Customer Name *</Label>
+                    <Input
+                      data-testid="walk-in-name-input"
+                      value={formData.walk_in_name}
+                      onChange={(e) => setFormData({...formData, walk_in_name: e.target.value})}
+                      placeholder="Enter customer name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone Number</Label>
+                    <Input
+                      data-testid="walk-in-phone-input"
+                      value={formData.walk_in_phone}
+                      onChange={(e) => setFormData({...formData, walk_in_phone: e.target.value})}
+                      placeholder="Enter phone (optional)"
+                    />
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠ Walk-in customers are NOT saved in Parties
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
               <div>
                 <Label>Delivery Date</Label>
                 <Input
