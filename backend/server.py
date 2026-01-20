@@ -148,6 +148,9 @@ class JobCard(BaseModel):
     worker_name: Optional[str] = None
     items: List[JobCardItem] = []
     notes: Optional[str] = None
+    locked: bool = False  # True when linked invoice is finalized
+    locked_at: Optional[datetime] = None
+    locked_by: Optional[str] = None
     created_by: str
     is_deleted: bool = False
 
