@@ -411,73 +411,259 @@ export default function PartiesPage() {
       </Dialog>
 
       <Dialog open={showLedgerDialog} onOpenChange={setShowLedgerDialog}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Ledger - {ledgerData?.party.name}</DialogTitle>
+            <DialogTitle className="text-2xl">Party Report - {ledgerData?.party?.name}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {ledgerData?.party?.party_type && (
+                <span className="capitalize">{ledgerData.party.party_type}</span>
+              )}
+              {ledgerData?.party?.phone && ` • ${ledgerData.party.phone}`}
+            </p>
           </DialogHeader>
           {ledgerData && (
-            <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Outstanding</p>
-                  <p className="text-2xl font-bold">{ledgerData.outstanding.toFixed(3)} OMR</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Invoices</p>
-                  <p className="text-2xl font-bold">{ledgerData.invoices.length}</p>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="font-semibold mb-2">Recent Invoices</h3>
-                <div className="border rounded">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="px-3 py-2 text-left">Invoice #</th>
-                        <th className="px-3 py-2 text-left">Date</th>
-                        <th className="px-3 py-2 text-right">Amount</th>
-                        <th className="px-3 py-2 text-right">Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ledgerData.invoices.slice(0, 5).map(inv => (
-                        <tr key={inv.id} className="border-t">
-                          <td className="px-3 py-2">{inv.invoice_number}</td>
-                          <td className="px-3 py-2">{new Date(inv.date).toLocaleDateString()}</td>
-                          <td className="px-3 py-2 text-right">{inv.grand_total.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right">{inv.balance_due.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            <div className="space-y-6 mt-4">
+              {/* Summary Cards - 4 cards in a grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Gold They Owe Us */}
+                <Card className="border-amber-200 bg-amber-50">
+                  <CardContent className="pt-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium uppercase">Gold They Owe Us</p>
+                        <p className="text-2xl font-bold text-amber-700 mt-1">
+                          {ledgerData.gold.gold_due_from_party.toFixed(3)}g
+                        </p>
+                      </div>
+                      <TrendingDown className="w-5 h-5 text-amber-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Gold We Owe Them */}
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardContent className="pt-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium uppercase">Gold We Owe Them</p>
+                        <p className="text-2xl font-bold text-orange-700 mt-1">
+                          {ledgerData.gold.gold_due_to_party.toFixed(3)}g
+                        </p>
+                      </div>
+                      <TrendingUp className="w-5 h-5 text-orange-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Money They Owe Us */}
+                <Card className="border-green-200 bg-green-50">
+                  <CardContent className="pt-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium uppercase">Money They Owe Us</p>
+                        <p className="text-2xl font-bold text-green-700 mt-1">
+                          {ledgerData.money.money_due_from_party.toFixed(2)} OMR
+                        </p>
+                      </div>
+                      <TrendingDown className="w-5 h-5 text-green-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Money We Owe Them */}
+                <Card className="border-red-200 bg-red-50">
+                  <CardContent className="pt-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium uppercase">Money We Owe Them</p>
+                        <p className="text-2xl font-bold text-red-700 mt-1">
+                          {ledgerData.money.money_due_to_party.toFixed(2)} OMR
+                        </p>
+                      </div>
+                      <TrendingUp className="w-5 h-5 text-red-600" />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
+              {/* Filters Section */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex-1 min-w-[200px]">
+                      <Label className="text-xs">Search</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search entries..."
+                          value={ledgerSearchTerm}
+                          onChange={(e) => setLedgerSearchTerm(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    <div className="min-w-[160px]">
+                      <Label className="text-xs">From Date</Label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="date"
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    <div className="min-w-[160px]">
+                      <Label className="text-xs">To Date</Label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="date"
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+                    {(dateFrom || dateTo || ledgerSearchTerm) && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setDateFrom('');
+                          setDateTo('');
+                          setLedgerSearchTerm('');
+                        }}
+                      >
+                        Clear Filters
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Gold Ledger Table */}
               <div>
-                <h3 className="font-semibold mb-2">Recent Transactions</h3>
-                <div className="border rounded">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="px-3 py-2 text-left">TXN #</th>
-                        <th className="px-3 py-2 text-left">Date</th>
-                        <th className="px-3 py-2 text-left">Type</th>
-                        <th className="px-3 py-2 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ledgerData.transactions.slice(0, 5).map(txn => (
-                        <tr key={txn.id} className="border-t">
-                          <td className="px-3 py-2">{txn.transaction_number}</td>
-                          <td className="px-3 py-2">{new Date(txn.date).toLocaleDateString()}</td>
-                          <td className="px-3 py-2 capitalize">{txn.transaction_type}</td>
-                          <td className="px-3 py-2 text-right">{txn.amount.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                  Gold Ledger ({filteredGoldEntries.length} entries)
+                </h3>
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Date</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Type</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Weight (g)</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Purity</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Purpose</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredGoldEntries.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="px-4 py-8 text-center text-muted-foreground">
+                                No gold ledger entries found
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredGoldEntries.map(entry => (
+                              <tr key={entry.id} className="border-t hover:bg-muted/30">
+                                <td className="px-4 py-3">{new Date(entry.date).toLocaleDateString()}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    entry.type === 'IN' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {entry.type}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right font-mono">{entry.weight_grams.toFixed(3)}</td>
+                                <td className="px-4 py-3 text-right font-mono">{entry.purity_entered}K</td>
+                                <td className="px-4 py-3 capitalize">{entry.purpose.replace('_', ' ')}</td>
+                                <td className="px-4 py-3 text-muted-foreground">{entry.notes || '-'}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Money Ledger Table */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                  Money Ledger ({filteredMoneyLedger.length} entries)
+                </h3>
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Date</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Type</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Reference</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Amount (OMR)</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Balance</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredMoneyLedger.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="px-4 py-8 text-center text-muted-foreground">
+                                No money ledger entries found
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredMoneyLedger.map(entry => (
+                              <tr key={entry.id} className="border-t hover:bg-muted/30">
+                                <td className="px-4 py-3">{new Date(entry.date).toLocaleDateString()}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    entry.type === 'Invoice' 
+                                      ? 'bg-blue-100 text-blue-800' 
+                                      : entry.type === 'Receipt'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-purple-100 text-purple-800'
+                                  }`}>
+                                    {entry.type}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 font-mono">{entry.reference}</td>
+                                <td className="px-4 py-3 text-right font-mono">{entry.amount.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right font-mono">
+                                  {entry.balance !== null ? entry.balance.toFixed(2) : '-'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {entry.status ? (
+                                    <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${
+                                      entry.status === 'paid' 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : entry.status === 'unpaid'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {entry.status}
+                                    </span>
+                                  ) : '-'}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           )}
