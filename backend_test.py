@@ -2284,6 +2284,307 @@ class GoldShopERPTester:
         print(f"✅ Staff successfully deleted unlocked job card")
         return True
 
+    def test_party_summary_endpoint(self):
+        """Test Module 2/10 - Party Report Combined Summary Backend"""
+        print("\n🎯 TESTING MODULE 2/10 - PARTY SUMMARY ENDPOINT")
+        
+        # Step 1: Create a test party if needed
+        party_data = {
+            "name": f"Summary Test Party {datetime.now().strftime('%H%M%S')}",
+            "phone": "+968 9999 1111",
+            "address": "Summary Test Address",
+            "party_type": "customer",
+            "notes": "Party for testing combined summary endpoint"
+        }
+        
+        success, party = self.run_test(
+            "Create Test Party for Summary",
+            "POST",
+            "parties",
+            200,
+            data=party_data
+        )
+        
+        if not success or not party.get('id'):
+            return False
+        
+        party_id = party['id']
+        print(f"   Created party: {party['name']} (ID: {party_id})")
+        
+        # Step 2: Create gold ledger entries (both IN and OUT types)
+        gold_entries = [
+            {
+                "party_id": party_id,
+                "type": "IN",  # Party gives gold to shop
+                "weight_grams": 125.456,
+                "purity_entered": 916,
+                "purpose": "job_work",
+                "notes": "Gold received from party for job work"
+            },
+            {
+                "party_id": party_id,
+                "type": "OUT",  # Shop gives gold to party
+                "weight_grams": 50.123,
+                "purity_entered": 916,
+                "purpose": "exchange",
+                "notes": "Gold given to party in exchange"
+            },
+            {
+                "party_id": party_id,
+                "type": "IN",  # Another IN entry
+                "weight_grams": 30.250,
+                "purity_entered": 916,
+                "purpose": "advance_gold",
+                "notes": "Additional gold advance from party"
+            }
+        ]
+        
+        created_gold_entries = []
+        for i, entry_data in enumerate(gold_entries):
+            success, entry = self.run_test(
+                f"Create Gold Entry {i+1} ({entry_data['type']})",
+                "POST",
+                "gold-ledger",
+                200,
+                data=entry_data
+            )
+            if success:
+                created_gold_entries.append(entry)
+                print(f"   Created {entry_data['type']} entry: {entry_data['weight_grams']}g")
+        
+        if len(created_gold_entries) != 3:
+            print(f"❌ Failed to create all gold entries")
+            return False
+        
+        # Step 3: Create an invoice for the party with outstanding balance
+        invoice_data = {
+            "customer_id": party_id,
+            "customer_name": party['name'],
+            "invoice_type": "sale",
+            "items": [{
+                "description": "Gold jewelry for summary test",
+                "qty": 1,
+                "weight": 15.500,
+                "purity": 916,
+                "metal_rate": 25.0,
+                "gold_value": 387.5,
+                "making_value": 50.0,
+                "vat_percent": 5.0,
+                "vat_amount": 21.875,
+                "line_total": 459.375
+            }],
+            "subtotal": 437.5,
+            "vat_total": 21.875,
+            "grand_total": 459.375,
+            "balance_due": 459.375,  # Outstanding balance
+            "notes": "Invoice for party summary testing"
+        }
+        
+        success, invoice = self.run_test(
+            "Create Invoice with Outstanding Balance",
+            "POST",
+            "invoices",
+            200,
+            data=invoice_data
+        )
+        
+        if not success:
+            return False
+        
+        invoice_id = invoice['id']
+        print(f"   Created invoice: {invoice.get('invoice_number')} with balance: {invoice.get('balance_due')}")
+        
+        # Step 4: Create a transaction (credit type) for the party
+        # First ensure we have an account
+        if not self.created_resources['accounts']:
+            account_data = {
+                "name": f"Summary Test Account {datetime.now().strftime('%H%M%S')}",
+                "account_type": "cash",
+                "opening_balance": 1000.0
+            }
+            
+            success, account = self.run_test(
+                "Create Account for Transaction",
+                "POST",
+                "accounts",
+                200,
+                data=account_data
+            )
+            
+            if success:
+                self.created_resources['accounts'].append(account['id'])
+        
+        if self.created_resources['accounts']:
+            account_id = self.created_resources['accounts'][0]
+            
+            transaction_data = {
+                "transaction_type": "credit",
+                "mode": "cash",
+                "account_id": account_id,
+                "party_id": party_id,
+                "amount": 150.0,
+                "category": "vendor_payment",
+                "notes": "Credit transaction for party summary testing"
+            }
+            
+            success, transaction = self.run_test(
+                "Create Credit Transaction",
+                "POST",
+                "transactions",
+                200,
+                data=transaction_data
+            )
+            
+            if success:
+                print(f"   Created credit transaction: {transaction.get('transaction_number')} amount: {transaction.get('amount')}")
+        
+        # Step 5: Test GET /api/parties/{party_id}/summary endpoint
+        success, summary = self.run_test(
+            "Get Party Summary (Main Test)",
+            "GET",
+            f"parties/{party_id}/summary",
+            200
+        )
+        
+        if not success:
+            return False
+        
+        print(f"\n📊 PARTY SUMMARY RESPONSE VERIFICATION:")
+        
+        # Verify response structure
+        required_sections = ['party', 'gold', 'money']
+        for section in required_sections:
+            if section not in summary:
+                print(f"❌ Missing section: {section}")
+                return False
+        
+        # Verify party info
+        party_info = summary['party']
+        required_party_fields = ['id', 'name', 'phone', 'address', 'party_type', 'notes', 'created_at']
+        for field in required_party_fields:
+            if field not in party_info:
+                print(f"❌ Missing party field: {field}")
+                return False
+        
+        if party_info['id'] != party_id:
+            print(f"❌ Party ID mismatch: expected {party_id}, got {party_info['id']}")
+            return False
+        
+        print(f"✅ Party info correct: {party_info['name']} ({party_info['party_type']})")
+        
+        # Verify gold summary
+        gold_summary = summary['gold']
+        required_gold_fields = ['gold_due_from_party', 'gold_due_to_party', 'net_gold_balance', 'total_entries']
+        for field in required_gold_fields:
+            if field not in gold_summary:
+                print(f"❌ Missing gold field: {field}")
+                return False
+        
+        # Calculate expected gold values
+        expected_gold_due_from_party = 125.456 + 30.250  # IN entries
+        expected_gold_due_to_party = 50.123  # OUT entries
+        expected_net_gold_balance = expected_gold_due_from_party - expected_gold_due_to_party
+        expected_total_entries = 3
+        
+        # Verify gold calculations (with 3 decimal precision)
+        if abs(gold_summary['gold_due_from_party'] - expected_gold_due_from_party) > 0.001:
+            print(f"❌ Gold due from party mismatch: expected {expected_gold_due_from_party}, got {gold_summary['gold_due_from_party']}")
+            return False
+        
+        if abs(gold_summary['gold_due_to_party'] - expected_gold_due_to_party) > 0.001:
+            print(f"❌ Gold due to party mismatch: expected {expected_gold_due_to_party}, got {gold_summary['gold_due_to_party']}")
+            return False
+        
+        if abs(gold_summary['net_gold_balance'] - expected_net_gold_balance) > 0.001:
+            print(f"❌ Net gold balance mismatch: expected {expected_net_gold_balance}, got {gold_summary['net_gold_balance']}")
+            return False
+        
+        if gold_summary['total_entries'] != expected_total_entries:
+            print(f"❌ Total entries mismatch: expected {expected_total_entries}, got {gold_summary['total_entries']}")
+            return False
+        
+        print(f"✅ Gold calculations correct:")
+        print(f"   - Gold due from party: {gold_summary['gold_due_from_party']:.3f}g")
+        print(f"   - Gold due to party: {gold_summary['gold_due_to_party']:.3f}g")
+        print(f"   - Net gold balance: {gold_summary['net_gold_balance']:.3f}g")
+        print(f"   - Total entries: {gold_summary['total_entries']}")
+        
+        # Verify money summary
+        money_summary = summary['money']
+        required_money_fields = ['money_due_from_party', 'money_due_to_party', 'net_money_balance', 'total_invoices', 'total_transactions']
+        for field in required_money_fields:
+            if field not in money_summary:
+                print(f"❌ Missing money field: {field}")
+                return False
+        
+        # Calculate expected money values
+        expected_money_due_from_party = 459.375  # Invoice balance_due
+        expected_money_due_to_party = 150.0  # Credit transaction
+        expected_net_money_balance = expected_money_due_from_party - expected_money_due_to_party
+        expected_total_invoices = 1
+        expected_total_transactions = 1
+        
+        # Verify money calculations (with 2 decimal precision)
+        if abs(money_summary['money_due_from_party'] - expected_money_due_from_party) > 0.01:
+            print(f"❌ Money due from party mismatch: expected {expected_money_due_from_party}, got {money_summary['money_due_from_party']}")
+            return False
+        
+        if abs(money_summary['money_due_to_party'] - expected_money_due_to_party) > 0.01:
+            print(f"❌ Money due to party mismatch: expected {expected_money_due_to_party}, got {money_summary['money_due_to_party']}")
+            return False
+        
+        if abs(money_summary['net_money_balance'] - expected_net_money_balance) > 0.01:
+            print(f"❌ Net money balance mismatch: expected {expected_net_money_balance}, got {money_summary['net_money_balance']}")
+            return False
+        
+        if money_summary['total_invoices'] != expected_total_invoices:
+            print(f"❌ Total invoices mismatch: expected {expected_total_invoices}, got {money_summary['total_invoices']}")
+            return False
+        
+        if money_summary['total_transactions'] != expected_total_transactions:
+            print(f"❌ Total transactions mismatch: expected {expected_total_transactions}, got {money_summary['total_transactions']}")
+            return False
+        
+        print(f"✅ Money calculations correct:")
+        print(f"   - Money due from party: {money_summary['money_due_from_party']:.2f} OMR")
+        print(f"   - Money due to party: {money_summary['money_due_to_party']:.2f} OMR")
+        print(f"   - Net money balance: {money_summary['net_money_balance']:.2f} OMR")
+        print(f"   - Total invoices: {money_summary['total_invoices']}")
+        print(f"   - Total transactions: {money_summary['total_transactions']}")
+        
+        # Verify precision formatting
+        # Gold should have 3 decimals
+        gold_fields_3_decimal = ['gold_due_from_party', 'gold_due_to_party', 'net_gold_balance']
+        for field in gold_fields_3_decimal:
+            value_str = str(gold_summary[field])
+            if '.' in value_str:
+                decimal_places = len(value_str.split('.')[1])
+                if decimal_places > 3:
+                    print(f"❌ Gold field {field} has more than 3 decimal places: {value_str}")
+                    return False
+        
+        # Money should have 2 decimals
+        money_fields_2_decimal = ['money_due_from_party', 'money_due_to_party', 'net_money_balance']
+        for field in money_fields_2_decimal:
+            value_str = str(money_summary[field])
+            if '.' in value_str:
+                decimal_places = len(value_str.split('.')[1])
+                if decimal_places > 2:
+                    print(f"❌ Money field {field} has more than 2 decimal places: {value_str}")
+                    return False
+        
+        print(f"✅ Precision formatting correct (3 decimals for gold, 2 decimals for money)")
+        
+        # Store created resources for cleanup
+        self.created_resources['parties'].append(party_id)
+        if invoice_id:
+            self.created_resources['invoices'].append(invoice_id)
+        
+        print(f"\n🎉 PARTY SUMMARY ENDPOINT TEST COMPLETED SUCCESSFULLY!")
+        print(f"   All calculations verified, precision correct, response structure valid")
+        
+        return True
+
     def run_all_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting Gold Shop ERP Backend Tests")
