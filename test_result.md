@@ -804,10 +804,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Walk-in vs Saved Customer Handling - Test customer type selection in invoice creation"
-    - "Walk-in Customer Invoice - Test walk-in name/phone storage without saving to Parties"
-    - "Payment Collection - Test add-payment endpoint with transaction record creation"
-    - "Walk-in Partial Payment Warning - Test warning for walk-in customers with outstanding balance"
+    - "MODULE 3/10 - Purchases Module - Test create draft purchase"
+    - "MODULE 3/10 - Purchases Module - Test edit draft purchase"
+    - "MODULE 3/10 - Purchases Module - Test finalize purchase (Stock IN + Vendor Payable)"
+    - "MODULE 3/10 - Purchases Module - Test vendor validation and purity handling"
+    - "MODULE 3/10 - Purchases Module - Test finalized purchase immutability"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
