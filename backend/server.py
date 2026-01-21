@@ -256,6 +256,24 @@ class AuditLog(BaseModel):
     action: str
     changes: Optional[Dict[str, Any]] = None
 
+class GoldLedgerEntry(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    party_id: str
+    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    type: str  # "IN" or "OUT" - IN = shop receives gold from party, OUT = shop gives gold to party
+    weight_grams: float  # 3 decimal precision
+    purity_entered: int
+    purpose: str  # job_work | exchange | advance_gold | adjustment
+    reference_type: Optional[str] = None  # invoice | jobcard | purchase | manual
+    reference_id: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None
+
 async def create_audit_log(user_id: str, user_name: str, module: str, record_id: str, action: str, changes: Optional[Dict] = None):
     log = AuditLog(
         user_id=user_id,
