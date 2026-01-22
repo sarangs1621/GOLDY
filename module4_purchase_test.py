@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class Module4PurchasePaymentTester:
-    def __init__(self, base_url="https://payment-options-11.preview.emergentagent.com"):
+    def __init__(self, base_url="https://sales-finalized.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0
