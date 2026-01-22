@@ -4907,11 +4907,16 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Audit Logs Filtering - Enhanced Backend"
-    - "Audit Logs Filtering - Enhanced UI"
+    - "Pagination Backend - GET /api/parties"
+    - "Pagination Backend - GET /api/gold-ledger"
+    - "Pagination Backend - GET /api/purchases"
+    - "Pagination Backend - GET /api/jobcards"
+    - "Pagination Backend - GET /api/invoices"
+    - "Pagination Backend - GET /api/transactions"
+    - "Pagination Backend - GET /api/audit-logs"
   stuck_tasks: []
   test_all: false
-  test_priority: "high_first"
+  test_priority: "sequential"
 
 agent_communication:
   - agent: "main"
