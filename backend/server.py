@@ -1088,8 +1088,11 @@ async def get_gold_ledger_entries(
     party_id: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 50,
     current_user: User = Depends(get_current_user)
 ):
+    """Get gold ledger entries with optional filters and pagination"""
     query = {"is_deleted": False}
     
     # Filter by party_id
@@ -1111,8 +1114,16 @@ async def get_gold_ledger_entries(
                 raise HTTPException(status_code=400, detail="Invalid date_to format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
         query['date'] = date_query
     
-    entries = await db.gold_ledger.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
-    return entries
+    # Calculate skip value
+    skip = (page - 1) * per_page
+    
+    # Get total count for pagination
+    total_count = await db.gold_ledger.count_documents(query)
+    
+    # Get paginated results
+    entries = await db.gold_ledger.find(query, {"_id": 0}).sort("date", -1).skip(skip).limit(per_page).to_list(per_page)
+    
+    return create_pagination_response(entries, total_count, page, per_page)
 
 @api_router.delete("/gold-ledger/{entry_id}")
 async def delete_gold_ledger_entry(entry_id: str, current_user: User = Depends(get_current_user)):
