@@ -1185,6 +1185,14 @@ metadata:
 
 test_plan:
   current_focus:
+    - "MODULE 8/10 - JobCard Gold Rate Field + Auto-fill Invoice Rate - Backend"
+    - "MODULE 8/10 - Test job card creation WITH gold_rate_at_jobcard"
+    - "MODULE 8/10 - Test job card creation WITHOUT gold_rate_at_jobcard (backward compatibility)"
+    - "MODULE 8/10 - Test job card edit to update gold_rate_at_jobcard"
+    - "MODULE 8/10 - Test convert job card to invoice - verify metal_rate auto-fill from job card"
+    - "MODULE 8/10 - Test convert job card WITHOUT gold rate - verify default 20.0 fallback"
+    - "MODULE 8/10 - Test frontend gold rate input field display and validation"
+    - "MODULE 8/10 - Test convert dialog shows gold rate from job card"
     - "MODULE 7/10 - Invoice Discount (Amount Based) - Test backend calculation"
     - "MODULE 7/10 - Test discount validation (negative, exceeds subtotal)"
     - "MODULE 7/10 - Test VAT calculation on taxable amount (subtotal - discount)"
