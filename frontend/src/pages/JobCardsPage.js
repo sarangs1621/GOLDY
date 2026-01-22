@@ -556,6 +556,25 @@ export default function JobCardsPage() {
               </div>
             </div>
             
+            {/* MODULE 8: Gold Rate Field */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Gold Rate (per gram) - OMR</Label>
+                <Input
+                  data-testid="gold-rate-input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.gold_rate_at_jobcard}
+                  onChange={(e) => setFormData({...formData, gold_rate_at_jobcard: e.target.value})}
+                  placeholder="e.g., 20.00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional: This rate will auto-fill when converting to invoice
+                </p>
+              </div>
+            </div>
+            
             <div>
               <Label>Notes</Label>
               <Input
