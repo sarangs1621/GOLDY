@@ -84,68 +84,271 @@ class PaginationTester:
             self.log_result("Authentication", False, f"Exception: {str(e)}")
             return False
 
-    def create_test_party(self, name: str, party_type: str = "customer") -> Optional[str]:
-        """Create a test party and return party ID - generates audit logs"""
+    def test_pagination_endpoint(self, endpoint: str, endpoint_name: str, filters: Dict = None) -> bool:
+        """Test pagination for a specific endpoint"""
+        print(f"🔸 Testing {endpoint_name} Pagination")
+        
         try:
-            party_data = {
-                "name": name,
-                "phone": "99887766",
-                "address": "Test Address for Audit Logs",
-                "party_type": party_type,
-                "notes": f"Test party for audit logs filtering - {datetime.now().isoformat()}"
-            }
+            # Test 1: Default pagination (page=1, per_page=50)
+            params = filters.copy() if filters else {}
+            response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
             
-            response = self.session.post(f"{self.base_url}/api/parties", json=party_data)
+            if response.status_code != 200:
+                self.log_result(f"{endpoint_name} - Default Pagination", False, 
+                              f"Status: {response.status_code}, Response: {response.text}")
+                return False
             
-            if response.status_code == 200:
-                party = response.json()
-                party_id = party.get('id')
-                self.created_party_ids.append(party_id)
-                return party_id
-            else:
-                self.log_result(f"Create Test Party ({name})", False, f"Status: {response.status_code}", response.text)
-                return None
+            data = response.json()
+            
+            # Verify response structure
+            if not self.verify_pagination_structure(data, endpoint_name, "Default"):
+                return False
+            
+            total_count = data['pagination']['total_count']
+            
+            # Test 2: Custom page numbers (if there's enough data)
+            if total_count > 50:  # Only test if we have multiple pages
+                params['page'] = 2
+                response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
+                
+                if response.status_code != 200:
+                    self.log_result(f"{endpoint_name} - Page 2", False, 
+                                  f"Status: {response.status_code}")
+                    return False
+                
+                data = response.json()
+                if not self.verify_pagination_structure(data, endpoint_name, "Page 2"):
+                    return False
+            
+            # Test 3: Custom per_page values
+            params = filters.copy() if filters else {}
+            params['per_page'] = 25
+            response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
+            
+            if response.status_code != 200:
+                self.log_result(f"{endpoint_name} - Custom per_page", False, 
+                              f"Status: {response.status_code}")
+                return False
+            
+            data = response.json()
+            if not self.verify_pagination_structure(data, endpoint_name, "Custom per_page=25"):
+                return False
+            
+            # Verify per_page is respected
+            if len(data['items']) > 25:
+                self.log_result(f"{endpoint_name} - per_page Limit", False, 
+                              f"Returned {len(data['items'])} items, expected max 25")
+                return False
+            
+            # Test 4: Boundary cases
+            # Test page=0 (should default to 1 or return error)
+            params = filters.copy() if filters else {}
+            params['page'] = 0
+            response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
+            
+            # Either should work (default to page 1) or return 400 error
+            if response.status_code not in [200, 400]:
+                self.log_result(f"{endpoint_name} - Boundary page=0", False, 
+                              f"Unexpected status: {response.status_code}")
+                return False
+            
+            # Test page > total_pages
+            if total_count > 0:
+                total_pages = (total_count + 49) // 50  # Ceiling division for default per_page=50
+                params = filters.copy() if filters else {}
+                params['page'] = total_pages + 10  # Way beyond available pages
+                response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    # Should return empty items but valid pagination structure
+                    if len(data['items']) > 0:
+                        self.log_result(f"{endpoint_name} - Beyond total_pages", False, 
+                                      f"Page {total_pages + 10} returned {len(data['items'])} items, expected 0")
+                        return False
+            
+            self.log_result(f"{endpoint_name} - All Pagination Tests", True, 
+                          f"Default, custom page, custom per_page, and boundary cases all working")
+            return True
+            
         except Exception as e:
-            self.log_result(f"Create Test Party ({name})", False, f"Exception: {str(e)}")
-            return None
-
-    def update_test_party(self, party_id: str, name: str) -> bool:
-        """Update a test party - generates audit logs"""
-        try:
-            update_data = {
-                "name": f"{name} - Updated",
-                "notes": f"Updated for audit logs testing - {datetime.now().isoformat()}"
-            }
-            
-            response = self.session.patch(f"{self.base_url}/api/parties/{party_id}", json=update_data)
-            return response.status_code == 200
-        except Exception as e:
+            self.log_result(f"{endpoint_name} - Pagination Tests", False, f"Exception: {str(e)}")
             return False
 
-    def delete_test_party(self, party_id: str) -> bool:
-        """Delete a test party - generates audit logs"""
-        try:
-            response = self.session.delete(f"{self.base_url}/api/parties/{party_id}")
-            return response.status_code == 200
-        except Exception as e:
+    def verify_pagination_structure(self, data: Dict, endpoint_name: str, test_type: str) -> bool:
+        """Verify pagination response structure"""
+        # Check top-level structure
+        if 'items' not in data or 'pagination' not in data:
+            self.log_result(f"{endpoint_name} - {test_type} Structure", False, 
+                          "Missing 'items' or 'pagination' in response")
             return False
+        
+        pagination = data['pagination']
+        required_fields = ['total_count', 'page', 'per_page', 'total_pages', 'has_next', 'has_prev']
+        
+        for field in required_fields:
+            if field not in pagination:
+                self.log_result(f"{endpoint_name} - {test_type} Structure", False, 
+                              f"Missing '{field}' in pagination metadata")
+                return False
+        
+        # Verify pagination calculations
+        total_count = pagination['total_count']
+        page = pagination['page']
+        per_page = pagination['per_page']
+        total_pages = pagination['total_pages']
+        has_next = pagination['has_next']
+        has_prev = pagination['has_prev']
+        
+        # Verify total_pages calculation
+        expected_total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
+        if total_pages != expected_total_pages:
+            self.log_result(f"{endpoint_name} - {test_type} Calculation", False, 
+                          f"total_pages={total_pages}, expected={expected_total_pages}")
+            return False
+        
+        # Verify has_next
+        expected_has_next = page < total_pages
+        if has_next != expected_has_next:
+            self.log_result(f"{endpoint_name} - {test_type} has_next", False, 
+                          f"has_next={has_next}, expected={expected_has_next}")
+            return False
+        
+        # Verify has_prev
+        expected_has_prev = page > 1
+        if has_prev != expected_has_prev:
+            self.log_result(f"{endpoint_name} - {test_type} has_prev", False, 
+                          f"has_prev={has_prev}, expected={expected_has_prev}")
+            return False
+        
+        # Verify items count doesn't exceed per_page
+        if len(data['items']) > per_page:
+            self.log_result(f"{endpoint_name} - {test_type} Items Count", False, 
+                          f"Returned {len(data['items'])} items, max should be {per_page}")
+            return False
+        
+        return True
 
-    def get_audit_logs(self, **filters) -> Optional[Dict]:
-        """Get audit logs with optional filters"""
+    def create_test_data(self) -> bool:
+        """Create test data for pagination testing"""
+        print("🔧 SETUP PHASE - Creating Test Data for Pagination Testing")
+        print("-" * 60)
+        
         try:
-            params = {}
-            for key, value in filters.items():
-                if value is not None:
-                    params[key] = value
+            # Create test parties (customers and vendors)
+            for i in range(5):
+                party_data = {
+                    "name": f"Pagination Test Customer {i+1:03d}",
+                    "phone": f"9988776{i:02d}",
+                    "address": f"Test Address {i+1}",
+                    "party_type": "customer",
+                    "notes": f"Test customer for pagination - {datetime.now().isoformat()}"
+                }
+                
+                response = self.session.post(f"{self.base_url}/api/parties", json=party_data)
+                if response.status_code == 200:
+                    party = response.json()
+                    self.created_entities['parties'].append(party['id'])
+                else:
+                    self.log_result("Create Test Customers", False, f"Failed to create customer {i+1}")
+                    return False
             
-            response = self.session.get(f"{self.base_url}/api/audit-logs", params=params)
+            # Create test vendors
+            for i in range(3):
+                vendor_data = {
+                    "name": f"Pagination Test Vendor {i+1:03d}",
+                    "phone": f"9977665{i:02d}",
+                    "address": f"Vendor Address {i+1}",
+                    "party_type": "vendor",
+                    "notes": f"Test vendor for pagination - {datetime.now().isoformat()}"
+                }
+                
+                response = self.session.post(f"{self.base_url}/api/parties", json=vendor_data)
+                if response.status_code == 200:
+                    vendor = response.json()
+                    self.created_entities['parties'].append(vendor['id'])
+                else:
+                    self.log_result("Create Test Vendors", False, f"Failed to create vendor {i+1}")
+                    return False
             
+            # Create test accounts for transactions
+            account_data = {
+                "name": "Pagination Test Cash Account",
+                "account_type": "asset",
+                "opening_balance": 10000.0
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/accounts", json=account_data)
             if response.status_code == 200:
-                return response.json()
+                account = response.json()
+                self.created_entities['accounts'].append(account['id'])
+                test_account_id = account['id']
             else:
-                return {"error": response.status_code, "message": response.text}
+                self.log_result("Create Test Account", False, "Failed to create test account")
+                return False
+            
+            # Create gold ledger entries
+            if len(self.created_entities['parties']) >= 3:
+                customer_ids = [pid for pid in self.created_entities['parties'][:5]]  # First 5 are customers
+                
+                for i, customer_id in enumerate(customer_ids):
+                    # Create IN entry (customer gives gold to shop)
+                    gold_entry = {
+                        "party_id": customer_id,
+                        "type": "IN",
+                        "weight_grams": round(25.5 + i * 10.25, 3),
+                        "purity_entered": 916,
+                        "purpose": "job_work",
+                        "notes": f"Pagination test gold deposit {i+1}"
+                    }
+                    
+                    response = self.session.post(f"{self.base_url}/api/gold-ledger", json=gold_entry)
+                    if response.status_code == 200:
+                        entry = response.json()
+                        self.created_entities['gold_ledger'].append(entry['id'])
+                    
+                    # Create OUT entry (shop gives gold to customer)
+                    if i < 3:  # Only for first 3 customers
+                        gold_entry_out = {
+                            "party_id": customer_id,
+                            "type": "OUT",
+                            "weight_grams": round(10.5 + i * 5.25, 3),
+                            "purity_entered": 916,
+                            "purpose": "exchange",
+                            "notes": f"Pagination test gold return {i+1}"
+                        }
+                        
+                        response = self.session.post(f"{self.base_url}/api/gold-ledger", json=gold_entry_out)
+                        if response.status_code == 200:
+                            entry = response.json()
+                            self.created_entities['gold_ledger'].append(entry['id'])
+            
+            # Create transactions
+            if test_account_id and len(self.created_entities['parties']) >= 3:
+                for i in range(4):
+                    transaction_data = {
+                        "transaction_type": "credit" if i % 2 == 0 else "debit",
+                        "mode": "Cash",
+                        "account_id": test_account_id,
+                        "amount": 500.0 + i * 100.0,
+                        "category": "Test Transaction",
+                        "notes": f"Pagination test transaction {i+1}"
+                    }
+                    
+                    response = self.session.post(f"{self.base_url}/api/transactions", json=transaction_data)
+                    if response.status_code == 200:
+                        txn = response.json()
+                        self.created_entities['transactions'].append(txn['id'])
+            
+            self.log_result("Create Test Data", True, 
+                          f"Created {len(self.created_entities['parties'])} parties, "
+                          f"{len(self.created_entities['gold_ledger'])} gold entries, "
+                          f"{len(self.created_entities['transactions'])} transactions")
+            return True
+            
         except Exception as e:
-            return {"error": "exception", "message": str(e)}
+            self.log_result("Create Test Data", False, f"Exception: {str(e)}")
+            return False
 
     # ============================================================================
     # SETUP PHASE - Create Test Data
