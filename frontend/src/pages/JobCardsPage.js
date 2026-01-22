@@ -250,6 +250,7 @@ export default function JobCardsPage() {
       worker_id: '',
       delivery_date: '',
       notes: '',
+      gold_rate_at_jobcard: '',  // MODULE 8: Reset gold rate
       status: 'created',
       items: [{
         category: defaultCategory,
