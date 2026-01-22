@@ -3001,6 +3001,52 @@ async def calculate_daily_closing(date: str, current_user: User = Depends(get_cu
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to calculate daily closing: {str(e)}")
 
+
+@api_router.patch("/daily-closings/{closing_id}", response_model=DailyClosing)
+async def update_daily_closing(closing_id: str, update_data: dict, current_user: User = Depends(get_current_user)):
+    """
+    Update an existing daily closing record.
+    Can update actual_closing, notes, or lock status.
+    Automatically recalculates difference when actual_closing is updated.
+    """
+    try:
+        # Find the existing closing record
+        existing_closing = await db.daily_closings.find_one({"id": closing_id}, {"_id": 0})
+        if not existing_closing:
+            raise HTTPException(status_code=404, detail="Daily closing record not found")
+        
+        # Check if record is locked
+        if existing_closing.get('is_locked', False) and not update_data.get('is_locked') == False:
+            raise HTTPException(status_code=403, detail="Cannot update a locked daily closing record")
+        
+        # If actual_closing is being updated, recalculate difference
+        if 'actual_closing' in update_data:
+            expected_closing = existing_closing.get('expected_closing', 0.0)
+            actual_closing = update_data['actual_closing']
+            update_data['difference'] = round(actual_closing - expected_closing, 3)
+        
+        # Update the record
+        result = await db.daily_closings.update_one(
+            {"id": closing_id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0 and result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Daily closing record not found")
+        
+        # Get the updated record
+        updated_closing = await db.daily_closings.find_one({"id": closing_id}, {"_id": 0})
+        
+        # Create audit log
+        await create_audit_log(current_user.id, current_user.full_name, "daily_closing", closing_id, "update")
+        
+        return DailyClosing(**updated_closing)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update daily closing: {str(e)}")
+
 @api_router.get("/audit-logs", response_model=List[AuditLog])
 async def get_audit_logs(module: Optional[str] = None, current_user: User = Depends(get_current_user)):
     query = {}
