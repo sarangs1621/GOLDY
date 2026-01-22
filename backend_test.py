@@ -10,7 +10,7 @@ import sys
 from datetime import datetime, timezone
 
 # Backend URL from environment
-BACKEND_URL = "https://pagination-fix-3.preview.emergentagent.com/api"
+BACKEND_URL = "https://map-function-fix-1.preview.emergentagent.com/api"
 
 # Test credentials
 TEST_USERNAME = "admin"
