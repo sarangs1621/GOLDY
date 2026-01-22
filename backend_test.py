@@ -180,7 +180,12 @@ class PurchaseHistoryTester:
                 self.log_test("Create Test Purchase", True, f"Created test purchase: {purchase['id']}")
                 return purchase
             else:
-                self.log_test("Create Test Purchase", False, f"Failed to create purchase: {response.status_code}")
+                error_detail = ""
+                try:
+                    error_detail = f" - {response.json()}"
+                except:
+                    error_detail = f" - {response.text}"
+                self.log_test("Create Test Purchase", False, f"Failed to create purchase: {response.status_code}{error_detail}")
                 return None
         except Exception as e:
             self.log_test("Create Test Purchase", False, f"Error creating purchase: {str(e)}")
