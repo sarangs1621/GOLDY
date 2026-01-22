@@ -3109,3 +3109,75 @@ agent_communication:
       - Use simplified test scripts to avoid execution issues
       
       Starting with BACKEND CRITICAL WORKFLOWS testing...
+
+  - agent: "main"
+    message: |
+      🔧 CRITICAL FIX: Walk-in Invoice Transaction Creation Issue RESOLVED
+      
+      Issue Identified by Testing Agent:
+      - Transaction records were NOT being created when walk-in invoices were finalized
+      - This caused incomplete financial ledger for walk-in customers
+      - All other invoice finalization logic (stock deduction, payments) was working correctly
+      
+      Root Cause Analysis:
+      - In finalize_invoice function (line 1787), the transaction creation logic had condition:
+        `if invoice.customer_id and invoice.grand_total > 0:`
+      - Walk-in invoices have customer_id = None (by design)
+      - This condition evaluated to False for walk-in invoices
+      - Therefore, NO transaction record was created during finalization
+      
+      Fix Applied (lines 1786-1859 in server.py):
+      
+      1. ✅ Changed Condition:
+         - OLD: `if invoice.customer_id and invoice.grand_total > 0:`
+         - NEW: `if invoice.grand_total > 0:`
+         - Now creates transactions for BOTH saved and walk-in invoices
+      
+      2. ✅ Added Customer Type Logic:
+         Walk-in invoices:
+         - party_id = None (no saved party)
+         - party_name = None
+         - notes = "Invoice {number} finalized - Walk-in Customer: {walk_in_name} (Ph: {walk_in_phone})"
+         
+         Saved customer invoices:
+         - party_id = invoice.customer_id
+         - party_name = invoice.customer_name
+         - notes = "Invoice {number} finalized"
+      
+      3. ✅ Enhanced Audit Logging:
+         - Added customer_type field to audit log
+         - Added is_walk_in flag for easy filtering
+      
+      4. ✅ Updated Finalization Audit:
+         - Changed ledger_entry_created condition to reflect new logic
+         - Now tracks customer_type in finalization audit
+      
+      Business Impact:
+      - ✅ Walk-in invoice finalizations now create proper Transaction records
+      - ✅ Financial ledger completeness maintained for ALL invoice types
+      - ✅ Walk-in customer information preserved in transaction notes
+      - ✅ All invoices tracked in "Sales Invoice" category
+      - ✅ Outstanding balance calculations remain accurate
+      - ✅ Backward compatible - saved customer transactions unchanged
+      
+      READY FOR RETESTING:
+      Please retest walk-in invoice flow to verify:
+      1. Walk-in job card creation ✅ (already working)
+      2. Walk-in invoice creation ✅ (already working)
+      3. Walk-in invoice finalization ✅ (already working)
+      4. Stock deduction for walk-in invoice ✅ (already working)
+      5. Walk-in payment processing ✅ (already working)
+      6. 🔥 Transaction ledger entry creation during finalization (NOW FIXED - needs verification)
+      
+      Expected Result:
+      - Transaction record should be created with:
+        * transaction_type = "debit" (for sale/service invoices)
+        * mode = "invoice"
+        * account_id = Sales account ID
+        * party_id = None (for walk-in)
+        * party_name = None (for walk-in)
+        * amount = grand_total
+        * category = "Sales Invoice"
+        * notes containing walk_in_name and walk_in_phone
+        * reference_type = "invoice"
+        * reference_id = invoice ID
