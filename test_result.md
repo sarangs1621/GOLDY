@@ -1898,6 +1898,78 @@ backend:
           - Backend restarted successfully (RUNNING pid 711)
           - Endpoints now exist at lines 3538 and 3651 in server.py
           - File length increased from 3567 to 3767 lines (+200 lines)
+      - working: true
+        agent: "testing"
+        comment: |
+          🔥 MODULE 6 - PURCHASE HISTORY REPORT BACKEND TESTING COMPLETED - PERFECT SUCCESS RATE (100%)
+          
+          COMPREHENSIVE TESTING RESULTS:
+          
+          ✅ ENDPOINT AVAILABILITY VERIFICATION:
+          - GET /api/reports/purchase-history: Returns 200 (NOT 404 as previously reported)
+          - GET /api/reports/purchase-history-export: Returns 200 (NOT 404 as previously reported)
+          - Both endpoints are now properly implemented and accessible
+          
+          ✅ RESPONSE STRUCTURE VALIDATION:
+          - purchase_records key: ✅ Present
+          - summary key: ✅ Present  
+          - Summary contains: total_amount ✅, total_weight ✅, total_purchases ✅
+          - Each purchase record contains all 8 required fields:
+            * vendor_name ✅ (properly joined from parties collection)
+            * vendor_phone ✅ (properly joined from parties collection)
+            * date ✅ (YYYY-MM-DD format)
+            * description ✅
+            * weight_grams ✅ (3 decimal precision: 125.456)
+            * entered_purity ✅ (999 as entered)
+            * valuation_purity ✅ ("22K" converted from 916)
+            * amount_total ✅ (2 decimal precision: 5708.25)
+          
+          ✅ BUSINESS LOGIC VALIDATION:
+          - Only finalized purchases returned: ✅ VERIFIED (1 finalized shown, 1 draft excluded)
+          - Vendor information properly joined: ✅ VERIFIED (Test Vendor name and phone displayed)
+          - Valuation purity shows as "22K": ✅ VERIFIED (converted from 916 purity)
+          - Weight precision (3 decimals): ✅ VERIFIED (125.456g)
+          - Amount precision (2 decimals): ✅ VERIFIED (5708.25 OMR)
+          - Draft purchases excluded: ✅ VERIFIED (only finalized appear in report)
+          
+          ✅ FILTER FUNCTIONALITY TESTING:
+          - date_from filter: ✅ WORKING (accepts YYYY-MM-DD format)
+          - date_to filter: ✅ WORKING (accepts YYYY-MM-DD format)
+          - vendor_party_id filter: ✅ WORKING (specific vendor ID and "all" option)
+          - search filter: ✅ WORKING (searches vendor name, phone, description)
+          - Date range exclusion: ✅ WORKING (correctly excludes records outside range)
+          - Search matching: ✅ WORKING (finds "Test Vendor" and "History Report")
+          - Search non-matching: ✅ WORKING (returns 0 results for non-existent terms)
+          
+          ✅ EXCEL EXPORT VALIDATION:
+          - Content-Type: ✅ CORRECT (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
+          - Content-Disposition: ✅ CORRECT (attachment with filename)
+          - File Generation: ✅ WORKING (5253 bytes generated)
+          - Download Headers: ✅ PRESENT (proper attachment headers)
+          
+          ✅ TEST DATA CREATION & FINALIZATION:
+          - Test vendor created: ✅ SUCCESS (Test Vendor for Purchase History)
+          - Test purchase created: ✅ SUCCESS (125.456g gold at 999 purity)
+          - Purchase finalization: ✅ SUCCESS (status changed to "finalized")
+          - Report shows finalized data: ✅ SUCCESS (appears in purchase history)
+          
+          🎯 CRITICAL REQUIREMENTS VERIFICATION:
+          ✅ Endpoints return 200 (not 404) - FIXED from previous 404 errors
+          ✅ Response structure matches specification exactly
+          ✅ Only finalized purchases appear (business logic correct)
+          ✅ Vendor information properly joined from parties collection
+          ✅ Valuation purity displays as "22K" (converted from 916)
+          ✅ Precision formatting correct (3 decimals weight, 2 decimals money)
+          ✅ All filters work correctly (date, vendor, search)
+          ✅ Excel export downloads successfully with proper headers
+          
+          OVERALL TEST RESULTS: 22/22 tests passed (100% success rate)
+          
+          🔥 MODULE 6 BACKEND IS FULLY FUNCTIONAL AND PRODUCTION READY
+          
+          The purchase history report endpoints are now working correctly after the fix.
+          Previously returning 404 NOT FOUND, they now return proper data with all
+          required business logic, filtering, and export functionality working perfectly.
           
           STATUS: Endpoints now properly implemented and ready for comprehensive testing.
 
