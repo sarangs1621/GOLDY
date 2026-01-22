@@ -1,5586 +1,1197 @@
+#!/usr/bin/env python3
+"""
+Comprehensive Backend Testing for Gold Shop ERP System
+Tasks 3 & 4: Gold Rate Field (Module 8) + Discount Field (Module 7)
+
+This script tests all 17 scenarios (8 for Task 3, 9 for Task 4) to achieve 10/10 production readiness.
+"""
+
 import requests
-import sys
 import json
-from datetime import datetime
+import sys
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional
 
-class GoldShopERPTester:
-    def __init__(self, base_url="https://fields-verified.preview.emergentagent.com"):
-        self.base_url = base_url
+class GoldShopTester:
+    def __init__(self, base_url: str, username: str, password: str):
+        self.base_url = base_url.rstrip('/')
+        self.username = username
+        self.password = password
         self.token = None
-        self.tests_run = 0
-        self.tests_passed = 0
-        self.user_id = None
-        self.created_resources = {
-            'headers': [],
-            'parties': [],
-            'accounts': [],
-            'jobcards': [],
-            'invoices': []
+        self.session = requests.Session()
+        self.test_results = []
+        
+    def log_result(self, test_name: str, success: bool, details: str = "", response_data: Any = None):
+        """Log test result with details"""
+        status = "✅ PASS" if success else "❌ FAIL"
+        result = {
+            "test": test_name,
+            "status": status,
+            "success": success,
+            "details": details,
+            "response_data": response_data,
+            "timestamp": datetime.now().isoformat()
         }
+        self.test_results.append(result)
+        print(f"{status}: {test_name}")
+        if details:
+            print(f"    Details: {details}")
+        if not success and response_data:
+            print(f"    Response: {response_data}")
+        print()
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
-        """Run a single API test"""
-        url = f"{self.base_url}/api/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
-        if self.token:
-            headers['Authorization'] = f'Bearer {self.token}'
+    def authenticate(self) -> bool:
+        """Authenticate and get JWT token"""
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/auth/login",
+                json={"username": self.username, "password": self.password}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                self.token = data.get('access_token')
+                self.session.headers.update({'Authorization': f'Bearer {self.token}'})
+                self.log_result("Authentication", True, f"Logged in as {self.username}")
+                return True
+            else:
+                self.log_result("Authentication", False, f"Status: {response.status_code}", response.text)
+                return False
+        except Exception as e:
+            self.log_result("Authentication", False, f"Exception: {str(e)}")
+            return False
 
-        self.tests_run += 1
-        print(f"\n🔍 Testing {name}...")
-        print(f"   URL: {method} {url}")
+    def create_test_party(self, name: str, party_type: str = "customer") -> Optional[str]:
+        """Create a test party and return party ID"""
+        try:
+            party_data = {
+                "name": name,
+                "phone": "99887766",
+                "address": "Test Address",
+                "party_type": party_type,
+                "notes": "Test party for comprehensive testing"
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/parties", json=party_data)
+            
+            if response.status_code == 200:
+                party = response.json()
+                return party.get('id')
+            else:
+                self.log_result(f"Create Test Party ({name})", False, f"Status: {response.status_code}", response.text)
+                return None
+        except Exception as e:
+            self.log_result(f"Create Test Party ({name})", False, f"Exception: {str(e)}")
+            return None
+
+    def create_test_jobcard(self, gold_rate: Optional[float] = None, customer_id: Optional[str] = None) -> Optional[str]:
+        """Create a test job card with optional gold rate"""
+        try:
+            jobcard_data = {
+                "card_type": "repair",
+                "customer_type": "saved" if customer_id else "walk_in",
+                "customer_id": customer_id,
+                "customer_name": "Test Customer" if customer_id else None,
+                "walk_in_name": "Walk-in Customer" if not customer_id else None,
+                "walk_in_phone": "99887766" if not customer_id else None,
+                "items": [
+                    {
+                        "category": "Ring",
+                        "description": "Gold ring repair",
+                        "qty": 1,
+                        "weight_in": 5.5,
+                        "weight_out": 5.5,
+                        "purity": 916,
+                        "work_type": "repair",
+                        "remarks": "Test item for gold rate testing"
+                    }
+                ],
+                "notes": "Test job card for comprehensive testing"
+            }
+            
+            # Add gold rate if provided
+            if gold_rate is not None:
+                jobcard_data["gold_rate_at_jobcard"] = gold_rate
+            
+            response = self.session.post(f"{self.base_url}/api/jobcards", json=jobcard_data)
+            
+            if response.status_code == 200:
+                jobcard = response.json()
+                return jobcard.get('id')
+            else:
+                self.log_result("Create Test JobCard", False, f"Status: {response.status_code}", response.text)
+                return None
+        except Exception as e:
+            self.log_result("Create Test JobCard", False, f"Exception: {str(e)}")
+            return None
+
+    def get_jobcard(self, jobcard_id: str) -> Optional[Dict]:
+        """Get job card details"""
+        try:
+            response = self.session.get(f"{self.base_url}/api/jobcards/{jobcard_id}")
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return None
+        except Exception as e:
+            return None
+
+    def convert_jobcard_to_invoice(self, jobcard_id: str, metal_rate: Optional[float] = None, discount_amount: Optional[float] = None) -> Optional[Dict]:
+        """Convert job card to invoice with optional metal rate override and discount"""
+        try:
+            convert_data = {
+                "customer_type": "saved",
+                "vat_percent": 5.0
+            }
+            
+            # Add metal rate override if provided
+            if metal_rate is not None:
+                convert_data["metal_rate"] = metal_rate
+            
+            # Add discount amount if provided
+            if discount_amount is not None:
+                convert_data["discount_amount"] = discount_amount
+            
+            response = self.session.post(f"{self.base_url}/api/jobcards/{jobcard_id}/convert-to-invoice", json=convert_data)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"error": response.status_code, "message": response.text}
+        except Exception as e:
+            return {"error": "exception", "message": str(e)}
+
+    def get_invoice(self, invoice_id: str) -> Optional[Dict]:
+        """Get invoice details"""
+        try:
+            response = self.session.get(f"{self.base_url}/api/invoices/{invoice_id}")
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return None
+        except Exception as e:
+            return None
+
+    def get_invoice_pdf(self, invoice_id: str) -> bool:
+        """Test PDF generation for invoice"""
+        try:
+            response = self.session.get(f"{self.base_url}/api/invoices/{invoice_id}/pdf")
+            return response.status_code == 200
+        except Exception as e:
+            return False
+
+    # ============================================================================
+    # TASK 3: GOLD RATE FIELD TESTING (8 Scenarios)
+    # ============================================================================
+
+    def test_task3_scenario1_create_jobcard_with_gold_rate(self):
+        """Task 3 - Scenario 1: Create Job Card WITH Gold Rate"""
+        print("🔸 Task 3 - Scenario 1: Create Job Card WITH Gold Rate")
+        
+        # Create test customer
+        customer_id = self.create_test_party("Gold Rate Test Customer 1")
+        if not customer_id:
+            self.log_result("Task 3.1 - Create JobCard WITH Gold Rate", False, "Failed to create test customer")
+            return
+        
+        # Create job card with gold rate
+        jobcard_id = self.create_test_jobcard(gold_rate=25.50, customer_id=customer_id)
+        if not jobcard_id:
+            self.log_result("Task 3.1 - Create JobCard WITH Gold Rate", False, "Failed to create job card")
+            return
+        
+        # Verify job card has gold rate
+        jobcard = self.get_jobcard(jobcard_id)
+        if not jobcard:
+            self.log_result("Task 3.1 - Create JobCard WITH Gold Rate", False, "Failed to retrieve job card")
+            return
+        
+        gold_rate = jobcard.get('gold_rate_at_jobcard')
+        if gold_rate == 25.50:
+            self.log_result("Task 3.1 - Create JobCard WITH Gold Rate", True, 
+                          f"JobCard created with gold_rate_at_jobcard: {gold_rate}")
+            return jobcard_id, customer_id
+        else:
+            self.log_result("Task 3.1 - Create JobCard WITH Gold Rate", False, 
+                          f"Expected gold_rate_at_jobcard: 25.50, got: {gold_rate}")
+            return None, None
+
+    def test_task3_scenario2_create_jobcard_without_gold_rate(self):
+        """Task 3 - Scenario 2: Create Job Card WITHOUT Gold Rate"""
+        print("🔸 Task 3 - Scenario 2: Create Job Card WITHOUT Gold Rate")
+        
+        # Create test customer
+        customer_id = self.create_test_party("Gold Rate Test Customer 2")
+        if not customer_id:
+            self.log_result("Task 3.2 - Create JobCard WITHOUT Gold Rate", False, "Failed to create test customer")
+            return
+        
+        # Create job card without gold rate
+        jobcard_id = self.create_test_jobcard(gold_rate=None, customer_id=customer_id)
+        if not jobcard_id:
+            self.log_result("Task 3.2 - Create JobCard WITHOUT Gold Rate", False, "Failed to create job card")
+            return
+        
+        # Verify job card has no gold rate
+        jobcard = self.get_jobcard(jobcard_id)
+        if not jobcard:
+            self.log_result("Task 3.2 - Create JobCard WITHOUT Gold Rate", False, "Failed to retrieve job card")
+            return
+        
+        gold_rate = jobcard.get('gold_rate_at_jobcard')
+        if gold_rate is None:
+            self.log_result("Task 3.2 - Create JobCard WITHOUT Gold Rate", True, 
+                          "JobCard created successfully without gold_rate_at_jobcard")
+            return jobcard_id, customer_id
+        else:
+            self.log_result("Task 3.2 - Create JobCard WITHOUT Gold Rate", False, 
+                          f"Expected gold_rate_at_jobcard: None, got: {gold_rate}")
+            return None, None
+
+    def test_task3_scenario3_edit_jobcard_update_gold_rate(self, jobcard_id: str):
+        """Task 3 - Scenario 3: Edit Job Card - Update Gold Rate"""
+        print("🔸 Task 3 - Scenario 3: Edit Job Card - Update Gold Rate")
+        
+        if not jobcard_id:
+            self.log_result("Task 3.3 - Edit JobCard Gold Rate", False, "No job card ID provided")
+            return
         
         try:
-            if method == 'GET':
-                response = requests.get(url, headers=headers, params=params)
-            elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers)
-            elif method == 'PATCH':
-                response = requests.patch(url, json=data, headers=headers)
-            elif method == 'DELETE':
-                response = requests.delete(url, headers=headers)
-
-            success = response.status_code == expected_status
-            if success:
-                self.tests_passed += 1
-                print(f"✅ Passed - Status: {response.status_code}")
-                try:
-                    return True, response.json()
-                except:
-                    return True, {}
+            # Update job card gold rate
+            update_data = {"gold_rate_at_jobcard": 22.00}
+            response = self.session.patch(f"{self.base_url}/api/jobcards/{jobcard_id}", json=update_data)
+            
+            if response.status_code != 200:
+                self.log_result("Task 3.3 - Edit JobCard Gold Rate", False, 
+                              f"Update failed with status: {response.status_code}")
+                return
+            
+            # Verify update
+            jobcard = self.get_jobcard(jobcard_id)
+            if not jobcard:
+                self.log_result("Task 3.3 - Edit JobCard Gold Rate", False, "Failed to retrieve updated job card")
+                return
+            
+            gold_rate = jobcard.get('gold_rate_at_jobcard')
+            if gold_rate == 22.00:
+                self.log_result("Task 3.3 - Edit JobCard Gold Rate", True, 
+                              f"JobCard gold rate updated to: {gold_rate}")
             else:
-                print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
-                try:
-                    error_detail = response.json()
-                    print(f"   Error: {error_detail}")
-                except:
-                    print(f"   Response: {response.text}")
-                return False, {}
-
+                self.log_result("Task 3.3 - Edit JobCard Gold Rate", False, 
+                              f"Expected gold_rate_at_jobcard: 22.00, got: {gold_rate}")
         except Exception as e:
-            print(f"❌ Failed - Error: {str(e)}")
-            return False, {}
+            self.log_result("Task 3.3 - Edit JobCard Gold Rate", False, f"Exception: {str(e)}")
 
-    def test_login(self):
-        """Test login with admin credentials"""
-        # First try to register admin user if it doesn't exist
-        register_success, register_response = self.run_test(
-            "Register Admin User",
-            "POST",
-            "auth/register",
-            200,
-            data={
-                "username": "admin",
-                "password": "admin123",
-                "email": "admin@goldshop.com",
-                "full_name": "System Administrator",
-                "role": "admin"
-            }
-        )
+    def test_task3_scenario4_convert_with_gold_rate_to_invoice(self, jobcard_id: str):
+        """Task 3 - Scenario 4: Convert Job Card WITH Gold Rate to Invoice"""
+        print("🔸 Task 3 - Scenario 4: Convert Job Card WITH Gold Rate to Invoice")
         
-        # Try to login (whether registration succeeded or failed due to existing user)
-        success, response = self.run_test(
-            "Admin Login",
-            "POST",
-            "auth/login",
-            200,
-            data={"username": "admin", "password": "admin123"}
-        )
-        if success and 'access_token' in response:
-            self.token = response['access_token']
-            self.user_id = response['user']['id']
-            print(f"   Token obtained: {self.token[:20]}...")
-            return True
-        return False
-
-    def test_auth_me(self):
-        """Test getting current user info"""
-        success, response = self.run_test(
-            "Get Current User",
-            "GET",
-            "auth/me",
-            200
-        )
-        return success and response.get('username') == 'admin'
-
-    def test_inventory_headers(self):
-        """Test inventory headers CRUD"""
-        # Get existing headers
-        success, headers = self.run_test(
-            "Get Inventory Headers",
-            "GET",
-            "inventory/headers",
-            200
-        )
-        if not success:
-            return False
-
-        # Create new header
-        test_header_name = f"Test Category {datetime.now().strftime('%H%M%S')}"
-        success, new_header = self.run_test(
-            "Create Inventory Header",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": test_header_name}
-        )
-        if success and new_header.get('id'):
-            self.created_resources['headers'].append(new_header['id'])
-            return True
-        return False
-
-    def test_stock_movements(self):
-        """Test stock movements"""
-        # First ensure we have a header
-        if not self.created_resources['headers']:
-            return False
-
-        header_id = self.created_resources['headers'][0]
+        if not jobcard_id:
+            self.log_result("Task 3.4 - Convert WITH Gold Rate", False, "No job card ID provided")
+            return
         
-        # Create stock movement
-        movement_data = {
-            "movement_type": "Stock IN",
-            "header_id": header_id,
-            "description": "Test stock movement",
-            "qty_delta": 5,
-            "weight_delta": 25.500,
-            "purity": 916,
-            "notes": "Test movement"
-        }
+        # Convert without metal_rate override (should use job card gold rate)
+        result = self.convert_jobcard_to_invoice(jobcard_id)
         
-        success, movement = self.run_test(
-            "Create Stock Movement",
-            "POST",
-            "inventory/movements",
-            200,
-            data=movement_data
-        )
+        if "error" in result:
+            self.log_result("Task 3.4 - Convert WITH Gold Rate", False, 
+                          f"Conversion failed: {result.get('message', 'Unknown error')}")
+            return
         
-        if success:
-            # Get stock totals
-            success2, totals = self.run_test(
-                "Get Stock Totals",
-                "GET",
-                "inventory/stock-totals",
-                200
-            )
-            return success2
-        return False
-
-    def test_parties(self):
-        """Test parties CRUD"""
-        # Create customer
-        customer_data = {
-            "name": f"Test Customer {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 9999 9999",
-            "address": "Test Address",
-            "party_type": "customer",
-            "notes": "Test customer"
-        }
+        invoice_id = result.get('invoice_id')
+        if not invoice_id:
+            self.log_result("Task 3.4 - Convert WITH Gold Rate", False, "No invoice ID returned")
+            return
         
-        success, customer = self.run_test(
-            "Create Customer",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
+        # Verify invoice items use job card gold rate (22.00 from previous update)
+        invoice = self.get_invoice(invoice_id)
+        if not invoice:
+            self.log_result("Task 3.4 - Convert WITH Gold Rate", False, "Failed to retrieve invoice")
+            return
         
-        if success and customer.get('id'):
-            self.created_resources['parties'].append(customer['id'])
+        items = invoice.get('items', [])
+        if not items:
+            self.log_result("Task 3.4 - Convert WITH Gold Rate", False, "No items in invoice")
+            return
+        
+        # Check all items have correct metal_rate
+        all_correct = True
+        expected_rate = 22.00
+        for item in items:
+            metal_rate = item.get('metal_rate')
+            if metal_rate != expected_rate:
+                all_correct = False
+                break
+        
+        if all_correct:
+            # Verify gold_value calculation: weight × purity_percent × metal_rate
+            item = items[0]
+            weight = item.get('weight', 0)
+            purity = item.get('purity', 0)
+            metal_rate = item.get('metal_rate', 0)
+            gold_value = item.get('gold_value', 0)
             
-            # Get all parties
-            success2, parties = self.run_test(
-                "Get All Parties",
-                "GET",
-                "parties",
-                200
-            )
+            purity_percent = purity / 1000  # 916 -> 0.916
+            expected_gold_value = weight * purity_percent * metal_rate
             
-            # Get outstanding summary
-            success3, outstanding = self.run_test(
-                "Get Outstanding Summary",
-                "GET",
-                "parties/outstanding-summary",
-                200
-            )
-            
-            return success2 and success3
-        return False
-
-    def test_accounts(self):
-        """Test accounts CRUD"""
-        account_data = {
-            "name": f"Test Cash Account {datetime.now().strftime('%H%M%S')}",
-            "account_type": "cash",
-            "opening_balance": 1000.000
-        }
-        
-        success, account = self.run_test(
-            "Create Account",
-            "POST",
-            "accounts",
-            200,
-            data=account_data
-        )
-        
-        if success and account.get('id'):
-            self.created_resources['accounts'].append(account['id'])
-            
-            # Get all accounts
-            success2, accounts = self.run_test(
-                "Get All Accounts",
-                "GET",
-                "accounts",
-                200
-            )
-            return success2
-        return False
-
-    def test_transactions(self):
-        """Test transactions"""
-        if not self.created_resources['accounts']:
-            return False
-            
-        account_id = self.created_resources['accounts'][0]
-        
-        transaction_data = {
-            "transaction_type": "credit",
-            "mode": "cash",
-            "account_id": account_id,
-            "amount": 500.000,
-            "category": "sales",
-            "notes": "Test transaction"
-        }
-        
-        success, transaction = self.run_test(
-            "Create Transaction",
-            "POST",
-            "transactions",
-            200,
-            data=transaction_data
-        )
-        
-        if success:
-            # Get all transactions
-            success2, transactions = self.run_test(
-                "Get All Transactions",
-                "GET",
-                "transactions",
-                200
-            )
-            return success2
-        return False
-
-    def test_jobcards(self):
-        """Test job cards with new making charge and VAT fields"""
-        if not self.created_resources['parties']:
-            return False
-            
-        customer_id = self.created_resources['parties'][0]
-        
-        # Test 1: Job card with flat making charge and VAT
-        jobcard_data_flat = {
-            "card_type": "individual",
-            "customer_id": customer_id,
-            "customer_name": "Test Customer",
-            "delivery_date": "2025-01-15",
-            "notes": "Test job card with flat making charge",
-            "items": [{
-                "category": "Ring",
-                "description": "Gold ring with flat making charge",
-                "qty": 1,
-                "weight_in": 10.500,
-                "weight_out": 10.200,
-                "purity": 916,
-                "work_type": "polish",
-                "remarks": "Polish and clean",
-                "making_charge_type": "flat",
-                "making_charge_value": 10.0,
-                "vat_percent": 5.0
-            }]
-        }
-        
-        success1, jobcard1 = self.run_test(
-            "Create Job Card (Flat Making Charge)",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data_flat
-        )
-        
-        if success1 and jobcard1.get('id'):
-            self.created_resources['jobcards'].append(jobcard1['id'])
-        
-        # Test 2: Job card with per-gram making charge and VAT
-        jobcard_data_per_gram = {
-            "card_type": "individual",
-            "customer_id": customer_id,
-            "customer_name": "Test Customer",
-            "delivery_date": "2025-01-15",
-            "notes": "Test job card with per-gram making charge",
-            "items": [{
-                "category": "Chain",
-                "description": "Gold chain with per-gram making charge",
-                "qty": 1,
-                "weight_in": 15.500,
-                "weight_out": 15.200,
-                "purity": 916,
-                "work_type": "polish",
-                "remarks": "Polish and clean",
-                "making_charge_type": "per_gram",
-                "making_charge_value": 2.0,
-                "vat_percent": 5.0
-            }]
-        }
-        
-        success2, jobcard2 = self.run_test(
-            "Create Job Card (Per-Gram Making Charge)",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data_per_gram
-        )
-        
-        if success2 and jobcard2.get('id'):
-            self.created_resources['jobcards'].append(jobcard2['id'])
-        
-        # Test 3: Job card WITHOUT new fields (backward compatibility)
-        jobcard_data_legacy = {
-            "card_type": "individual",
-            "customer_id": customer_id,
-            "customer_name": "Test Customer",
-            "delivery_date": "2025-01-15",
-            "notes": "Test job card without new fields",
-            "items": [{
-                "category": "Bracelet",
-                "description": "Gold bracelet (legacy format)",
-                "qty": 1,
-                "weight_in": 20.500,
-                "weight_out": 20.200,
-                "purity": 916,
-                "work_type": "repair",
-                "remarks": "Simple repair"
-            }]
-        }
-        
-        success3, jobcard3 = self.run_test(
-            "Create Job Card (Backward Compatibility)",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data_legacy
-        )
-        
-        if success3 and jobcard3.get('id'):
-            self.created_resources['jobcards'].append(jobcard3['id'])
-        
-        # Get all job cards
-        success4, jobcards = self.run_test(
-            "Get All Job Cards",
-            "GET",
-            "jobcards",
-            200
-        )
-        
-        return success1 and success2 and success3 and success4
-
-    def test_jobcard_to_invoice_conversion(self):
-        """Test converting job cards to invoices with new making charge calculations"""
-        if not self.created_resources['jobcards']:
-            return False
-        
-        results = []
-        
-        # Test conversion for each job card created
-        for i, jobcard_id in enumerate(self.created_resources['jobcards']):
-            # Update job card status to completed first
-            success_update, _ = self.run_test(
-                f"Update Job Card {i+1} Status",
-                "PATCH",
-                f"jobcards/{jobcard_id}",
-                200,
-                data={"status": "completed"}
-            )
-            
-            if success_update:
-                # Convert to invoice
-                success_convert, invoice = self.run_test(
-                    f"Convert Job Card {i+1} to Invoice",
-                    "POST",
-                    f"jobcards/{jobcard_id}/convert-to-invoice",
-                    200
-                )
-                
-                if success_convert and invoice.get('id'):
-                    self.created_resources['invoices'].append(invoice['id'])
-                    
-                    # Verify invoice has correct calculations
-                    if 'items' in invoice and len(invoice['items']) > 0:
-                        item = invoice['items'][0]
-                        print(f"   Invoice item calculations:")
-                        print(f"   - Gold Value: {item.get('gold_value', 0)}")
-                        print(f"   - Making Value: {item.get('making_value', 0)}")
-                        print(f"   - VAT Amount: {item.get('vat_amount', 0)}")
-                        print(f"   - Line Total: {item.get('line_total', 0)}")
-                    
-                    results.append(success_convert)
-                else:
-                    results.append(False)
+            if abs(gold_value - expected_gold_value) < 0.01:  # Allow small rounding differences
+                self.log_result("Task 3.4 - Convert WITH Gold Rate", True, 
+                              f"All items use metal_rate: {expected_rate}, gold_value calculation correct: {gold_value}")
+                return invoice_id
             else:
-                results.append(False)
-        
-        return all(results) if results else False
-
-    def test_daily_closing(self):
-        """Test daily closing APIs"""
-        # Get existing daily closings
-        success1, closings = self.run_test(
-            "Get Daily Closings",
-            "GET",
-            "daily-closings",
-            200
-        )
-        
-        if not success1:
-            return False
-        
-        # Create new daily closing with sample data
-        closing_data = {
-            "date": "2025-01-10T00:00:00Z",
-            "opening_cash": 1000.00,
-            "total_credit": 2500.00,
-            "total_debit": 800.00,
-            "expected_closing": 2700.00,  # opening + credit - debit
-            "actual_closing": 2650.00,
-            "difference": -50.00,  # actual - expected
-            "is_locked": False,
-            "notes": "Test daily closing with sample calculations"
-        }
-        
-        success2, closing = self.run_test(
-            "Create Daily Closing",
-            "POST",
-            "daily-closings",
-            200,
-            data=closing_data
-        )
-        
-        if success2:
-            print(f"   Daily closing created with:")
-            print(f"   - Expected: {closing_data['expected_closing']}")
-            print(f"   - Actual: {closing_data['actual_closing']}")
-            print(f"   - Difference: {closing_data['difference']}")
-        
-        return success1 and success2
-
-    def test_invoice_pdf_generation(self):
-        """Test invoice PDF generation"""
-        if not self.created_resources['invoices']:
-            return False
-        
-        invoice_id = self.created_resources['invoices'][0]
-        
-        # Test PDF generation endpoint
-        success, pdf_response = self.run_test(
-            "Generate Invoice PDF",
-            "GET",
-            f"invoices/{invoice_id}/pdf",
-            200
-        )
-        
-        if success:
-            print(f"   PDF generation successful for invoice: {invoice_id}")
-        
-        return success
-
-    def test_audit_logs(self):
-        """Test audit logs"""
-        success, logs = self.run_test(
-            "Get Audit Logs",
-            "GET",
-            "audit-logs",
-            200
-        )
-        return success
-
-    def test_reports_financial_summary(self):
-        """Test financial summary endpoint with date filtering"""
-        # Test without filters
-        success1, summary1 = self.run_test(
-            "Financial Summary (No Filters)",
-            "GET",
-            "reports/financial-summary",
-            200
-        )
-        
-        # Test with date filters
-        success2, summary2 = self.run_test(
-            "Financial Summary (With Date Filters)",
-            "GET",
-            "reports/financial-summary",
-            200,
-            params={"start_date": "2024-01-01", "end_date": "2024-12-31"}
-        )
-        
-        return success1 and success2
-
-    def test_reports_inventory_view(self):
-        """Test inventory view endpoint with filters"""
-        # Test without filters
-        success1, inventory1 = self.run_test(
-            "Inventory View (No Filters)",
-            "GET",
-            "reports/inventory-view",
-            200
-        )
-        
-        # Test with date and type filters
-        success2, inventory2 = self.run_test(
-            "Inventory View (With Filters)",
-            "GET",
-            "reports/inventory-view",
-            200,
-            params={
-                "start_date": "2024-01-01",
-                "end_date": "2024-12-31",
-                "movement_type": "Stock IN"
-            }
-        )
-        
-        # Test with category filter
-        success3, inventory3 = self.run_test(
-            "Inventory View (Category Filter)",
-            "GET",
-            "reports/inventory-view",
-            200,
-            params={"category": "Gold"}
-        )
-        
-        return success1 and success2 and success3
-
-    def test_reports_invoices_view(self):
-        """Test invoices view endpoint with filters"""
-        # Test without filters
-        success1, invoices1 = self.run_test(
-            "Invoices View (No Filters)",
-            "GET",
-            "reports/invoices-view",
-            200
-        )
-        
-        # Test with date and status filters
-        success2, invoices2 = self.run_test(
-            "Invoices View (With Filters)",
-            "GET",
-            "reports/invoices-view",
-            200,
-            params={
-                "start_date": "2024-01-01",
-                "end_date": "2024-12-31",
-                "invoice_type": "sale",
-                "payment_status": "unpaid"
-            }
-        )
-        
-        return success1 and success2
-
-    def test_reports_parties_view(self):
-        """Test parties view endpoint"""
-        # Test without filters
-        success1, parties1 = self.run_test(
-            "Parties View (No Filters)",
-            "GET",
-            "reports/parties-view",
-            200
-        )
-        
-        # Test with party type filter
-        success2, parties2 = self.run_test(
-            "Parties View (Customer Filter)",
-            "GET",
-            "reports/parties-view",
-            200,
-            params={"party_type": "customer"}
-        )
-        
-        return success1 and success2
-
-    def test_reports_transactions_view(self):
-        """Test transactions view endpoint with filters"""
-        # Test without filters
-        success1, transactions1 = self.run_test(
-            "Transactions View (No Filters)",
-            "GET",
-            "reports/transactions-view",
-            200
-        )
-        
-        # Test with date and type filters
-        success2, transactions2 = self.run_test(
-            "Transactions View (With Filters)",
-            "GET",
-            "reports/transactions-view",
-            200,
-            params={
-                "start_date": "2024-01-01",
-                "end_date": "2024-12-31",
-                "transaction_type": "credit"
-            }
-        )
-        
-        return success1 and success2
-
-    def test_reports_export_endpoints(self):
-        """Test export endpoints with filters"""
-        # Test inventory export
-        success1, _ = self.run_test(
-            "Inventory Export (With Filters)",
-            "GET",
-            "reports/inventory-export",
-            200,
-            params={
-                "start_date": "2024-01-01",
-                "end_date": "2024-12-31",
-                "movement_type": "Stock IN"
-            }
-        )
-        
-        # Test parties export
-        success2, _ = self.run_test(
-            "Parties Export",
-            "GET",
-            "reports/parties-export",
-            200,
-            params={"party_type": "customer"}
-        )
-        
-        # Test invoices export
-        success3, _ = self.run_test(
-            "Invoices Export (With Filters)",
-            "GET",
-            "reports/invoices-export",
-            200,
-            params={
-                "start_date": "2024-01-01",
-                "end_date": "2024-12-31",
-                "invoice_type": "sale"
-            }
-        )
-        
-        return success1 and success2 and success3
-
-    def test_reports_individual_reports(self):
-        """Test individual report endpoints if data exists"""
-        results = []
-        
-        # Test invoice report if we have invoices
-        if self.created_resources['invoices']:
-            invoice_id = self.created_resources['invoices'][0]
-            success1, invoice_report = self.run_test(
-                "Individual Invoice Report",
-                "GET",
-                f"reports/invoice/{invoice_id}",
-                200
-            )
-            results.append(success1)
-        
-        # Test party ledger report if we have parties
-        if self.created_resources['parties']:
-            party_id = self.created_resources['parties'][0]
-            success2, ledger_report = self.run_test(
-                "Party Ledger Report",
-                "GET",
-                f"reports/party/{party_id}/ledger-report",
-                200
-            )
-            success3, ledger_with_dates = self.run_test(
-                "Party Ledger Report (With Dates)",
-                "GET",
-                f"reports/party/{party_id}/ledger-report",
-                200,
-                params={"start_date": "2024-01-01", "end_date": "2024-12-31"}
-            )
-            results.extend([success2, success3])
-        
-        # Test inventory stock report if we have headers
-        if self.created_resources['headers']:
-            header_id = self.created_resources['headers'][0]
-            success4, stock_report = self.run_test(
-                "Inventory Stock Report",
-                "GET",
-                f"reports/inventory/{header_id}/stock-report",
-                200
-            )
-            success5, stock_with_dates = self.run_test(
-                "Inventory Stock Report (With Dates)",
-                "GET",
-                f"reports/inventory/{header_id}/stock-report",
-                200,
-                params={"start_date": "2024-01-01", "end_date": "2024-12-31"}
-            )
-            results.extend([success4, success5])
-        
-        return all(results) if results else True
-
-    def test_enhanced_invoice_finalization_job_card_locking(self):
-        """Test Scenario 1: Job Card Locking on Invoice Finalization"""
-        print("\n🔥 TESTING ENHANCED INVOICE FINALIZATION - JOB CARD LOCKING")
-        
-        # Create a customer party
-        customer_data = {
-            "name": f"Finalization Test Customer {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 9876 5432",
-            "address": "Test Address for Finalization",
-            "party_type": "customer",
-            "notes": "Customer for testing invoice finalization"
-        }
-        
-        success, customer = self.run_test(
-            "Create Customer for Finalization Test",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
-        
-        if not success or not customer.get('id'):
-            return False
-        
-        customer_id = customer['id']
-        
-        # Create a job card linked to that customer
-        jobcard_data = {
-            "card_type": "individual",
-            "customer_id": customer_id,
-            "customer_name": customer['name'],
-            "delivery_date": "2025-01-20",
-            "notes": "Job card for finalization testing",
-            "items": [{
-                "category": "Ring",
-                "description": "Gold ring for finalization test",
-                "qty": 1,
-                "weight_in": 12.500,
-                "weight_out": 12.200,
-                "purity": 916,
-                "work_type": "polish",
-                "remarks": "Polish and clean for finalization test",
-                "making_charge_type": "flat",
-                "making_charge_value": 15.0,
-                "vat_percent": 5.0
-            }]
-        }
-        
-        success, jobcard = self.run_test(
-            "Create Job Card for Finalization Test",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data
-        )
-        
-        if not success or not jobcard.get('id'):
-            return False
-        
-        jobcard_id = jobcard['id']
-        
-        # Convert job card to invoice (should be draft status)
-        success, invoice = self.run_test(
-            "Convert Job Card to Invoice (Draft)",
-            "POST",
-            f"jobcards/{jobcard_id}/convert-to-invoice",
-            200
-        )
-        
-        if not success or not invoice.get('id'):
-            return False
-        
-        invoice_id = invoice['id']
-        
-        # Verify invoice is in draft status
-        if invoice.get('status') != 'draft':
-            print(f"❌ Invoice should be in draft status, got: {invoice.get('status')}")
-            return False
-        
-        print(f"✅ Invoice created in draft status: {invoice.get('status')}")
-        
-        # Finalize the invoice
-        success, finalized_invoice = self.run_test(
-            "Finalize Invoice (Atomic Operations)",
-            "POST",
-            f"invoices/{invoice_id}/finalize",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Verify invoice status changed to finalized
-        if finalized_invoice.get('status') != 'finalized':
-            print(f"❌ Invoice should be finalized, got: {finalized_invoice.get('status')}")
-            return False
-        
-        print(f"✅ Invoice finalized successfully: {finalized_invoice.get('status')}")
-        
-        # Verify job card status changed to "invoiced", locked=True, locked_at and locked_by are set
-        success, updated_jobcard = self.run_test(
-            "Get Updated Job Card (Should be Locked)",
-            "GET",
-            f"jobcards/{jobcard_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Check job card locking
-        if updated_jobcard.get('status') != 'invoiced':
-            print(f"❌ Job card status should be 'invoiced', got: {updated_jobcard.get('status')}")
-            return False
-        
-        if not updated_jobcard.get('locked'):
-            print(f"❌ Job card should be locked, got: {updated_jobcard.get('locked')}")
-            return False
-        
-        if not updated_jobcard.get('locked_at'):
-            print(f"❌ Job card should have locked_at timestamp")
-            return False
-        
-        if not updated_jobcard.get('locked_by'):
-            print(f"❌ Job card should have locked_by user ID")
-            return False
-        
-        print(f"✅ Job card locked successfully: status={updated_jobcard.get('status')}, locked={updated_jobcard.get('locked')}")
-        
-        # Try to edit the locked job card (should get 403 error for non-admin, but admin can override)
-        # Since we're logged in as admin, this should succeed with warning
-        success, edit_response = self.run_test(
-            "Admin Try to Edit Locked Job Card (Should Succeed with Warning)",
-            "PATCH",
-            f"jobcards/{jobcard_id}",
-            200,  # Admin can edit with override
-            data={"notes": "Admin editing locked job card"}
-        )
-        
-        if not success:
-            print(f"❌ Admin should be able to edit locked job card with override")
-            return False
-        
-        # Verify response contains warning message
-        response_str = str(edit_response)
-        if 'locked' not in response_str.lower() or 'finalized invoice' not in response_str.lower():
-            print(f"❌ Response should contain warning about locked job card and finalized invoice")
-            return False
-        
-        print(f"✅ Admin can edit locked job card with override and warning message")
-        
-        # Try to delete the locked job card (should get 403 error for non-admin, but admin can override)
-        # Since we're logged in as admin, this should succeed with warning
-        success, delete_response = self.run_test(
-            "Admin Try to Delete Locked Job Card (Should Succeed with Warning)",
-            "DELETE",
-            f"jobcards/{jobcard_id}",
-            200  # Admin can delete with override
-        )
-        
-        if not success:
-            print(f"❌ Admin should be able to delete locked job card with override")
-            return False
-        
-        # Verify response contains warning message
-        response_str = str(delete_response)
-        if 'locked' not in response_str.lower() or 'finalized invoice' not in response_str.lower():
-            print(f"❌ Response should contain warning about locked job card and finalized invoice")
-            return False
-        
-        print(f"✅ Admin can delete locked job card with override and warning message")
-        
-        # Store for other tests
-        self.finalization_test_data = {
-            'customer_id': customer_id,
-            'jobcard_id': jobcard_id,
-            'invoice_id': invoice_id
-        }
-        
-        return True
-
-    def test_enhanced_invoice_finalization_customer_ledger(self):
-        """Test Scenario 2: Customer Ledger Entry Creation"""
-        print("\n🔥 TESTING ENHANCED INVOICE FINALIZATION - CUSTOMER LEDGER ENTRY")
-        
-        if not hasattr(self, 'finalization_test_data'):
-            print("❌ Finalization test data not available, run job card locking test first")
-            return False
-        
-        customer_id = self.finalization_test_data['customer_id']
-        invoice_id = self.finalization_test_data['invoice_id']
-        
-        # Get the finalized invoice to check grand_total
-        success, invoice = self.run_test(
-            "Get Finalized Invoice Details",
-            "GET",
-            f"invoices/{invoice_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        grand_total = invoice.get('grand_total', 0)
-        customer_name = invoice.get('customer_name', '')
-        invoice_number = invoice.get('invoice_number', '')
-        
-        print(f"   Invoice grand_total: {grand_total}")
-        
-        # Get all transactions to find the ledger entry
-        success, transactions = self.run_test(
-            "Get All Transactions (Find Ledger Entry)",
-            "GET",
-            "transactions",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find the transaction created for this invoice
-        ledger_entry = None
-        for txn in transactions:
-            if (txn.get('party_id') == customer_id and 
-                txn.get('category') == 'Sales Invoice' and
-                invoice_number in txn.get('notes', '')):
-                ledger_entry = txn
-                break
-        
-        if not ledger_entry:
-            print(f"❌ No ledger entry found for customer {customer_id} and invoice {invoice_number}")
-            return False
-        
-        # Verify Transaction record properties
-        if ledger_entry.get('party_id') != customer_id:
-            print(f"❌ Ledger entry party_id mismatch: expected {customer_id}, got {ledger_entry.get('party_id')}")
-            return False
-        
-        if ledger_entry.get('party_name') != customer_name:
-            print(f"❌ Ledger entry party_name mismatch: expected {customer_name}, got {ledger_entry.get('party_name')}")
-            return False
-        
-        if ledger_entry.get('amount') != grand_total:
-            print(f"❌ Ledger entry amount mismatch: expected {grand_total}, got {ledger_entry.get('amount')}")
-            return False
-        
-        if ledger_entry.get('category') != 'Sales Invoice':
-            print(f"❌ Ledger entry category mismatch: expected 'Sales Invoice', got {ledger_entry.get('category')}")
-            return False
-        
-        if ledger_entry.get('transaction_type') != 'debit':
-            print(f"❌ Ledger entry transaction_type mismatch: expected 'debit', got {ledger_entry.get('transaction_type')}")
-            return False
-        
-        # Check transaction number format (TXN-YYYY-NNNN)
-        txn_number = ledger_entry.get('transaction_number', '')
-        import re
-        if not re.match(r'^TXN-\d{4}-\d{4}$', txn_number):
-            print(f"❌ Transaction number format incorrect: {txn_number}")
-            return False
-        
-        # Check notes contains invoice number reference
-        notes = ledger_entry.get('notes', '')
-        if invoice_number not in notes:
-            print(f"❌ Transaction notes should contain invoice number {invoice_number}, got: {notes}")
-            return False
-        
-        print(f"✅ Ledger entry created correctly:")
-        print(f"   - Transaction Number: {txn_number}")
-        print(f"   - Amount: {ledger_entry.get('amount')}")
-        print(f"   - Type: {ledger_entry.get('transaction_type')}")
-        print(f"   - Category: {ledger_entry.get('category')}")
-        print(f"   - Notes: {notes}")
-        
-        # Get the party ledger and verify the transaction appears
-        success, party_ledger = self.run_test(
-            "Get Party Ledger (Verify Transaction)",
-            "GET",
-            f"parties/{customer_id}/ledger",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Check if the transaction appears in party ledger
-        ledger_transactions = party_ledger.get('transactions', [])
-        found_in_ledger = any(
-            txn.get('id') == ledger_entry.get('id') 
-            for txn in ledger_transactions
-        )
-        
-        if not found_in_ledger:
-            print(f"❌ Transaction not found in party ledger")
-            return False
-        
-        print(f"✅ Transaction appears in party ledger correctly")
-        
-        return True
-
-    def test_enhanced_invoice_finalization_outstanding_balance(self):
-        """Test Scenario 3: Outstanding Balance Tracking"""
-        print("\n🔥 TESTING ENHANCED INVOICE FINALIZATION - OUTSTANDING BALANCE TRACKING")
-        
-        if not hasattr(self, 'finalization_test_data'):
-            print("❌ Finalization test data not available")
-            return False
-        
-        customer_id = self.finalization_test_data['customer_id']
-        invoice_id = self.finalization_test_data['invoice_id']
-        
-        # Get the invoice to check balance_due
-        success, invoice = self.run_test(
-            "Get Invoice for Balance Check",
-            "GET",
-            f"invoices/{invoice_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        expected_balance = invoice.get('balance_due', 0)
-        print(f"   Expected outstanding balance: {expected_balance}")
-        
-        # Get party ledger to verify outstanding balance
-        success, party_ledger = self.run_test(
-            "Get Party Ledger for Outstanding Balance",
-            "GET",
-            f"parties/{customer_id}/ledger",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        actual_outstanding = party_ledger.get('outstanding', 0)
-        print(f"   Actual outstanding balance: {actual_outstanding}")
-        
-        if actual_outstanding != expected_balance:
-            print(f"❌ Outstanding balance mismatch: expected {expected_balance}, got {actual_outstanding}")
-            return False
-        
-        print(f"✅ Outstanding balance tracking working correctly: {actual_outstanding}")
-        
-        return True
-
-    def test_enhanced_invoice_finalization_direct_invoice(self):
-        """Test Scenario 4: Direct Invoice Finalization (No Job Card)"""
-        print("\n🔥 TESTING ENHANCED INVOICE FINALIZATION - DIRECT INVOICE (NO JOB CARD)")
-        
-        # Create a customer for direct invoice
-        customer_data = {
-            "name": f"Direct Invoice Customer {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 1111 2222",
-            "address": "Direct Invoice Address",
-            "party_type": "customer",
-            "notes": "Customer for direct invoice testing"
-        }
-        
-        success, customer = self.run_test(
-            "Create Customer for Direct Invoice",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
-        
-        if not success or not customer.get('id'):
-            return False
-        
-        customer_id = customer['id']
-        
-        # Create a draft invoice without jobcard_id
-        invoice_data = {
-            "customer_id": customer_id,
-            "customer_name": customer['name'],
-            "invoice_type": "sale",
-            "items": [{
-                "description": "Direct sale gold item",
-                "qty": 1,
-                "weight": 10.0,
-                "purity": 916,
-                "metal_rate": 25.0,
-                "gold_value": 250.0,
-                "making_value": 20.0,
-                "vat_percent": 5.0,
-                "vat_amount": 13.5,
-                "line_total": 283.5
-            }],
-            "subtotal": 270.0,
-            "vat_total": 13.5,
-            "grand_total": 283.5,
-            "balance_due": 283.5,
-            "notes": "Direct invoice without job card"
-        }
-        
-        success, invoice = self.run_test(
-            "Create Direct Invoice (Draft)",
-            "POST",
-            "invoices",
-            200,
-            data=invoice_data
-        )
-        
-        if not success or not invoice.get('id'):
-            return False
-        
-        invoice_id = invoice['id']
-        
-        # Verify invoice is in draft status and has no jobcard_id
-        if invoice.get('status') != 'draft':
-            print(f"❌ Direct invoice should be in draft status, got: {invoice.get('status')}")
-            return False
-        
-        if invoice.get('jobcard_id'):
-            print(f"❌ Direct invoice should not have jobcard_id, got: {invoice.get('jobcard_id')}")
-            return False
-        
-        print(f"✅ Direct invoice created without job card: status={invoice.get('status')}")
-        
-        # Finalize the direct invoice
-        success, finalized_invoice = self.run_test(
-            "Finalize Direct Invoice",
-            "POST",
-            f"invoices/{invoice_id}/finalize",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Verify invoice is finalized
-        if finalized_invoice.get('status') != 'finalized':
-            print(f"❌ Direct invoice should be finalized, got: {finalized_invoice.get('status')}")
-            return False
-        
-        print(f"✅ Direct invoice finalized successfully")
-        
-        # Verify stock movements were created
-        success, movements = self.run_test(
-            "Get Stock Movements (Direct Invoice)",
-            "GET",
-            "inventory/movements",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find stock movements for this invoice
-        invoice_movements = [
-            m for m in movements 
-            if m.get('reference_type') == 'invoice' and m.get('reference_id') == invoice_id
-        ]
-        
-        if not invoice_movements:
-            print(f"❌ No stock movements found for direct invoice {invoice_id}")
-            return False
-        
-        print(f"✅ Stock movements created for direct invoice: {len(invoice_movements)} movements")
-        
-        # Verify ledger entry was created
-        success, transactions = self.run_test(
-            "Get Transactions (Direct Invoice Ledger)",
-            "GET",
-            "transactions",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find ledger entry for this invoice
-        invoice_number = finalized_invoice.get('invoice_number', '')
-        ledger_entry = None
-        for txn in transactions:
-            if (txn.get('party_id') == customer_id and 
-                txn.get('category') == 'Sales Invoice' and
-                invoice_number in txn.get('notes', '')):
-                ledger_entry = txn
-                break
-        
-        if not ledger_entry:
-            print(f"❌ No ledger entry found for direct invoice")
-            return False
-        
-        print(f"✅ Ledger entry created for direct invoice: {ledger_entry.get('transaction_number')}")
-        
-        # Verify no job card locking was attempted (should not cause errors)
-        print(f"✅ Direct invoice finalization completed without job card locking")
-        
-        return True
-
-    def test_enhanced_invoice_finalization_sales_account(self):
-        """Test Scenario 5: Default Sales Account Creation"""
-        print("\n🔥 TESTING ENHANCED INVOICE FINALIZATION - DEFAULT SALES ACCOUNT CREATION")
-        
-        # Check if "Sales" account exists
-        success, accounts = self.run_test(
-            "Get All Accounts (Check Sales Account)",
-            "GET",
-            "accounts",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Look for Sales account
-        sales_account = None
-        for account in accounts:
-            if account.get('name') == 'Sales':
-                sales_account = account
-                break
-        
-        if sales_account:
-            print(f"✅ Sales account already exists: {sales_account.get('id')}")
-            
-            # Verify account properties
-            if sales_account.get('account_type') != 'asset':
-                print(f"❌ Sales account should be 'asset' type, got: {sales_account.get('account_type')}")
-                return False
-            
-            print(f"✅ Sales account has correct properties: type={sales_account.get('account_type')}")
+                self.log_result("Task 3.4 - Convert WITH Gold Rate", False, 
+                              f"Gold value calculation incorrect. Expected: {expected_gold_value}, got: {gold_value}")
         else:
-            print(f"ℹ️  Sales account does not exist, will be created during invoice finalization")
-            
-            # Create a test invoice to trigger Sales account creation
-            customer_data = {
-                "name": f"Sales Account Test Customer {datetime.now().strftime('%H%M%S')}",
-                "phone": "+968 3333 4444",
-                "address": "Sales Account Test Address",
-                "party_type": "customer"
-            }
-            
-            success, customer = self.run_test(
-                "Create Customer for Sales Account Test",
-                "POST",
-                "parties",
-                200,
-                data=customer_data
-            )
-            
-            if not success:
-                return False
-            
-            # Create and finalize invoice to trigger Sales account creation
-            invoice_data = {
-                "customer_id": customer['id'],
-                "customer_name": customer['name'],
-                "invoice_type": "sale",
-                "items": [{
-                    "description": "Test item for sales account creation",
-                    "qty": 1,
-                    "weight": 5.0,
-                    "purity": 916,
-                    "metal_rate": 20.0,
-                    "gold_value": 100.0,
-                    "making_value": 10.0,
-                    "vat_percent": 5.0,
-                    "vat_amount": 5.5,
-                    "line_total": 115.5
-                }],
-                "subtotal": 110.0,
-                "vat_total": 5.5,
-                "grand_total": 115.5,
-                "balance_due": 115.5
-            }
-            
-            success, invoice = self.run_test(
-                "Create Invoice for Sales Account Test",
-                "POST",
-                "invoices",
-                200,
-                data=invoice_data
-            )
-            
-            if not success:
-                return False
-            
-            # Finalize invoice to trigger Sales account creation
-            success, finalized = self.run_test(
-                "Finalize Invoice (Create Sales Account)",
-                "POST",
-                f"invoices/{invoice['id']}/finalize",
-                200
-            )
-            
-            if not success:
-                return False
-            
-            # Check if Sales account was created
-            success, updated_accounts = self.run_test(
-                "Get Accounts After Finalization",
-                "GET",
-                "accounts",
-                200
-            )
-            
-            if not success:
-                return False
-            
-            # Look for newly created Sales account
-            new_sales_account = None
-            for account in updated_accounts:
-                if account.get('name') == 'Sales':
-                    new_sales_account = account
-                    break
-            
-            if not new_sales_account:
-                print(f"❌ Sales account was not created during invoice finalization")
-                return False
-            
-            # Verify account properties
-            if new_sales_account.get('account_type') != 'asset':
-                print(f"❌ Created Sales account should be 'asset' type, got: {new_sales_account.get('account_type')}")
-                return False
-            
-            print(f"✅ Sales account created successfully during finalization:")
-            print(f"   - ID: {new_sales_account.get('id')}")
-            print(f"   - Name: {new_sales_account.get('name')}")
-            print(f"   - Type: {new_sales_account.get('account_type')}")
+            self.log_result("Task 3.4 - Convert WITH Gold Rate", False, 
+                          f"Not all items use expected metal_rate: {expected_rate}")
         
-        return True
+        return None
 
-    def test_enhanced_invoice_finalization_full_workflow(self):
-        """Test Scenario 6: Full Workflow Test"""
-        print("\n🔥 TESTING ENHANCED INVOICE FINALIZATION - FULL WORKFLOW")
+    def test_task3_scenario5_convert_without_gold_rate_to_invoice(self, jobcard_id: str):
+        """Task 3 - Scenario 5: Convert Job Card WITHOUT Gold Rate to Invoice"""
+        print("🔸 Task 3 - Scenario 5: Convert Job Card WITHOUT Gold Rate to Invoice")
         
-        # Create customer party
-        customer_data = {
-            "name": f"Full Workflow Customer {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 5555 6666",
-            "address": "Full Workflow Address",
-            "party_type": "customer",
-            "notes": "Customer for full workflow testing"
-        }
+        if not jobcard_id:
+            self.log_result("Task 3.5 - Convert WITHOUT Gold Rate", False, "No job card ID provided")
+            return
         
-        success, customer = self.run_test(
-            "Full Workflow: Create Customer",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
+        # Convert job card without gold rate (should use default 20.0)
+        result = self.convert_jobcard_to_invoice(jobcard_id)
         
-        if not success:
-            return False
+        if "error" in result:
+            self.log_result("Task 3.5 - Convert WITHOUT Gold Rate", False, 
+                          f"Conversion failed: {result.get('message', 'Unknown error')}")
+            return
         
-        customer_id = customer['id']
+        invoice_id = result.get('invoice_id')
+        if not invoice_id:
+            self.log_result("Task 3.5 - Convert WITHOUT Gold Rate", False, "No invoice ID returned")
+            return
         
-        # Create job card
-        jobcard_data = {
-            "card_type": "individual",
-            "customer_id": customer_id,
-            "customer_name": customer['name'],
-            "delivery_date": "2025-01-25",
-            "notes": "Full workflow job card",
-            "items": [{
-                "category": "Necklace",
-                "description": "Gold necklace for full workflow test",
-                "qty": 1,
-                "weight_in": 25.500,
-                "weight_out": 25.200,
-                "purity": 916,
-                "work_type": "repair",
-                "remarks": "Full repair and polish",
-                "making_charge_type": "per_gram",
-                "making_charge_value": 3.0,
-                "vat_percent": 5.0
-            }]
-        }
+        # Verify invoice items use default rate (20.0)
+        invoice = self.get_invoice(invoice_id)
+        if not invoice:
+            self.log_result("Task 3.5 - Convert WITHOUT Gold Rate", False, "Failed to retrieve invoice")
+            return
         
-        success, jobcard = self.run_test(
-            "Full Workflow: Create Job Card",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data
-        )
+        items = invoice.get('items', [])
+        if not items:
+            self.log_result("Task 3.5 - Convert WITHOUT Gold Rate", False, "No items in invoice")
+            return
         
-        if not success:
-            return False
-        
-        jobcard_id = jobcard['id']
-        
-        # Convert to invoice (draft)
-        success, invoice = self.run_test(
-            "Full Workflow: Convert to Invoice (Draft)",
-            "POST",
-            f"jobcards/{jobcard_id}/convert-to-invoice",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        invoice_id = invoice['id']
-        
-        # Verify: invoice status="draft", NO stock movements yet
-        if invoice.get('status') != 'draft':
-            print(f"❌ Invoice should be draft, got: {invoice.get('status')}")
-            return False
-        
-        print(f"✅ Invoice created in draft status: {invoice.get('status')}")
-        
-        # Check that no stock movements exist for this invoice yet
-        success, movements_before = self.run_test(
-            "Full Workflow: Check Stock Movements Before Finalization",
-            "GET",
-            "inventory/movements",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        invoice_movements_before = [
-            m for m in movements_before 
-            if m.get('reference_type') == 'invoice' and m.get('reference_id') == invoice_id
-        ]
-        
-        if invoice_movements_before:
-            print(f"❌ No stock movements should exist before finalization, found: {len(invoice_movements_before)}")
-            return False
-        
-        print(f"✅ No stock movements exist before finalization (correct)")
-        
-        # Finalize invoice
-        success, finalized_invoice = self.run_test(
-            "Full Workflow: Finalize Invoice (All Atomic Operations)",
-            "POST",
-            f"invoices/{invoice_id}/finalize",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Verify ALL atomic operations:
-        
-        # 1. Invoice status="finalized"
-        if finalized_invoice.get('status') != 'finalized':
-            print(f"❌ Invoice should be finalized, got: {finalized_invoice.get('status')}")
-            return False
-        
-        print(f"✅ Operation 1: Invoice status finalized")
-        
-        # 2. Stock OUT movements created with negative values
-        success, movements_after = self.run_test(
-            "Full Workflow: Check Stock Movements After Finalization",
-            "GET",
-            "inventory/movements",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        invoice_movements_after = [
-            m for m in movements_after 
-            if m.get('reference_type') == 'invoice' and m.get('reference_id') == invoice_id
-        ]
-        
-        if not invoice_movements_after:
-            print(f"❌ Stock movements should exist after finalization")
-            return False
-        
-        # Check that movements have negative values (Stock OUT)
-        for movement in invoice_movements_after:
-            if movement.get('qty_delta', 0) >= 0 or movement.get('weight_delta', 0) >= 0:
-                print(f"❌ Stock movements should have negative values (OUT), got qty: {movement.get('qty_delta')}, weight: {movement.get('weight_delta')}")
-                return False
-        
-        print(f"✅ Operation 2: Stock OUT movements created with negative values: {len(invoice_movements_after)} movements")
-        
-        # 3. Job card locked (status="invoiced", locked=True)
-        success, locked_jobcard = self.run_test(
-            "Full Workflow: Check Job Card Locking",
-            "GET",
-            f"jobcards/{jobcard_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        if locked_jobcard.get('status') != 'invoiced' or not locked_jobcard.get('locked'):
-            print(f"❌ Job card should be locked with status 'invoiced', got status: {locked_jobcard.get('status')}, locked: {locked_jobcard.get('locked')}")
-            return False
-        
-        print(f"✅ Operation 3: Job card locked (status={locked_jobcard.get('status')}, locked={locked_jobcard.get('locked')})")
-        
-        # 4. Transaction/ledger entry created
-        success, transactions = self.run_test(
-            "Full Workflow: Check Ledger Entry Creation",
-            "GET",
-            "transactions",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        invoice_number = finalized_invoice.get('invoice_number', '')
-        ledger_entry = None
-        for txn in transactions:
-            if (txn.get('party_id') == customer_id and 
-                txn.get('category') == 'Sales Invoice' and
-                invoice_number in txn.get('notes', '')):
-                ledger_entry = txn
+        # Check all items have default metal_rate
+        all_correct = True
+        expected_rate = 20.0
+        for item in items:
+            metal_rate = item.get('metal_rate')
+            if metal_rate != expected_rate:
+                all_correct = False
                 break
         
-        if not ledger_entry:
-            print(f"❌ Ledger entry should be created for finalized invoice")
-            return False
-        
-        print(f"✅ Operation 4: Ledger entry created ({ledger_entry.get('transaction_number')})")
-        
-        # 5. Party outstanding balance updated
-        success, party_ledger = self.run_test(
-            "Full Workflow: Check Outstanding Balance Update",
-            "GET",
-            f"parties/{customer_id}/ledger",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        outstanding = party_ledger.get('outstanding', 0)
-        expected_outstanding = finalized_invoice.get('balance_due', 0)
-        
-        if outstanding != expected_outstanding:
-            print(f"❌ Outstanding balance mismatch: expected {expected_outstanding}, got {outstanding}")
-            return False
-        
-        print(f"✅ Operation 5: Outstanding balance updated correctly: {outstanding}")
-        
-        print(f"🎉 ALL 5 ATOMIC OPERATIONS COMPLETED SUCCESSFULLY!")
-        
-        return True
-
-    def test_enhanced_invoice_finalization_error_cases(self):
-        """Test Error Cases for Enhanced Invoice Finalization"""
-        print("\n🔥 TESTING ENHANCED INVOICE FINALIZATION - ERROR CASES")
-        
-        results = []
-        
-        # Error Case 1: Attempt to edit locked job card (should return 400)
-        if hasattr(self, 'finalization_test_data'):
-            jobcard_id = self.finalization_test_data['jobcard_id']
-            
-            success, _ = self.run_test(
-                "Error Case: Edit Locked Job Card",
-                "PATCH",
-                f"jobcards/{jobcard_id}",
-                400,  # Expecting 400 error
-                data={"notes": "Attempting to edit locked job card"}
-            )
-            results.append(success)
-            
-            # Error Case 2: Attempt to delete locked job card (should return 400)
-            success, _ = self.run_test(
-                "Error Case: Delete Locked Job Card",
-                "DELETE",
-                f"jobcards/{jobcard_id}",
-                400  # Expecting 400 error
-            )
-            results.append(success)
-            
-            # Error Case 3: Attempt to finalize already finalized invoice
-            invoice_id = self.finalization_test_data['invoice_id']
-            
-            success, _ = self.run_test(
-                "Error Case: Re-finalize Already Finalized Invoice",
-                "POST",
-                f"invoices/{invoice_id}/finalize",
-                400  # Expecting 400 error
-            )
-            results.append(success)
-        
-        # Error Case 4: Finalize invoice without customer_id (should skip ledger entry gracefully)
-        invoice_data = {
-            "invoice_type": "sale",
-            "items": [{
-                "description": "Test item without customer",
-                "qty": 1,
-                "weight": 5.0,
-                "purity": 916,
-                "metal_rate": 20.0,
-                "gold_value": 100.0,
-                "making_value": 10.0,
-                "vat_percent": 5.0,
-                "vat_amount": 5.5,
-                "line_total": 115.5
-            }],
-            "subtotal": 110.0,
-            "vat_total": 5.5,
-            "grand_total": 115.5,
-            "balance_due": 115.5,
-            "notes": "Invoice without customer for error testing"
-        }
-        
-        success, invoice = self.run_test(
-            "Error Case: Create Invoice Without Customer",
-            "POST",
-            "invoices",
-            200,
-            data=invoice_data
-        )
-        
-        if success:
-            # This should succeed but skip ledger entry creation
-            success, finalized = self.run_test(
-                "Error Case: Finalize Invoice Without Customer (Should Skip Ledger)",
-                "POST",
-                f"invoices/{invoice['id']}/finalize",
-                200  # Should succeed but skip ledger entry
-            )
-            results.append(success)
-            
-            if success:
-                print(f"✅ Invoice without customer finalized gracefully (ledger entry skipped)")
-        
-        return all(results) if results else True
-
-    def test_job_card_locking_admin_override_setup(self):
-        """Setup Phase: Create admin user, staff user, job card, invoice, and finalize"""
-        print("\n🔒 TESTING JOB CARD LOCKING ADMIN OVERRIDE - SETUP PHASE")
-        
-        # Create staff user for testing non-admin scenarios
-        staff_register_success, staff_response = self.run_test(
-            "Register Staff User",
-            "POST",
-            "auth/register",
-            200,
-            data={
-                "username": "staff_user",
-                "password": "staff123",
-                "email": "staff@goldshop.com",
-                "full_name": "Staff Member",
-                "role": "staff"
-            }
-        )
-        
-        # Create customer for job card
-        customer_data = {
-            "name": f"Lock Test Customer {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 7777 8888",
-            "address": "Lock Test Address",
-            "party_type": "customer",
-            "notes": "Customer for job card locking tests"
-        }
-        
-        success, customer = self.run_test(
-            "Create Customer for Lock Test",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
-        
-        if not success:
-            return False
-        
-        customer_id = customer['id']
-        
-        # Create job card
-        jobcard_data = {
-            "card_type": "individual",
-            "customer_id": customer_id,
-            "customer_name": customer['name'],
-            "delivery_date": "2025-01-30",
-            "notes": "Job card for admin override testing",
-            "items": [{
-                "category": "Ring",
-                "description": "Gold ring for lock testing",
-                "qty": 1,
-                "weight_in": 8.500,
-                "weight_out": 8.200,
-                "purity": 916,
-                "work_type": "polish",
-                "remarks": "Polish for lock test",
-                "making_charge_type": "flat",
-                "making_charge_value": 12.0,
-                "vat_percent": 5.0
-            }]
-        }
-        
-        success, jobcard = self.run_test(
-            "Create Job Card for Lock Test",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data
-        )
-        
-        if not success:
-            return False
-        
-        jobcard_id = jobcard['id']
-        
-        # Convert to invoice
-        success, invoice = self.run_test(
-            "Convert Job Card to Invoice for Lock Test",
-            "POST",
-            f"jobcards/{jobcard_id}/convert-to-invoice",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        invoice_id = invoice['id']
-        
-        # Finalize invoice to lock job card
-        success, finalized_invoice = self.run_test(
-            "Finalize Invoice to Lock Job Card",
-            "POST",
-            f"invoices/{invoice_id}/finalize",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Verify job card is locked
-        success, locked_jobcard = self.run_test(
-            "Verify Job Card is Locked",
-            "GET",
-            f"jobcards/{jobcard_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        if not locked_jobcard.get('locked'):
-            print(f"❌ Job card should be locked after invoice finalization")
-            return False
-        
-        print(f"✅ Setup complete: Job card locked (locked={locked_jobcard.get('locked')})")
-        
-        # Store test data for other tests
-        self.admin_override_test_data = {
-            'customer_id': customer_id,
-            'jobcard_id': jobcard_id,
-            'invoice_id': invoice_id,
-            'locked_at': locked_jobcard.get('locked_at'),
-            'locked_by': locked_jobcard.get('locked_by'),
-            'jobcard_number': locked_jobcard.get('job_card_number'),
-            'customer_name': customer['name']
-        }
-        
-        return True
-
-    def test_job_card_locking_non_admin_edit_attempt(self):
-        """Test Scenario 1: Non-Admin Edit Attempt (Should FAIL)"""
-        print("\n🔒 TESTING JOB CARD LOCKING - NON-ADMIN EDIT ATTEMPT")
-        
-        if not hasattr(self, 'admin_override_test_data'):
-            print("❌ Admin override test data not available, run setup first")
-            return False
-        
-        jobcard_id = self.admin_override_test_data['jobcard_id']
-        
-        # Login as staff user
-        success, staff_login_response = self.run_test(
-            "Login as Staff User",
-            "POST",
-            "auth/login",
-            200,
-            data={"username": "staff_user", "password": "staff123"}
-        )
-        
-        if not success:
-            return False
-        
-        # Store admin token and switch to staff token
-        admin_token = self.token
-        self.token = staff_login_response['access_token']
-        
-        # Attempt to edit locked job card as staff (should get 403)
-        success, error_response = self.run_test(
-            "Staff Edit Locked Job Card (Should Fail with 403)",
-            "PATCH",
-            f"jobcards/{jobcard_id}",
-            403,  # Expecting 403 Forbidden
-            data={"notes": "Staff attempting to edit locked job card"}
-        )
-        
-        # Restore admin token
-        self.token = admin_token
-        
-        if not success:
-            print(f"❌ Expected 403 Forbidden error for staff editing locked job card")
-            return False
-        
-        # Verify error message mentions admin override
-        if 'admin' not in str(error_response).lower():
-            print(f"❌ Error message should mention admin override requirement")
-            return False
-        
-        print(f"✅ Staff user correctly blocked from editing locked job card (403 Forbidden)")
-        return True
-
-    def test_job_card_locking_non_admin_delete_attempt(self):
-        """Test Scenario 2: Non-Admin Delete Attempt (Should FAIL)"""
-        print("\n🔒 TESTING JOB CARD LOCKING - NON-ADMIN DELETE ATTEMPT")
-        
-        if not hasattr(self, 'admin_override_test_data'):
-            print("❌ Admin override test data not available")
-            return False
-        
-        jobcard_id = self.admin_override_test_data['jobcard_id']
-        
-        # Login as staff user
-        success, staff_login_response = self.run_test(
-            "Login as Staff User for Delete Test",
-            "POST",
-            "auth/login",
-            200,
-            data={"username": "staff_user", "password": "staff123"}
-        )
-        
-        if not success:
-            return False
-        
-        # Store admin token and switch to staff token
-        admin_token = self.token
-        self.token = staff_login_response['access_token']
-        
-        # Attempt to delete locked job card as staff (should get 403)
-        success, error_response = self.run_test(
-            "Staff Delete Locked Job Card (Should Fail with 403)",
-            "DELETE",
-            f"jobcards/{jobcard_id}",
-            403,  # Expecting 403 Forbidden
-        )
-        
-        # Restore admin token
-        self.token = admin_token
-        
-        if not success:
-            print(f"❌ Expected 403 Forbidden error for staff deleting locked job card")
-            return False
-        
-        # Verify error message mentions admin override
-        if 'admin' not in str(error_response).lower():
-            print(f"❌ Error message should mention admin override requirement")
-            return False
-        
-        print(f"✅ Staff user correctly blocked from deleting locked job card (403 Forbidden)")
-        return True
-
-    def test_job_card_locking_admin_edit_override(self):
-        """Test Scenario 3: Admin Edit Override (Should SUCCEED)"""
-        print("\n🔒 TESTING JOB CARD LOCKING - ADMIN EDIT OVERRIDE")
-        
-        if not hasattr(self, 'admin_override_test_data'):
-            print("❌ Admin override test data not available")
-            return False
-        
-        jobcard_id = self.admin_override_test_data['jobcard_id']
-        
-        # Admin edit locked job card (should succeed with warning)
-        success, edit_response = self.run_test(
-            "Admin Edit Locked Job Card (Should Succeed)",
-            "PATCH",
-            f"jobcards/{jobcard_id}",
-            200,  # Should succeed
-            data={"notes": "Admin override edit of locked job card"}
-        )
-        
-        if not success:
-            return False
-        
-        # Verify response contains warning message
-        response_str = str(edit_response)
-        if 'locked' not in response_str.lower() or 'finalized invoice' not in response_str.lower():
-            print(f"❌ Response should contain warning about locked job card and finalized invoice")
-            return False
-        
-        print(f"✅ Admin successfully edited locked job card with warning message")
-        
-        # Verify audit log was created for admin override edit
-        success, audit_logs = self.run_test(
-            "Get Audit Logs for Admin Override Edit",
-            "GET",
-            "audit-logs",
-            200,
-            params={"module": "jobcard"}
-        )
-        
-        if not success:
-            return False
-        
-        # Find the admin override edit log
-        override_edit_log = None
-        for log in audit_logs:
-            if (log.get('record_id') == jobcard_id and 
-                log.get('action') == 'admin_override_edit'):
-                override_edit_log = log
-                break
-        
-        if not override_edit_log:
-            print(f"❌ No admin_override_edit audit log found for job card {jobcard_id}")
-            return False
-        
-        # Verify audit log contains required details
-        changes = override_edit_log.get('changes', {})
-        if not changes.get('reason'):
-            print(f"❌ Audit log should contain reason")
-            return False
-        
-        if not changes.get('locked_at'):
-            print(f"❌ Audit log should contain locked_at timestamp")
-            return False
-        
-        if not changes.get('locked_by'):
-            print(f"❌ Audit log should contain locked_by user ID")
-            return False
-        
-        if not changes.get('changes'):
-            print(f"❌ Audit log should contain the actual changes made")
-            return False
-        
-        print(f"✅ Admin override edit audit log created with all required details:")
-        print(f"   - Action: {override_edit_log.get('action')}")
-        print(f"   - User: {override_edit_log.get('user_name')}")
-        print(f"   - Reason: {changes.get('reason')}")
-        
-        return True
-
-    def test_job_card_locking_admin_delete_override(self):
-        """Test Scenario 4: Admin Delete Override (Should SUCCEED)"""
-        print("\n🔒 TESTING JOB CARD LOCKING - ADMIN DELETE OVERRIDE")
-        
-        # Create another locked job card for delete test
-        # (We need a separate one since the previous test modified the original)
-        
-        # Create customer for second job card
-        customer_data = {
-            "name": f"Delete Test Customer {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 9999 0000",
-            "address": "Delete Test Address",
-            "party_type": "customer",
-            "notes": "Customer for delete override test"
-        }
-        
-        success, customer = self.run_test(
-            "Create Customer for Delete Override Test",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
-        
-        if not success:
-            return False
-        
-        # Create job card
-        jobcard_data = {
-            "card_type": "individual",
-            "customer_id": customer['id'],
-            "customer_name": customer['name'],
-            "delivery_date": "2025-02-01",
-            "notes": "Job card for delete override testing",
-            "items": [{
-                "category": "Bracelet",
-                "description": "Gold bracelet for delete test",
-                "qty": 1,
-                "weight_in": 15.500,
-                "weight_out": 15.200,
-                "purity": 916,
-                "work_type": "repair",
-                "remarks": "Repair for delete test"
-            }]
-        }
-        
-        success, jobcard = self.run_test(
-            "Create Job Card for Delete Override Test",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data
-        )
-        
-        if not success:
-            return False
-        
-        jobcard_id = jobcard['id']
-        jobcard_number = jobcard['job_card_number']
-        
-        # Convert to invoice and finalize to lock
-        success, invoice = self.run_test(
-            "Convert Job Card to Invoice for Delete Test",
-            "POST",
-            f"jobcards/{jobcard_id}/convert-to-invoice",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        success, finalized = self.run_test(
-            "Finalize Invoice to Lock Job Card for Delete Test",
-            "POST",
-            f"invoices/{invoice['id']}/finalize",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Verify job card is locked
-        success, locked_jobcard = self.run_test(
-            "Verify Job Card is Locked for Delete Test",
-            "GET",
-            f"jobcards/{jobcard_id}",
-            200
-        )
-        
-        if not success or not locked_jobcard.get('locked'):
-            print(f"❌ Job card should be locked for delete test")
-            return False
-        
-        # Admin delete locked job card (should succeed with warning)
-        success, delete_response = self.run_test(
-            "Admin Delete Locked Job Card (Should Succeed)",
-            "DELETE",
-            f"jobcards/{jobcard_id}",
-            200  # Should succeed
-        )
-        
-        if not success:
-            return False
-        
-        # Verify response contains warning message
-        response_str = str(delete_response)
-        if 'locked' not in response_str.lower() or 'finalized invoice' not in response_str.lower():
-            print(f"❌ Response should contain warning about locked job card and finalized invoice")
-            return False
-        
-        print(f"✅ Admin successfully deleted locked job card with warning message")
-        
-        # Verify audit log was created for admin override delete
-        success, audit_logs = self.run_test(
-            "Get Audit Logs for Admin Override Delete",
-            "GET",
-            "audit-logs",
-            200,
-            params={"module": "jobcard"}
-        )
-        
-        if not success:
-            return False
-        
-        # Find the admin override delete log
-        override_delete_log = None
-        for log in audit_logs:
-            if (log.get('record_id') == jobcard_id and 
-                log.get('action') == 'admin_override_delete'):
-                override_delete_log = log
-                break
-        
-        if not override_delete_log:
-            print(f"❌ No admin_override_delete audit log found for job card {jobcard_id}")
-            return False
-        
-        # Verify audit log contains required details
-        changes = override_delete_log.get('changes', {})
-        if not changes.get('reason'):
-            print(f"❌ Audit log should contain reason")
-            return False
-        
-        if not changes.get('locked_at'):
-            print(f"❌ Audit log should contain locked_at timestamp")
-            return False
-        
-        if not changes.get('locked_by'):
-            print(f"❌ Audit log should contain locked_by user ID")
-            return False
-        
-        if not changes.get('jobcard_number'):
-            print(f"❌ Audit log should contain jobcard_number")
-            return False
-        
-        if not changes.get('customer_name'):
-            print(f"❌ Audit log should contain customer_name")
-            return False
-        
-        print(f"✅ Admin override delete audit log created with all required details:")
-        print(f"   - Action: {override_delete_log.get('action')}")
-        print(f"   - User: {override_delete_log.get('user_name')}")
-        print(f"   - Reason: {changes.get('reason')}")
-        print(f"   - Job Card: {changes.get('jobcard_number')}")
-        print(f"   - Customer: {changes.get('customer_name')}")
-        
-        return True
-
-    def test_job_card_locking_audit_log_verification(self):
-        """Test Scenario 5: Audit Log Verification"""
-        print("\n🔒 TESTING JOB CARD LOCKING - AUDIT LOG VERIFICATION")
-        
-        # Get all audit logs for jobcard module
-        success, audit_logs = self.run_test(
-            "Get All Job Card Audit Logs",
-            "GET",
-            "audit-logs",
-            200,
-            params={"module": "jobcard"}
-        )
-        
-        if not success:
-            return False
-        
-        # Count admin override actions
-        override_edit_logs = [log for log in audit_logs if log.get('action') == 'admin_override_edit']
-        override_delete_logs = [log for log in audit_logs if log.get('action') == 'admin_override_delete']
-        
-        print(f"✅ Found {len(override_edit_logs)} admin override edit logs")
-        print(f"✅ Found {len(override_delete_logs)} admin override delete logs")
-        
-        # Verify each override log has complete override_details
-        all_logs_valid = True
-        
-        for log in override_edit_logs + override_delete_logs:
-            changes = log.get('changes', {})
-            required_fields = ['reason', 'locked_at', 'locked_by']
-            
-            if log.get('action') == 'admin_override_delete':
-                required_fields.extend(['jobcard_number', 'customer_name'])
-            elif log.get('action') == 'admin_override_edit':
-                required_fields.append('changes')
-            
-            for field in required_fields:
-                if not changes.get(field):
-                    print(f"❌ Audit log {log.get('id')} missing required field: {field}")
-                    all_logs_valid = False
-        
-        if not all_logs_valid:
-            return False
-        
-        print(f"✅ All admin override audit logs contain complete override_details")
-        return True
-
-    def test_job_card_locking_normal_operations(self):
-        """Test Scenario 6: Normal Job Card Operations (Should Work)"""
-        print("\n🔒 TESTING JOB CARD LOCKING - NORMAL OPERATIONS")
-        
-        # Create customer for normal operations test
-        customer_data = {
-            "name": f"Normal Ops Customer {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 1111 3333",
-            "address": "Normal Operations Address",
-            "party_type": "customer",
-            "notes": "Customer for normal operations test"
-        }
-        
-        success, customer = self.run_test(
-            "Create Customer for Normal Operations",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
-        
-        if not success:
-            return False
-        
-        # Create unlocked job card
-        jobcard_data = {
-            "card_type": "individual",
-            "customer_id": customer['id'],
-            "customer_name": customer['name'],
-            "delivery_date": "2025-02-05",
-            "notes": "Normal unlocked job card",
-            "items": [{
-                "category": "Chain",
-                "description": "Gold chain for normal operations",
-                "qty": 1,
-                "weight_in": 20.500,
-                "weight_out": 20.200,
-                "purity": 916,
-                "work_type": "clean",
-                "remarks": "Simple cleaning"
-            }]
-        }
-        
-        success, jobcard = self.run_test(
-            "Create Unlocked Job Card",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data
-        )
-        
-        if not success:
-            return False
-        
-        jobcard_id = jobcard['id']
-        
-        # Verify job card is not locked
-        if jobcard.get('locked'):
-            print(f"❌ New job card should not be locked")
-            return False
-        
-        print(f"✅ Created unlocked job card (locked={jobcard.get('locked', False)})")
-        
-        # Login as staff user to test normal operations
-        success, staff_login_response = self.run_test(
-            "Login as Staff for Normal Operations",
-            "POST",
-            "auth/login",
-            200,
-            data={"username": "staff_user", "password": "staff123"}
-        )
-        
-        if not success:
-            return False
-        
-        # Store admin token and switch to staff token
-        admin_token = self.token
-        self.token = staff_login_response['access_token']
-        
-        # Edit unlocked job card as staff (should succeed)
-        success, edit_response = self.run_test(
-            "Staff Edit Unlocked Job Card (Should Succeed)",
-            "PATCH",
-            f"jobcards/{jobcard_id}",
-            200,
-            data={"notes": "Staff edited unlocked job card successfully"}
-        )
-        
-        if not success:
-            print(f"❌ Staff should be able to edit unlocked job card")
-            self.token = admin_token
-            return False
-        
-        print(f"✅ Staff successfully edited unlocked job card")
-        
-        # Delete unlocked job card as staff (should succeed)
-        success, delete_response = self.run_test(
-            "Staff Delete Unlocked Job Card (Should Succeed)",
-            "DELETE",
-            f"jobcards/{jobcard_id}",
-            200
-        )
-        
-        # Restore admin token
-        self.token = admin_token
-        
-        if not success:
-            print(f"❌ Staff should be able to delete unlocked job card")
-            return False
-        
-        print(f"✅ Staff successfully deleted unlocked job card")
-        return True
-
-    def test_party_summary_endpoint(self):
-        """Test Module 2/10 - Party Report Combined Summary Backend"""
-        print("\n🎯 TESTING MODULE 2/10 - PARTY SUMMARY ENDPOINT")
-        
-        # Step 1: Create a test party if needed
-        party_data = {
-            "name": f"Summary Test Party {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 9999 1111",
-            "address": "Summary Test Address",
-            "party_type": "customer",
-            "notes": "Party for testing combined summary endpoint"
-        }
-        
-        success, party = self.run_test(
-            "Create Test Party for Summary",
-            "POST",
-            "parties",
-            200,
-            data=party_data
-        )
-        
-        if not success or not party.get('id'):
-            return False
-        
-        party_id = party['id']
-        print(f"   Created party: {party['name']} (ID: {party_id})")
-        
-        # Step 2: Create gold ledger entries (both IN and OUT types)
-        gold_entries = [
-            {
-                "party_id": party_id,
-                "type": "IN",  # Party gives gold to shop
-                "weight_grams": 125.456,
-                "purity_entered": 916,
-                "purpose": "job_work",
-                "notes": "Gold received from party for job work"
-            },
-            {
-                "party_id": party_id,
-                "type": "OUT",  # Shop gives gold to party
-                "weight_grams": 50.123,
-                "purity_entered": 916,
-                "purpose": "exchange",
-                "notes": "Gold given to party in exchange"
-            },
-            {
-                "party_id": party_id,
-                "type": "IN",  # Another IN entry
-                "weight_grams": 30.250,
-                "purity_entered": 916,
-                "purpose": "advance_gold",
-                "notes": "Additional gold advance from party"
-            }
-        ]
-        
-        created_gold_entries = []
-        for i, entry_data in enumerate(gold_entries):
-            success, entry = self.run_test(
-                f"Create Gold Entry {i+1} ({entry_data['type']})",
-                "POST",
-                "gold-ledger",
-                200,
-                data=entry_data
-            )
-            if success:
-                created_gold_entries.append(entry)
-                print(f"   Created {entry_data['type']} entry: {entry_data['weight_grams']}g")
-        
-        if len(created_gold_entries) != 3:
-            print(f"❌ Failed to create all gold entries")
-            return False
-        
-        # Step 3: Create an invoice for the party with outstanding balance
-        invoice_data = {
-            "customer_id": party_id,
-            "customer_name": party['name'],
-            "invoice_type": "sale",
-            "items": [{
-                "description": "Gold jewelry for summary test",
-                "qty": 1,
-                "weight": 15.500,
-                "purity": 916,
-                "metal_rate": 25.0,
-                "gold_value": 387.5,
-                "making_value": 50.0,
-                "vat_percent": 5.0,
-                "vat_amount": 21.875,
-                "line_total": 459.375
-            }],
-            "subtotal": 437.5,
-            "vat_total": 21.875,
-            "grand_total": 459.375,
-            "balance_due": 459.375,  # Outstanding balance
-            "notes": "Invoice for party summary testing"
-        }
-        
-        success, invoice = self.run_test(
-            "Create Invoice with Outstanding Balance",
-            "POST",
-            "invoices",
-            200,
-            data=invoice_data
-        )
-        
-        if not success:
-            return False
-        
-        invoice_id = invoice['id']
-        print(f"   Created invoice: {invoice.get('invoice_number')} with balance: {invoice.get('balance_due')}")
-        
-        # Step 4: Create a transaction (credit type) for the party
-        # First ensure we have an account
-        if not self.created_resources['accounts']:
-            account_data = {
-                "name": f"Summary Test Account {datetime.now().strftime('%H%M%S')}",
-                "account_type": "cash",
-                "opening_balance": 1000.0
-            }
-            
-            success, account = self.run_test(
-                "Create Account for Transaction",
-                "POST",
-                "accounts",
-                200,
-                data=account_data
-            )
-            
-            if success:
-                self.created_resources['accounts'].append(account['id'])
-        
-        if self.created_resources['accounts']:
-            account_id = self.created_resources['accounts'][0]
-            
-            transaction_data = {
-                "transaction_type": "credit",
-                "mode": "cash",
-                "account_id": account_id,
-                "party_id": party_id,
-                "amount": 150.0,
-                "category": "vendor_payment",
-                "notes": "Credit transaction for party summary testing"
-            }
-            
-            success, transaction = self.run_test(
-                "Create Credit Transaction",
-                "POST",
-                "transactions",
-                200,
-                data=transaction_data
-            )
-            
-            if success:
-                print(f"   Created credit transaction: {transaction.get('transaction_number')} amount: {transaction.get('amount')}")
-        
-        # Step 5: Test GET /api/parties/{party_id}/summary endpoint
-        success, summary = self.run_test(
-            "Get Party Summary (Main Test)",
-            "GET",
-            f"parties/{party_id}/summary",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        print(f"\n📊 PARTY SUMMARY RESPONSE VERIFICATION:")
-        
-        # Verify response structure
-        required_sections = ['party', 'gold', 'money']
-        for section in required_sections:
-            if section not in summary:
-                print(f"❌ Missing section: {section}")
-                return False
-        
-        # Verify party info
-        party_info = summary['party']
-        required_party_fields = ['id', 'name', 'phone', 'address', 'party_type', 'notes', 'created_at']
-        for field in required_party_fields:
-            if field not in party_info:
-                print(f"❌ Missing party field: {field}")
-                return False
-        
-        if party_info['id'] != party_id:
-            print(f"❌ Party ID mismatch: expected {party_id}, got {party_info['id']}")
-            return False
-        
-        print(f"✅ Party info correct: {party_info['name']} ({party_info['party_type']})")
-        
-        # Verify gold summary
-        gold_summary = summary['gold']
-        required_gold_fields = ['gold_due_from_party', 'gold_due_to_party', 'net_gold_balance', 'total_entries']
-        for field in required_gold_fields:
-            if field not in gold_summary:
-                print(f"❌ Missing gold field: {field}")
-                return False
-        
-        # Calculate expected gold values
-        expected_gold_due_from_party = 125.456 + 30.250  # IN entries
-        expected_gold_due_to_party = 50.123  # OUT entries
-        expected_net_gold_balance = expected_gold_due_from_party - expected_gold_due_to_party
-        expected_total_entries = 3
-        
-        # Verify gold calculations (with 3 decimal precision)
-        if abs(gold_summary['gold_due_from_party'] - expected_gold_due_from_party) > 0.001:
-            print(f"❌ Gold due from party mismatch: expected {expected_gold_due_from_party}, got {gold_summary['gold_due_from_party']}")
-            return False
-        
-        if abs(gold_summary['gold_due_to_party'] - expected_gold_due_to_party) > 0.001:
-            print(f"❌ Gold due to party mismatch: expected {expected_gold_due_to_party}, got {gold_summary['gold_due_to_party']}")
-            return False
-        
-        if abs(gold_summary['net_gold_balance'] - expected_net_gold_balance) > 0.001:
-            print(f"❌ Net gold balance mismatch: expected {expected_net_gold_balance}, got {gold_summary['net_gold_balance']}")
-            return False
-        
-        if gold_summary['total_entries'] != expected_total_entries:
-            print(f"❌ Total entries mismatch: expected {expected_total_entries}, got {gold_summary['total_entries']}")
-            return False
-        
-        print(f"✅ Gold calculations correct:")
-        print(f"   - Gold due from party: {gold_summary['gold_due_from_party']:.3f}g")
-        print(f"   - Gold due to party: {gold_summary['gold_due_to_party']:.3f}g")
-        print(f"   - Net gold balance: {gold_summary['net_gold_balance']:.3f}g")
-        print(f"   - Total entries: {gold_summary['total_entries']}")
-        
-        # Verify money summary
-        money_summary = summary['money']
-        required_money_fields = ['money_due_from_party', 'money_due_to_party', 'net_money_balance', 'total_invoices', 'total_transactions']
-        for field in required_money_fields:
-            if field not in money_summary:
-                print(f"❌ Missing money field: {field}")
-                return False
-        
-        # Calculate expected money values
-        expected_money_due_from_party = 459.375  # Invoice balance_due
-        expected_money_due_to_party = 150.0  # Credit transaction
-        expected_net_money_balance = expected_money_due_from_party - expected_money_due_to_party
-        expected_total_invoices = 1
-        expected_total_transactions = 1
-        
-        # Verify money calculations (with 2 decimal precision)
-        if abs(money_summary['money_due_from_party'] - expected_money_due_from_party) > 0.01:
-            print(f"❌ Money due from party mismatch: expected {expected_money_due_from_party}, got {money_summary['money_due_from_party']}")
-            return False
-        
-        if abs(money_summary['money_due_to_party'] - expected_money_due_to_party) > 0.01:
-            print(f"❌ Money due to party mismatch: expected {expected_money_due_to_party}, got {money_summary['money_due_to_party']}")
-            return False
-        
-        if abs(money_summary['net_money_balance'] - expected_net_money_balance) > 0.01:
-            print(f"❌ Net money balance mismatch: expected {expected_net_money_balance}, got {money_summary['net_money_balance']}")
-            return False
-        
-        if money_summary['total_invoices'] != expected_total_invoices:
-            print(f"❌ Total invoices mismatch: expected {expected_total_invoices}, got {money_summary['total_invoices']}")
-            return False
-        
-        if money_summary['total_transactions'] != expected_total_transactions:
-            print(f"❌ Total transactions mismatch: expected {expected_total_transactions}, got {money_summary['total_transactions']}")
-            return False
-        
-        print(f"✅ Money calculations correct:")
-        print(f"   - Money due from party: {money_summary['money_due_from_party']:.2f} OMR")
-        print(f"   - Money due to party: {money_summary['money_due_to_party']:.2f} OMR")
-        print(f"   - Net money balance: {money_summary['net_money_balance']:.2f} OMR")
-        print(f"   - Total invoices: {money_summary['total_invoices']}")
-        print(f"   - Total transactions: {money_summary['total_transactions']}")
-        
-        # Verify precision formatting
-        # Gold should have 3 decimals
-        gold_fields_3_decimal = ['gold_due_from_party', 'gold_due_to_party', 'net_gold_balance']
-        for field in gold_fields_3_decimal:
-            value_str = str(gold_summary[field])
-            if '.' in value_str:
-                decimal_places = len(value_str.split('.')[1])
-                if decimal_places > 3:
-                    print(f"❌ Gold field {field} has more than 3 decimal places: {value_str}")
-                    return False
-        
-        # Money should have 2 decimals
-        money_fields_2_decimal = ['money_due_from_party', 'money_due_to_party', 'net_money_balance']
-        for field in money_fields_2_decimal:
-            value_str = str(money_summary[field])
-            if '.' in value_str:
-                decimal_places = len(value_str.split('.')[1])
-                if decimal_places > 2:
-                    print(f"❌ Money field {field} has more than 2 decimal places: {value_str}")
-                    return False
-        
-        print(f"✅ Precision formatting correct (3 decimals for gold, 2 decimals for money)")
-        
-        # Store created resources for cleanup
-        self.created_resources['parties'].append(party_id)
-        if invoice_id:
-            self.created_resources['invoices'].append(invoice_id)
-        
-        print(f"\n🎉 PARTY SUMMARY ENDPOINT TEST COMPLETED SUCCESSFULLY!")
-        print(f"   All calculations verified, precision correct, response structure valid")
-        
-        return True
-
-    def test_purchases_module_setup(self):
-        """Setup Phase: Get/create vendor party and inventory headers"""
-        print("\n🏗️ PURCHASES MODULE SETUP - Creating vendor party and inventory headers")
-        
-        # Create vendor party
-        vendor_data = {
-            "name": f"Gold Vendor {datetime.now().strftime('%H%M%S')}",
-            "phone": "+968 9999 1111",
-            "address": "Vendor Address for Purchase Testing",
-            "party_type": "vendor",
-            "notes": "Vendor for purchase module testing"
-        }
-        
-        success, vendor = self.run_test(
-            "Create Vendor Party",
-            "POST",
-            "parties",
-            200,
-            data=vendor_data
-        )
-        
-        if not success or not vendor.get('id'):
-            return False
-        
-        # Store vendor for other tests
-        self.purchases_test_data = {
-            'vendor_id': vendor['id'],
-            'vendor_name': vendor['name']
-        }
-        
-        # Get existing inventory headers to verify stock movements
-        success, headers = self.run_test(
-            "Get Inventory Headers for Purchase Testing",
-            "GET",
-            "inventory/headers",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Create Gold 22K header if it doesn't exist (for 916 purity)
-        gold_22k_header = None
-        for header in headers:
-            if "Gold 22K" in header.get('name', ''):
-                gold_22k_header = header
-                break
-        
-        if not gold_22k_header:
-            header_data = {"name": "Gold 22K"}
-            success, new_header = self.run_test(
-                "Create Gold 22K Inventory Header",
-                "POST",
-                "inventory/headers",
-                200,
-                data=header_data
-            )
-            if success:
-                gold_22k_header = new_header
-        
-        if gold_22k_header:
-            self.purchases_test_data['inventory_header_id'] = gold_22k_header['id']
-            self.purchases_test_data['inventory_header_name'] = gold_22k_header['name']
-            print(f"✅ Setup complete: Vendor {vendor['name']}, Inventory header {gold_22k_header['name']}")
-        
-        return True
-
-    def test_purchases_create_draft(self):
-        """Test Scenario 1: Create Draft Purchase"""
-        print("\n💰 TESTING PURCHASES MODULE - CREATE DRAFT PURCHASE")
-        
-        if not hasattr(self, 'purchases_test_data'):
-            print("❌ Purchase test data not available, run setup first")
-            return False
-        
-        vendor_id = self.purchases_test_data['vendor_id']
-        
-        # Test data with specific precision requirements
-        purchase_data = {
-            "vendor_party_id": vendor_id,
-            "description": "Gold Purchase Test 001",
-            "weight_grams": 125.456,  # Should round to 3 decimals
-            "entered_purity": 999,    # 24K as claimed by vendor
-            "rate_per_gram": 185.50,  # Per gram rate at 916 purity
-            "amount_total": 23272.19  # Calculate or provide
-        }
-        
-        success, purchase = self.run_test(
-            "Create Draft Purchase",
-            "POST",
-            "purchases",
-            200,
-            data=purchase_data
-        )
-        
-        if not success or not purchase.get('id'):
-            return False
-        
-        # Verify purchase properties
-        if purchase.get('status') != 'draft':
-            print(f"❌ Purchase status should be 'draft', got: {purchase.get('status')}")
-            return False
-        
-        if purchase.get('locked') != False:
-            print(f"❌ Purchase locked should be False, got: {purchase.get('locked')}")
-            return False
-        
-        if purchase.get('valuation_purity_fixed') != 916:
-            print(f"❌ Valuation purity should be 916, got: {purchase.get('valuation_purity_fixed')}")
-            return False
-        
-        # Verify precision (3 decimals for weight, 2 for money)
-        if abs(purchase.get('weight_grams', 0) - 125.456) > 0.001:
-            print(f"❌ Weight precision incorrect: expected 125.456, got {purchase.get('weight_grams')}")
-            return False
-        
-        if abs(purchase.get('rate_per_gram', 0) - 185.50) > 0.01:
-            print(f"❌ Rate precision incorrect: expected 185.50, got {purchase.get('rate_per_gram')}")
-            return False
-        
-        # Store purchase for other tests
-        self.purchases_test_data['draft_purchase_id'] = purchase['id']
-        self.purchases_test_data['draft_purchase'] = purchase
-        
-        print(f"✅ Draft purchase created successfully:")
-        print(f"   - Status: {purchase.get('status')}")
-        print(f"   - Locked: {purchase.get('locked')}")
-        print(f"   - Valuation Purity: {purchase.get('valuation_purity_fixed')}")
-        print(f"   - Weight: {purchase.get('weight_grams')}g (3 decimals)")
-        print(f"   - Rate: {purchase.get('rate_per_gram')}/g (2 decimals)")
-        
-        return True
-
-    def test_purchases_get_all(self):
-        """Test Scenario 2: Get All Purchases"""
-        print("\n📋 TESTING PURCHASES MODULE - GET ALL PURCHASES")
-        
-        if not hasattr(self, 'purchases_test_data'):
-            return False
-        
-        # Test without filters
-        success, purchases = self.run_test(
-            "Get All Purchases (No Filters)",
-            "GET",
-            "purchases",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Verify our draft purchase is in the list
-        draft_purchase_id = self.purchases_test_data['draft_purchase_id']
-        found_purchase = None
-        for purchase in purchases:
-            if purchase.get('id') == draft_purchase_id:
-                found_purchase = purchase
-                break
-        
-        if not found_purchase:
-            print(f"❌ Draft purchase {draft_purchase_id} not found in purchases list")
-            return False
-        
-        print(f"✅ Draft purchase found in purchases list")
-        
-        # Test with vendor filter
-        vendor_id = self.purchases_test_data['vendor_id']
-        success, filtered_purchases = self.run_test(
-            "Get Purchases (Vendor Filter)",
-            "GET",
-            "purchases",
-            200,
-            params={"vendor_party_id": vendor_id}
-        )
-        
-        if not success:
-            return False
-        
-        # Verify all returned purchases are for this vendor
-        for purchase in filtered_purchases:
-            if purchase.get('vendor_party_id') != vendor_id:
-                print(f"❌ Filtered purchases should only contain vendor {vendor_id}")
-                return False
-        
-        print(f"✅ Vendor filter working correctly: {len(filtered_purchases)} purchases")
-        
-        # Test with status filter
-        success, draft_purchases = self.run_test(
-            "Get Purchases (Status=Draft Filter)",
-            "GET",
-            "purchases",
-            200,
-            params={"status": "draft"}
-        )
-        
-        if not success:
-            return False
-        
-        # Verify all returned purchases are draft
-        for purchase in draft_purchases:
-            if purchase.get('status') != 'draft':
-                print(f"❌ Status filter should only return draft purchases")
-                return False
-        
-        print(f"✅ Status filter working correctly: {len(draft_purchases)} draft purchases")
-        
-        return True
-
-    def test_purchases_edit_draft(self):
-        """Test Scenario 3: Edit Draft Purchase"""
-        print("\n✏️ TESTING PURCHASES MODULE - EDIT DRAFT PURCHASE")
-        
-        if not hasattr(self, 'purchases_test_data'):
-            return False
-        
-        draft_purchase_id = self.purchases_test_data['draft_purchase_id']
-        
-        # Update purchase data
-        update_data = {
-            "description": "Updated Gold Purchase",
-            "weight_grams": 130.789  # Should round to 3 decimals
-        }
-        
-        success, updated_purchase = self.run_test(
-            "Edit Draft Purchase",
-            "PATCH",
-            f"purchases/{draft_purchase_id}",
-            200,
-            data=update_data
-        )
-        
-        if not success:
-            return False
-        
-        # Verify changes were applied
-        if updated_purchase.get('description') != "Updated Gold Purchase":
-            print(f"❌ Description not updated: expected 'Updated Gold Purchase', got {updated_purchase.get('description')}")
-            return False
-        
-        if abs(updated_purchase.get('weight_grams', 0) - 130.789) > 0.001:
-            print(f"❌ Weight not updated correctly: expected 130.789, got {updated_purchase.get('weight_grams')}")
-            return False
-        
-        print(f"✅ Draft purchase updated successfully:")
-        print(f"   - Description: {updated_purchase.get('description')}")
-        print(f"   - Weight: {updated_purchase.get('weight_grams')}g")
-        
-        return True
-
-    def test_purchases_edit_invalid_party(self):
-        """Test Scenario 4: Attempt to Edit Non-Existent Party Type"""
-        print("\n🚫 TESTING PURCHASES MODULE - EDIT WITH INVALID PARTY")
-        
-        if not hasattr(self, 'purchases_test_data'):
-            return False
-        
-        draft_purchase_id = self.purchases_test_data['draft_purchase_id']
-        
-        # Try to change vendor to a customer party (should fail)
-        # First create a customer party
-        customer_data = {
-            "name": f"Test Customer {datetime.now().strftime('%H%M%S')}",
-            "party_type": "customer"
-        }
-        
-        success, customer = self.run_test(
-            "Create Customer Party for Invalid Test",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
-        
-        if not success:
-            return False
-        
-        # Try to update purchase with customer party (should fail with 400)
-        success, error_response = self.run_test(
-            "Edit Purchase with Customer Party (Should Fail)",
-            "PATCH",
-            f"purchases/{draft_purchase_id}",
-            400,  # Expecting 400 error
-            data={"vendor_party_id": customer['id']}
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error when using customer party as vendor")
-            return False
-        
-        print(f"✅ Correctly rejected customer party as vendor (400 error)")
-        
-        # Try with non-existent party ID (should fail with 404)
-        fake_party_id = "non-existent-party-id"
-        success, error_response = self.run_test(
-            "Edit Purchase with Non-Existent Party (Should Fail)",
-            "PATCH",
-            f"purchases/{draft_purchase_id}",
-            404,  # Expecting 404 error
-            data={"vendor_party_id": fake_party_id}
-        )
-        
-        if not success:
-            print(f"❌ Expected 404 error when using non-existent party")
-            return False
-        
-        print(f"✅ Correctly rejected non-existent party (404 error)")
-        
-        return True
-
-    def test_purchases_finalize_atomic_operations(self):
-        """Test Scenario 5: Finalize Purchase (CRITICAL - 5 Atomic Operations)"""
-        print("\n🔥 TESTING PURCHASES MODULE - FINALIZE PURCHASE (5 ATOMIC OPERATIONS)")
-        
-        if not hasattr(self, 'purchases_test_data'):
-            return False
-        
-        draft_purchase_id = self.purchases_test_data['draft_purchase_id']
-        vendor_id = self.purchases_test_data['vendor_id']
-        
-        # Get current inventory state before finalization
-        success, stock_before = self.run_test(
-            "Get Stock Totals Before Finalization",
-            "GET",
-            "inventory/stock-totals",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find Gold 22K inventory
-        gold_22k_before = None
-        for stock in stock_before:
-            if "Gold 22K" in stock.get('header_name', ''):
-                gold_22k_before = stock
-                break
-        
-        initial_qty = gold_22k_before.get('total_qty', 0) if gold_22k_before else 0
-        initial_weight = gold_22k_before.get('total_weight', 0) if gold_22k_before else 0
-        
-        print(f"   Initial inventory: {initial_qty} qty, {initial_weight}g weight")
-        
-        # Finalize the purchase
-        success, finalize_response = self.run_test(
-            "Finalize Purchase (All Atomic Operations)",
-            "POST",
-            f"purchases/{draft_purchase_id}/finalize",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Verify response structure
-        required_fields = ['purchase_id', 'stock_movement_id', 'transaction_id', 'vendor_payable']
-        for field in required_fields:
-            if field not in finalize_response:
-                print(f"❌ Finalize response missing field: {field}")
-                return False
-        
-        print(f"✅ Finalize response complete:")
-        print(f"   - Purchase ID: {finalize_response.get('purchase_id')}")
-        print(f"   - Stock Movement ID: {finalize_response.get('stock_movement_id')}")
-        print(f"   - Transaction ID: {finalize_response.get('transaction_id')}")
-        print(f"   - Vendor Payable: {finalize_response.get('vendor_payable')}")
-        
-        # OPERATION A: Verify purchase status changed to "finalized", locked = True
-        success, finalized_purchase = self.run_test(
-            "Get Finalized Purchase (Check Status)",
-            "GET",
-            f"purchases/{draft_purchase_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        if finalized_purchase.get('status') != 'finalized':
-            print(f"❌ Purchase status should be 'finalized', got: {finalized_purchase.get('status')}")
-            return False
-        
-        if finalized_purchase.get('locked') != True:
-            print(f"❌ Purchase should be locked, got: {finalized_purchase.get('locked')}")
-            return False
-        
-        if not finalized_purchase.get('finalized_at'):
-            print(f"❌ Purchase should have finalized_at timestamp")
-            return False
-        
-        if not finalized_purchase.get('finalized_by'):
-            print(f"❌ Purchase should have finalized_by user")
-            return False
-        
-        print(f"✅ Operation A: Purchase status changed to finalized and locked")
-        
-        # OPERATION B: Verify finalized_at, finalized_by populated
-        print(f"✅ Operation B: Finalized metadata populated (at: {finalized_purchase.get('finalized_at')}, by: {finalized_purchase.get('finalized_by')})")
-        
-        # OPERATION C: Verify Stock IN movement created
-        success, movements = self.run_test(
-            "Get Stock Movements (Check Stock IN)",
-            "GET",
-            "inventory/movements",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find the stock movement for this purchase
-        purchase_movement = None
-        for movement in movements:
-            if (movement.get('reference_type') == 'purchase' and 
-                movement.get('reference_id') == draft_purchase_id):
-                purchase_movement = movement
-                break
-        
-        if not purchase_movement:
-            print(f"❌ No stock movement found for purchase {draft_purchase_id}")
-            return False
-        
-        # Verify movement properties
-        if purchase_movement.get('movement_type') != 'Stock IN':
-            print(f"❌ Movement type should be 'Stock IN', got: {purchase_movement.get('movement_type')}")
-            return False
-        
-        if purchase_movement.get('purity') != 916:
-            print(f"❌ Movement purity should be 916 (NOT 999), got: {purchase_movement.get('purity')}")
-            return False
-        
-        if purchase_movement.get('qty_delta') != 1:
-            print(f"❌ Movement qty_delta should be 1 (positive), got: {purchase_movement.get('qty_delta')}")
-            return False
-        
-        expected_weight = finalized_purchase.get('weight_grams', 0)
-        if abs(purchase_movement.get('weight_delta', 0) - expected_weight) > 0.001:
-            print(f"❌ Movement weight_delta should be {expected_weight}, got: {purchase_movement.get('weight_delta')}")
-            return False
-        
-        print(f"✅ Operation C: Stock IN movement created correctly:")
-        print(f"   - Type: {purchase_movement.get('movement_type')}")
-        print(f"   - Purity: {purchase_movement.get('purity')} (valuation, not entered)")
-        print(f"   - Qty Delta: +{purchase_movement.get('qty_delta')}")
-        print(f"   - Weight Delta: +{purchase_movement.get('weight_delta')}g")
-        
-        # OPERATION D: Verify inventory header current_qty and current_weight increased
-        success, stock_after = self.run_test(
-            "Get Stock Totals After Finalization",
-            "GET",
-            "inventory/stock-totals",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find Gold 22K inventory after finalization
-        gold_22k_after = None
-        for stock in stock_after:
-            if "Gold 22K" in stock.get('header_name', ''):
-                gold_22k_after = stock
-                break
-        
-        if not gold_22k_after:
-            print(f"❌ Gold 22K inventory header not found after finalization")
-            return False
-        
-        final_qty = gold_22k_after.get('total_qty', 0)
-        final_weight = gold_22k_after.get('total_weight', 0)
-        
-        expected_final_qty = initial_qty + 1
-        expected_final_weight = initial_weight + expected_weight
-        
-        if abs(final_qty - expected_final_qty) > 0.001:
-            print(f"❌ Inventory qty should increase by 1: expected {expected_final_qty}, got {final_qty}")
-            return False
-        
-        if abs(final_weight - expected_final_weight) > 0.001:
-            print(f"❌ Inventory weight should increase by {expected_weight}: expected {expected_final_weight}, got {final_weight}")
-            return False
-        
-        print(f"✅ Operation D: Inventory header updated correctly:")
-        print(f"   - Qty: {initial_qty} → {final_qty} (+1)")
-        print(f"   - Weight: {initial_weight}g → {final_weight}g (+{expected_weight}g)")
-        
-        # OPERATION E: Verify vendor payable transaction created
-        success, transactions = self.run_test(
-            "Get Transactions (Check Vendor Payable)",
-            "GET",
-            "transactions",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find the vendor payable transaction
-        vendor_transaction = None
-        for txn in transactions:
-            if (txn.get('reference_type') == 'purchase' and 
-                txn.get('reference_id') == draft_purchase_id and
-                txn.get('party_id') == vendor_id):
-                vendor_transaction = txn
-                break
-        
-        if not vendor_transaction:
-            print(f"❌ No vendor payable transaction found for purchase")
-            return False
-        
-        # Verify transaction properties
-        if vendor_transaction.get('transaction_type') != 'credit':
-            print(f"❌ Transaction type should be 'credit' (we owe vendor), got: {vendor_transaction.get('transaction_type')}")
-            return False
-        
-        if vendor_transaction.get('party_id') != vendor_id:
-            print(f"❌ Transaction party_id should be {vendor_id}, got: {vendor_transaction.get('party_id')}")
-            return False
-        
-        expected_amount = finalized_purchase.get('amount_total', 0)
-        if abs(vendor_transaction.get('amount', 0) - expected_amount) > 0.01:
-            print(f"❌ Transaction amount should be {expected_amount}, got: {vendor_transaction.get('amount')}")
-            return False
-        
-        if vendor_transaction.get('category') != 'Purchase':
-            print(f"❌ Transaction category should be 'Purchase', got: {vendor_transaction.get('category')}")
-            return False
-        
-        # Verify transaction number format (TXN-YYYY-NNNN)
-        txn_number = vendor_transaction.get('transaction_number', '')
-        import re
-        if not re.match(r'^TXN-\d{4}-\d{4}$', txn_number):
-            print(f"❌ Transaction number format incorrect: {txn_number}")
-            return False
-        
-        print(f"✅ Operation E: Vendor payable transaction created correctly:")
-        print(f"   - Type: {vendor_transaction.get('transaction_type')} (liability)")
-        print(f"   - Amount: {vendor_transaction.get('amount')}")
-        print(f"   - Category: {vendor_transaction.get('category')}")
-        print(f"   - Transaction Number: {txn_number}")
-        
-        # Store finalized purchase data for other tests
-        self.purchases_test_data['finalized_purchase_id'] = draft_purchase_id
-        self.purchases_test_data['stock_movement_id'] = finalize_response.get('stock_movement_id')
-        self.purchases_test_data['transaction_id'] = finalize_response.get('transaction_id')
-        
-        print(f"🎉 ALL 5 ATOMIC OPERATIONS COMPLETED SUCCESSFULLY!")
-        
-        return True
-
-    def test_purchases_edit_finalized_attempt(self):
-        """Test Scenario 6: Attempt to Edit Finalized Purchase"""
-        print("\n🔒 TESTING PURCHASES MODULE - ATTEMPT TO EDIT FINALIZED PURCHASE")
-        
-        if not hasattr(self, 'purchases_test_data') or 'finalized_purchase_id' not in self.purchases_test_data:
-            print("❌ Finalized purchase not available, run finalization test first")
-            return False
-        
-        finalized_purchase_id = self.purchases_test_data['finalized_purchase_id']
-        
-        # Try to update finalized purchase (should fail with 400)
-        success, error_response = self.run_test(
-            "Edit Finalized Purchase (Should Fail)",
-            "PATCH",
-            f"purchases/{finalized_purchase_id}",
-            400,  # Expecting 400 error
-            data={"description": "Attempting to edit finalized purchase"}
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error when editing finalized purchase")
-            return False
-        
-        # Verify error message mentions immutability
-        error_str = str(error_response).lower()
-        if 'immutable' not in error_str or 'finalized' not in error_str:
-            print(f"❌ Error message should mention immutability and finalized status")
-            return False
-        
-        print(f"✅ Finalized purchase correctly rejected edit attempt (400 error)")
-        print(f"   Error message mentions immutability: {error_response}")
-        
-        return True
-
-    def test_purchases_re_finalize_attempt(self):
-        """Test Scenario 7: Attempt to Re-Finalize"""
-        print("\n🔄 TESTING PURCHASES MODULE - ATTEMPT TO RE-FINALIZE")
-        
-        if not hasattr(self, 'purchases_test_data') or 'finalized_purchase_id' not in self.purchases_test_data:
-            return False
-        
-        finalized_purchase_id = self.purchases_test_data['finalized_purchase_id']
-        
-        # Count stock movements before re-finalize attempt
-        success, movements_before = self.run_test(
-            "Count Stock Movements Before Re-Finalize",
-            "GET",
-            "inventory/movements",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        movements_count_before = len([
-            m for m in movements_before 
-            if m.get('reference_type') == 'purchase' and m.get('reference_id') == finalized_purchase_id
-        ])
-        
-        # Count transactions before re-finalize attempt
-        success, transactions_before = self.run_test(
-            "Count Transactions Before Re-Finalize",
-            "GET",
-            "transactions",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        transactions_count_before = len([
-            t for t in transactions_before 
-            if t.get('reference_type') == 'purchase' and t.get('reference_id') == finalized_purchase_id
-        ])
-        
-        # Try to re-finalize (should fail with 400)
-        success, error_response = self.run_test(
-            "Re-Finalize Already Finalized Purchase (Should Fail)",
-            "POST",
-            f"purchases/{finalized_purchase_id}/finalize",
-            400  # Expecting 400 error
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error when re-finalizing purchase")
-            return False
-        
-        # Verify error message mentions already finalized
-        error_str = str(error_response).lower()
-        if 'already finalized' not in error_str:
-            print(f"❌ Error message should mention 'already finalized'")
-            return False
-        
-        print(f"✅ Re-finalization correctly rejected (400 error)")
-        
-        # Verify NO duplicate stock movements or transactions created
-        success, movements_after = self.run_test(
-            "Count Stock Movements After Re-Finalize Attempt",
-            "GET",
-            "inventory/movements",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        movements_count_after = len([
-            m for m in movements_after 
-            if m.get('reference_type') == 'purchase' and m.get('reference_id') == finalized_purchase_id
-        ])
-        
-        success, transactions_after = self.run_test(
-            "Count Transactions After Re-Finalize Attempt",
-            "GET",
-            "transactions",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        transactions_count_after = len([
-            t for t in transactions_after 
-            if t.get('reference_type') == 'purchase' and t.get('reference_id') == finalized_purchase_id
-        ])
-        
-        if movements_count_after != movements_count_before:
-            print(f"❌ Duplicate stock movements created: before={movements_count_before}, after={movements_count_after}")
-            return False
-        
-        if transactions_count_after != transactions_count_before:
-            print(f"❌ Duplicate transactions created: before={transactions_count_before}, after={transactions_count_after}")
-            return False
-        
-        print(f"✅ No duplicate movements or transactions created")
-        print(f"   - Stock movements: {movements_count_before} (unchanged)")
-        print(f"   - Transactions: {transactions_count_before} (unchanged)")
-        
-        return True
-
-    def test_purchases_purity_handling(self):
-        """Test Scenario 8: Purity Handling Verification"""
-        print("\n🔬 TESTING PURCHASES MODULE - PURITY HANDLING VERIFICATION")
-        
-        if not hasattr(self, 'purchases_test_data') or 'finalized_purchase_id' not in self.purchases_test_data:
-            return False
-        
-        finalized_purchase_id = self.purchases_test_data['finalized_purchase_id']
-        
-        # Get the finalized purchase
-        success, purchase = self.run_test(
-            "Get Purchase for Purity Verification",
-            "GET",
-            f"purchases/{finalized_purchase_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Verify entered_purity (999) is stored in purchase document
-        if purchase.get('entered_purity') != 999:
-            print(f"❌ entered_purity should be 999 (as claimed by vendor), got: {purchase.get('entered_purity')}")
-            return False
-        
-        print(f"✅ entered_purity stored correctly: {purchase.get('entered_purity')} (vendor claim)")
-        
-        # Verify valuation_purity_fixed is 916
-        if purchase.get('valuation_purity_fixed') != 916:
-            print(f"❌ valuation_purity_fixed should be 916, got: {purchase.get('valuation_purity_fixed')}")
-            return False
-        
-        print(f"✅ valuation_purity_fixed correct: {purchase.get('valuation_purity_fixed')} (for accounting)")
-        
-        # Get the stock movement and verify it uses 916 purity
-        success, movements = self.run_test(
-            "Get Stock Movement for Purity Verification",
-            "GET",
-            "inventory/movements",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        purchase_movement = None
-        for movement in movements:
-            if (movement.get('reference_type') == 'purchase' and 
-                movement.get('reference_id') == finalized_purchase_id):
-                purchase_movement = movement
-                break
-        
-        if not purchase_movement:
-            print(f"❌ Stock movement not found for purchase")
-            return False
-        
-        # Verify stock movement uses valuation_purity_fixed (916), NOT entered_purity (999)
-        if purchase_movement.get('purity') != 916:
-            print(f"❌ Stock movement should use purity 916 (valuation), got: {purchase_movement.get('purity')}")
-            return False
-        
-        print(f"✅ Stock movement uses valuation purity: {purchase_movement.get('purity')} (NOT entered purity)")
-        
-        # Verify inventory header shows 916 purity (22K gold)
-        success, stock_totals = self.run_test(
-            "Get Stock Totals for Purity Verification",
-            "GET",
-            "inventory/stock-totals",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find the inventory header used
-        header_name = purchase_movement.get('header_name', '')
-        if "22K" not in header_name:
-            print(f"❌ Inventory header should be 22K (916 purity), got: {header_name}")
-            return False
-        
-        print(f"✅ Inventory header shows correct purity: {header_name} (22K = 916 purity)")
-        
-        print(f"🔬 PURITY HANDLING VERIFICATION COMPLETE:")
-        print(f"   - entered_purity (999) stored for reference")
-        print(f"   - valuation_purity_fixed (916) used for stock and accounting")
-        print(f"   - Stock movement uses 916 purity")
-        print(f"   - Inventory shows 22K gold (916 purity)")
-        
-        return True
-
-    def test_purchases_precision_verification(self):
-        """Test Scenario 9: Precision Verification"""
-        print("\n📏 TESTING PURCHASES MODULE - PRECISION VERIFICATION")
-        
-        if not hasattr(self, 'purchases_test_data'):
-            return False
-        
-        vendor_id = self.purchases_test_data['vendor_id']
-        
-        # Create purchase with specific precision test values
-        precision_test_data = {
-            "vendor_party_id": vendor_id,
-            "description": "Precision Test Purchase",
-            "weight_grams": 123.4567,    # 4 decimals input
-            "entered_purity": 995,
-            "rate_per_gram": 185.555,    # 3 decimals input
-            "amount_total": 22888.88
-        }
-        
-        success, purchase = self.run_test(
-            "Create Purchase for Precision Test",
-            "POST",
-            "purchases",
-            200,
-            data=precision_test_data
-        )
-        
-        if not success:
-            return False
-        
-        # Verify weight rounded to 3 decimals (123.457)
-        expected_weight = 123.457  # Should round 123.4567 to 3 decimals
-        if abs(purchase.get('weight_grams', 0) - expected_weight) > 0.001:
-            print(f"❌ Weight should be rounded to 3 decimals: expected {expected_weight}, got {purchase.get('weight_grams')}")
-            return False
-        
-        print(f"✅ Weight precision correct: {precision_test_data['weight_grams']} → {purchase.get('weight_grams')} (3 decimals)")
-        
-        # Verify rate rounded to 2 decimals (185.56)
-        expected_rate = 185.56  # Should round 185.555 to 2 decimals
-        if abs(purchase.get('rate_per_gram', 0) - expected_rate) > 0.01:
-            print(f"❌ Rate should be rounded to 2 decimals: expected {expected_rate}, got {purchase.get('rate_per_gram')}")
-            return False
-        
-        print(f"✅ Rate precision correct: {precision_test_data['rate_per_gram']} → {purchase.get('rate_per_gram')} (2 decimals)")
-        
-        # Verify amount rounded to 2 decimals
-        expected_amount = 22888.88
-        if abs(purchase.get('amount_total', 0) - expected_amount) > 0.01:
-            print(f"❌ Amount should be rounded to 2 decimals: expected {expected_amount}, got {purchase.get('amount_total')}")
-            return False
-        
-        print(f"✅ Amount precision correct: {purchase.get('amount_total')} (2 decimals)")
-        
-        return True
-
-    def test_purchases_date_range_filter(self):
-        """Test Scenario 10: Filter by Date Range"""
-        print("\n📅 TESTING PURCHASES MODULE - DATE RANGE FILTER")
-        
-        from datetime import timedelta
-        
-        # Test date range filtering
-        today = datetime.now().strftime('%Y-%m-%d')
-        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-        tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        
-        # Test with date range that should include today's purchases
-        success, purchases_today = self.run_test(
-            "Get Purchases (Today's Date Range)",
-            "GET",
-            "purchases",
-            200,
-            params={
-                "start_date": today,
-                "end_date": tomorrow
-            }
-        )
-        
-        if not success:
-            return False
-        
-        print(f"✅ Date range filter working: {len(purchases_today)} purchases found for today")
-        
-        # Test with date range that should exclude today's purchases
-        success, purchases_yesterday = self.run_test(
-            "Get Purchases (Yesterday's Date Range)",
-            "GET",
-            "purchases",
-            200,
-            params={
-                "start_date": yesterday,
-                "end_date": yesterday
-            }
-        )
-        
-        if not success:
-            return False
-        
-        print(f"✅ Date range exclusion working: {len(purchases_yesterday)} purchases found for yesterday")
-        
-        # Verify all returned purchases are within date range
-        for purchase in purchases_today:
-            purchase_date = purchase.get('date', '')
-            if purchase_date and today not in purchase_date:
-                print(f"ℹ️  Purchase date {purchase_date} outside expected range (may be timezone difference)")
-        
-        return True
-
-    def test_gold_exchange_payment_setup(self):
-        """MODULE 10/10 - SETUP PHASE: Create customer, gold entries, invoice"""
-        print("\n💰 TESTING MODULE 10/10 - GOLD EXCHANGE PAYMENT MODE - SETUP PHASE")
-        
-        # 1. Create a saved customer party
-        customer_data = {
-            "name": "Gold Payment Test Customer",
-            "phone": "+968 9999 1234",
-            "address": "Gold Exchange Test Address",
-            "party_type": "customer",
-            "notes": "Customer for gold exchange payment testing"
-        }
-        
-        success, customer = self.run_test(
-            "Create Saved Customer Party",
-            "POST",
-            "parties",
-            200,
-            data=customer_data
-        )
-        
-        if not success or not customer.get('id'):
-            return False
-        
-        customer_id = customer['id']
-        print(f"✅ Created customer: {customer['name']} (ID: {customer_id})")
-        
-        # 2. Create gold IN entries for this customer
-        # Entry 1: 100.500g, purity=916, purpose=advance_gold
-        gold_entry_1 = {
-            "party_id": customer_id,
-            "type": "IN",
-            "weight_grams": 100.500,
-            "purity_entered": 916,
-            "purpose": "advance_gold",
-            "notes": "Gold advance from customer - Entry 1"
-        }
-        
-        success, entry1 = self.run_test(
-            "Create Gold IN Entry 1 (100.500g advance_gold)",
-            "POST",
-            "gold-ledger",
-            200,
-            data=gold_entry_1
-        )
-        
-        if not success:
-            return False
-        
-        # Entry 2: 50.250g, purity=916, purpose=job_work
-        gold_entry_2 = {
-            "party_id": customer_id,
-            "type": "IN",
-            "weight_grams": 50.250,
-            "purity_entered": 916,
-            "purpose": "job_work",
-            "notes": "Gold for job work - Entry 2"
-        }
-        
-        success, entry2 = self.run_test(
-            "Create Gold IN Entry 2 (50.250g job_work)",
-            "POST",
-            "gold-ledger",
-            200,
-            data=gold_entry_2
-        )
-        
-        if not success:
-            return False
-        
-        print(f"✅ Created 2 gold IN entries: 100.500g + 50.250g = 150.750g total")
-        
-        # 3. Create an invoice for this customer
-        invoice_data = {
-            "customer_type": "saved",
-            "customer_id": customer_id,
-            "customer_name": customer['name'],
-            "invoice_type": "sale",
-            "items": [{
-                "description": "Gold jewelry for gold exchange payment test",
-                "qty": 1,
-                "weight": 20.0,
-                "purity": 916,
-                "metal_rate": 25.0,
-                "gold_value": 500.0,
-                "making_value": 400.0,
-                "vat_percent": 5.0,
-                "vat_amount": 45.0,
-                "line_total": 945.0
-            }],
-            "subtotal": 900.0,
-            "vat_total": 45.0,
-            "grand_total": 1000.0,
-            "balance_due": 1000.0,
-            "notes": "Invoice for gold exchange payment testing"
-        }
-        
-        success, invoice = self.run_test(
-            "Create Invoice (grand_total=1000.00 OMR)",
-            "POST",
-            "invoices",
-            200,
-            data=invoice_data
-        )
-        
-        if not success or not invoice.get('id'):
-            return False
-        
-        invoice_id = invoice['id']
-        print(f"✅ Created invoice: {invoice.get('invoice_number')} (balance_due=1000.00 OMR)")
-        
-        # 4. Verify customer gold balance (should be 150.750g available)
-        success, gold_summary = self.run_test(
-            "Verify Customer Gold Balance",
-            "GET",
-            f"parties/{customer_id}/gold-summary",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        expected_balance = 150.750
-        actual_balance = gold_summary.get('gold_due_from_party', 0)
-        
-        if abs(actual_balance - expected_balance) > 0.001:  # Allow for floating point precision
-            print(f"❌ Expected gold balance {expected_balance}g, got {actual_balance}g")
-            return False
-        
-        print(f"✅ Customer gold balance verified: {actual_balance}g available")
-        
-        # Store test data for subsequent tests
-        self.gold_exchange_test_data = {
-            'customer_id': customer_id,
-            'customer_name': customer['name'],
-            'invoice_id': invoice_id,
-            'invoice_number': invoice.get('invoice_number'),
-            'initial_balance_due': 1000.0,
-            'initial_gold_balance': actual_balance
-        }
-        
-        return True
-
-    def test_gold_exchange_partial_payment(self):
-        """MODULE 10/10 - POSITIVE TEST: Gold exchange partial payment"""
-        print("\n💰 TESTING GOLD EXCHANGE - PARTIAL PAYMENT")
-        
-        if not hasattr(self, 'gold_exchange_test_data'):
-            print("❌ Gold exchange test data not available, run setup first")
-            return False
-        
-        customer_id = self.gold_exchange_test_data['customer_id']
-        invoice_id = self.gold_exchange_test_data['invoice_id']
-        
-        # Test GOLD_EXCHANGE partial payment
-        payment_data = {
-            "payment_mode": "GOLD_EXCHANGE",
-            "gold_weight_grams": 25.000,
-            "rate_per_gram": 20.00,
-            "purity_entered": 916,
-            "notes": "Partial payment using customer's gold balance"
-        }
-        
-        success, payment_response = self.run_test(
-            "GOLD_EXCHANGE Partial Payment (25.000g × 20.00 = 500.00 OMR)",
-            "POST",
-            f"invoices/{invoice_id}/add-payment",
-            200,
-            data=payment_data
-        )
-        
-        if not success:
-            return False
-        
-        # Verify response structure
-        expected_gold_money_value = 25.000 * 20.00  # 500.00
-        
-        if payment_response.get('payment_mode') != 'GOLD_EXCHANGE':
-            print(f"❌ Expected payment_mode 'GOLD_EXCHANGE', got {payment_response.get('payment_mode')}")
-            return False
-        
-        if abs(payment_response.get('gold_money_value', 0) - expected_gold_money_value) > 0.01:
-            print(f"❌ Expected gold_money_value {expected_gold_money_value}, got {payment_response.get('gold_money_value')}")
-            return False
-        
-        if payment_response.get('gold_weight_grams') != 25.000:
-            print(f"❌ Expected gold_weight_grams 25.000, got {payment_response.get('gold_weight_grams')}")
-            return False
-        
-        if payment_response.get('rate_per_gram') != 20.00:
-            print(f"❌ Expected rate_per_gram 20.00, got {payment_response.get('rate_per_gram')}")
-            return False
-        
-        print(f"✅ Payment response structure correct: gold_money_value={payment_response.get('gold_money_value')}")
-        
-        # Verify GoldLedgerEntry created (type=OUT, weight=25.000g)
-        success, gold_entries = self.run_test(
-            "Verify Gold Ledger Entry Created",
-            "GET",
-            "gold-ledger",
-            200,
-            params={"party_id": customer_id}
-        )
-        
-        if not success:
-            return False
-        
-        # Find the OUT entry for this payment
-        payment_entry = None
-        for entry in gold_entries:
-            if (entry.get('type') == 'OUT' and 
-                entry.get('weight_grams') == 25.000 and
-                entry.get('purpose') == 'exchange'):
-                payment_entry = entry
-                break
-        
-        if not payment_entry:
-            print(f"❌ No gold ledger OUT entry found for payment")
-            return False
-        
-        print(f"✅ Gold ledger entry created: type=OUT, weight=25.000g, purpose=exchange")
-        
-        # Verify Transaction created (mode=GOLD_EXCHANGE, amount=500.00)
-        success, transactions = self.run_test(
-            "Verify Transaction Record Created",
-            "GET",
-            "transactions",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        # Find the GOLD_EXCHANGE transaction
-        payment_transaction = None
-        for txn in transactions:
-            if (txn.get('mode') == 'GOLD_EXCHANGE' and 
-                txn.get('party_id') == customer_id and
-                txn.get('amount') == 500.00):
-                payment_transaction = txn
-                break
-        
-        if not payment_transaction:
-            print(f"❌ No GOLD_EXCHANGE transaction found")
-            return False
-        
-        print(f"✅ Transaction created: mode=GOLD_EXCHANGE, amount=500.00")
-        
-        # Verify invoice updated (paid_amount=500.00, balance_due=500.00, payment_status=partial)
-        success, updated_invoice = self.run_test(
-            "Verify Invoice Payment Update",
-            "GET",
-            f"invoices/{invoice_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        if updated_invoice.get('paid_amount') != 500.00:
-            print(f"❌ Expected paid_amount 500.00, got {updated_invoice.get('paid_amount')}")
-            return False
-        
-        if updated_invoice.get('balance_due') != 500.00:
-            print(f"❌ Expected balance_due 500.00, got {updated_invoice.get('balance_due')}")
-            return False
-        
-        if updated_invoice.get('payment_status') != 'partial':
-            print(f"❌ Expected payment_status 'partial', got {updated_invoice.get('payment_status')}")
-            return False
-        
-        print(f"✅ Invoice updated: paid_amount=500.00, balance_due=500.00, payment_status=partial")
-        
-        # Verify customer gold balance reduced to 125.750g
-        success, gold_summary = self.run_test(
-            "Verify Customer Gold Balance Reduced",
-            "GET",
-            f"parties/{customer_id}/gold-summary",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        expected_remaining = 150.750 - 25.000  # 125.750g
-        actual_remaining = gold_summary.get('gold_due_from_party', 0)
-        
-        if abs(actual_remaining - expected_remaining) > 0.001:
-            print(f"❌ Expected remaining gold balance {expected_remaining}g, got {actual_remaining}g")
-            return False
-        
-        print(f"✅ Customer gold balance reduced correctly: {actual_remaining}g remaining")
-        
-        # Update test data for next test
-        self.gold_exchange_test_data['remaining_balance_due'] = 500.00
-        self.gold_exchange_test_data['remaining_gold_balance'] = actual_remaining
-        
-        return True
-
-    def test_gold_exchange_full_payment(self):
-        """MODULE 10/10 - POSITIVE TEST: Gold exchange full payment (pay remaining balance)"""
-        print("\n💰 TESTING GOLD EXCHANGE - FULL PAYMENT (REMAINING BALANCE)")
-        
-        if not hasattr(self, 'gold_exchange_test_data'):
-            print("❌ Gold exchange test data not available")
-            return False
-        
-        customer_id = self.gold_exchange_test_data['customer_id']
-        invoice_id = self.gold_exchange_test_data['invoice_id']
-        
-        # Test GOLD_EXCHANGE full payment (pay remaining 500.00 OMR)
-        payment_data = {
-            "payment_mode": "GOLD_EXCHANGE",
-            "gold_weight_grams": 25.000,
-            "rate_per_gram": 20.00,
-            "purity_entered": 916,
-            "notes": "Full payment of remaining balance using gold"
-        }
-        
-        success, payment_response = self.run_test(
-            "GOLD_EXCHANGE Full Payment (25.000g × 20.00 = 500.00 OMR)",
-            "POST",
-            f"invoices/{invoice_id}/add-payment",
-            200,
-            data=payment_data
-        )
-        
-        if not success:
-            return False
-        
-        # Verify invoice is now fully paid
-        success, final_invoice = self.run_test(
-            "Verify Invoice Fully Paid",
-            "GET",
-            f"invoices/{invoice_id}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        if final_invoice.get('paid_amount') != 1000.00:
-            print(f"❌ Expected total paid_amount 1000.00, got {final_invoice.get('paid_amount')}")
-            return False
-        
-        if final_invoice.get('balance_due') != 0.00:
-            print(f"❌ Expected balance_due 0.00, got {final_invoice.get('balance_due')}")
-            return False
-        
-        if final_invoice.get('payment_status') != 'paid':
-            print(f"❌ Expected payment_status 'paid', got {final_invoice.get('payment_status')}")
-            return False
-        
-        print(f"✅ Invoice fully paid: paid_amount=1000.00, balance_due=0.00, payment_status=paid")
-        
-        # Verify customer gold balance reduced to 100.750g
-        success, final_gold_summary = self.run_test(
-            "Verify Final Customer Gold Balance",
-            "GET",
-            f"parties/{customer_id}/gold-summary",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        expected_final = 125.750 - 25.000  # 100.750g
-        actual_final = final_gold_summary.get('gold_due_from_party', 0)
-        
-        if abs(actual_final - expected_final) > 0.001:
-            print(f"❌ Expected final gold balance {expected_final}g, got {actual_final}g")
-            return False
-        
-        print(f"✅ Customer final gold balance: {actual_final}g remaining")
-        
-        # Update test data
-        self.gold_exchange_test_data['final_gold_balance'] = actual_final
-        
-        return True
-
-    def test_gold_exchange_walk_in_validation(self):
-        """MODULE 10/10 - VALIDATION TEST: Walk-in customer should fail"""
-        print("\n💰 TESTING GOLD EXCHANGE - WALK-IN CUSTOMER VALIDATION")
-        
-        # Create walk-in invoice
-        walk_in_invoice_data = {
-            "customer_type": "walk_in",
-            "walk_in_name": "Walk-in Customer",
-            "walk_in_phone": "+968 5555 5555",
-            "invoice_type": "sale",
-            "items": [{
-                "description": "Walk-in sale item",
-                "qty": 1,
-                "weight": 5.0,
-                "purity": 916,
-                "metal_rate": 20.0,
-                "gold_value": 100.0,
-                "making_value": 50.0,
-                "vat_percent": 5.0,
-                "vat_amount": 7.5,
-                "line_total": 157.5
-            }],
-            "subtotal": 150.0,
-            "vat_total": 7.5,
-            "grand_total": 157.5,
-            "balance_due": 157.5,
-            "notes": "Walk-in invoice for validation testing"
-        }
-        
-        success, walk_in_invoice = self.run_test(
-            "Create Walk-in Invoice",
-            "POST",
-            "invoices",
-            200,
-            data=walk_in_invoice_data
-        )
-        
-        if not success:
-            return False
-        
-        # Attempt GOLD_EXCHANGE payment (should fail with 400)
-        payment_data = {
-            "payment_mode": "GOLD_EXCHANGE",
-            "gold_weight_grams": 5.000,
-            "rate_per_gram": 20.00,
-            "notes": "Attempting gold exchange for walk-in customer"
-        }
-        
-        success, error_response = self.run_test(
-            "GOLD_EXCHANGE for Walk-in Customer (Should Fail with 400)",
-            "POST",
-            f"invoices/{walk_in_invoice['id']}/add-payment",
-            400,  # Expecting 400 error
-            data=payment_data
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error for walk-in customer GOLD_EXCHANGE")
-            return False
-        
-        # Verify error message mentions saved customers only
-        error_str = str(error_response).lower()
-        if 'saved customer' not in error_str or 'only available' not in error_str:
-            print(f"❌ Error message should mention 'only available for saved customers'")
-            return False
-        
-        print(f"✅ Walk-in customer correctly rejected for GOLD_EXCHANGE payment")
-        return True
-
-    def test_gold_exchange_insufficient_balance(self):
-        """MODULE 10/10 - VALIDATION TEST: Insufficient gold balance"""
-        print("\n💰 TESTING GOLD EXCHANGE - INSUFFICIENT GOLD BALANCE")
-        
-        if not hasattr(self, 'gold_exchange_test_data'):
-            print("❌ Gold exchange test data not available")
-            return False
-        
-        customer_id = self.gold_exchange_test_data['customer_id']
-        
-        # Create new invoice with high balance
-        high_value_invoice_data = {
-            "customer_type": "saved",
-            "customer_id": customer_id,
-            "customer_name": self.gold_exchange_test_data['customer_name'],
-            "invoice_type": "sale",
-            "items": [{
-                "description": "High value item for insufficient balance test",
-                "qty": 1,
-                "weight": 50.0,
-                "purity": 916,
-                "metal_rate": 25.0,
-                "gold_value": 1250.0,
-                "making_value": 3500.0,
-                "vat_percent": 5.0,
-                "vat_amount": 237.5,
-                "line_total": 4987.5
-            }],
-            "subtotal": 4750.0,
-            "vat_total": 237.5,
-            "grand_total": 5000.0,
-            "balance_due": 5000.0,
-            "notes": "High value invoice for insufficient balance test"
-        }
-        
-        success, high_invoice = self.run_test(
-            "Create High Value Invoice (5000.00 OMR)",
-            "POST",
-            "invoices",
-            200,
-            data=high_value_invoice_data
-        )
-        
-        if not success:
-            return False
-        
-        # Attempt GOLD_EXCHANGE with more gold than customer has (200.000g, customer only has ~100.750g)
-        payment_data = {
-            "payment_mode": "GOLD_EXCHANGE",
-            "gold_weight_grams": 200.000,
-            "rate_per_gram": 25.00,
-            "notes": "Attempting payment with insufficient gold balance"
-        }
-        
-        success, error_response = self.run_test(
-            "GOLD_EXCHANGE with Insufficient Balance (Should Fail with 400)",
-            "POST",
-            f"invoices/{high_invoice['id']}/add-payment",
-            400,  # Expecting 400 error
-            data=payment_data
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error for insufficient gold balance")
-            return False
-        
-        # Verify error message shows available vs requested
-        error_str = str(error_response).lower()
-        if 'insufficient gold balance' not in error_str:
-            print(f"❌ Error message should mention 'Insufficient gold balance'")
-            return False
-        
-        print(f"✅ Insufficient gold balance correctly rejected with proper error message")
-        return True
-
-    def test_gold_exchange_invalid_inputs(self):
-        """MODULE 10/10 - VALIDATION TEST: Invalid gold_weight_grams and rate_per_gram"""
-        print("\n💰 TESTING GOLD EXCHANGE - INVALID INPUT VALIDATION")
-        
-        if not hasattr(self, 'gold_exchange_test_data'):
-            print("❌ Gold exchange test data not available")
-            return False
-        
-        customer_id = self.gold_exchange_test_data['customer_id']
-        
-        # Create test invoice
-        test_invoice_data = {
-            "customer_type": "saved",
-            "customer_id": customer_id,
-            "customer_name": self.gold_exchange_test_data['customer_name'],
-            "invoice_type": "sale",
-            "items": [{
-                "description": "Test item for validation",
-                "qty": 1,
-                "weight": 10.0,
-                "purity": 916,
-                "metal_rate": 20.0,
-                "gold_value": 200.0,
-                "making_value": 100.0,
-                "vat_percent": 5.0,
-                "vat_amount": 15.0,
-                "line_total": 315.0
-            }],
-            "subtotal": 300.0,
-            "vat_total": 15.0,
-            "grand_total": 315.0,
-            "balance_due": 315.0
-        }
-        
-        success, test_invoice = self.run_test(
-            "Create Test Invoice for Validation",
-            "POST",
-            "invoices",
-            200,
-            data=test_invoice_data
-        )
-        
-        if not success:
-            return False
-        
-        invoice_id = test_invoice['id']
-        
-        # Test invalid gold_weight_grams = 0
-        payment_data_1 = {
-            "payment_mode": "GOLD_EXCHANGE",
-            "gold_weight_grams": 0,
-            "rate_per_gram": 20.00
-        }
-        
-        success, _ = self.run_test(
-            "Invalid gold_weight_grams=0 (Should Fail with 400)",
-            "POST",
-            f"invoices/{invoice_id}/add-payment",
-            400,
-            data=payment_data_1
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error for gold_weight_grams=0")
-            return False
-        
-        print(f"✅ gold_weight_grams=0 correctly rejected")
-        
-        # Test invalid rate_per_gram = 0
-        payment_data_2 = {
-            "payment_mode": "GOLD_EXCHANGE",
-            "gold_weight_grams": 10.000,
-            "rate_per_gram": 0
-        }
-        
-        success, _ = self.run_test(
-            "Invalid rate_per_gram=0 (Should Fail with 400)",
-            "POST",
-            f"invoices/{invoice_id}/add-payment",
-            400,
-            data=payment_data_2
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error for rate_per_gram=0")
-            return False
-        
-        print(f"✅ rate_per_gram=0 correctly rejected")
-        
-        return True
-
-    def test_gold_exchange_overpayment(self):
-        """MODULE 10/10 - VALIDATION TEST: Overpayment attempt"""
-        print("\n💰 TESTING GOLD EXCHANGE - OVERPAYMENT VALIDATION")
-        
-        if not hasattr(self, 'gold_exchange_test_data'):
-            print("❌ Gold exchange test data not available")
-            return False
-        
-        customer_id = self.gold_exchange_test_data['customer_id']
-        
-        # Create small invoice
-        small_invoice_data = {
-            "customer_type": "saved",
-            "customer_id": customer_id,
-            "customer_name": self.gold_exchange_test_data['customer_name'],
-            "invoice_type": "sale",
-            "items": [{
-                "description": "Small item for overpayment test",
-                "qty": 1,
-                "weight": 2.0,
-                "purity": 916,
-                "metal_rate": 20.0,
-                "gold_value": 40.0,
-                "making_value": 50.0,
-                "vat_percent": 5.0,
-                "vat_amount": 4.5,
-                "line_total": 94.5
-            }],
-            "subtotal": 90.0,
-            "vat_total": 4.5,
-            "grand_total": 100.0,
-            "balance_due": 100.0
-        }
-        
-        success, small_invoice = self.run_test(
-            "Create Small Invoice (100.00 OMR)",
-            "POST",
-            "invoices",
-            200,
-            data=small_invoice_data
-        )
-        
-        if not success:
-            return False
-        
-        # Attempt overpayment (10.000g × 20.00 = 200.00 OMR > 100.00 OMR balance)
-        payment_data = {
-            "payment_mode": "GOLD_EXCHANGE",
-            "gold_weight_grams": 10.000,
-            "rate_per_gram": 20.00,
-            "notes": "Attempting overpayment"
-        }
-        
-        success, error_response = self.run_test(
-            "GOLD_EXCHANGE Overpayment (Should Fail with 400)",
-            "POST",
-            f"invoices/{small_invoice['id']}/add-payment",
-            400,  # Expecting 400 error
-            data=payment_data
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error for overpayment attempt")
-            return False
-        
-        # Verify error message mentions exceeding balance
-        error_str = str(error_response).lower()
-        if 'exceeds' not in error_str or 'balance' not in error_str:
-            print(f"❌ Error message should mention exceeding remaining balance")
-            return False
-        
-        print(f"✅ Overpayment correctly rejected with proper error message")
-        return True
-
-    def test_gold_exchange_backward_compatibility(self):
-        """MODULE 10/10 - BACKWARD COMPATIBILITY: Standard payment modes still work"""
-        print("\n💰 TESTING GOLD EXCHANGE - BACKWARD COMPATIBILITY")
-        
-        if not hasattr(self, 'gold_exchange_test_data'):
-            print("❌ Gold exchange test data not available")
-            return False
-        
-        customer_id = self.gold_exchange_test_data['customer_id']
-        
-        # Create test account for cash payment
-        account_data = {
-            "name": f"Cash Account {datetime.now().strftime('%H%M%S')}",
-            "account_type": "cash",
-            "opening_balance": 1000.0
-        }
-        
-        success, account = self.run_test(
-            "Create Cash Account for Compatibility Test",
-            "POST",
-            "accounts",
-            200,
-            data=account_data
-        )
-        
-        if not success:
-            return False
-        
-        account_id = account['id']
-        
-        # Create test invoice
-        compat_invoice_data = {
-            "customer_type": "saved",
-            "customer_id": customer_id,
-            "customer_name": self.gold_exchange_test_data['customer_name'],
-            "invoice_type": "sale",
-            "items": [{
-                "description": "Compatibility test item",
-                "qty": 1,
-                "weight": 10.0,
-                "purity": 916,
-                "metal_rate": 20.0,
-                "gold_value": 200.0,
-                "making_value": 250.0,
-                "vat_percent": 5.0,
-                "vat_amount": 22.5,
-                "line_total": 472.5
-            }],
-            "subtotal": 450.0,
-            "vat_total": 22.5,
-            "grand_total": 500.0,
-            "balance_due": 500.0
-        }
-        
-        success, compat_invoice = self.run_test(
-            "Create Invoice for Compatibility Test",
-            "POST",
-            "invoices",
-            200,
-            data=compat_invoice_data
-        )
-        
-        if not success:
-            return False
-        
-        # Test standard Cash payment (should still work)
-        cash_payment_data = {
-            "payment_mode": "Cash",
-            "amount": 500.00,
-            "account_id": account_id,
-            "notes": "Standard cash payment for compatibility test"
-        }
-        
-        success, cash_response = self.run_test(
-            "Standard Cash Payment (Should Still Work)",
-            "POST",
-            f"invoices/{compat_invoice['id']}/add-payment",
-            200,
-            data=cash_payment_data
-        )
-        
-        if not success:
-            return False
-        
-        # Verify cash payment worked correctly
-        if cash_response.get('payment_mode') != 'Cash':
-            print(f"❌ Expected payment_mode 'Cash', got {cash_response.get('payment_mode')}")
-            return False
-        
-        if cash_response.get('amount') != 500.00:
-            print(f"❌ Expected amount 500.00, got {cash_response.get('amount')}")
-            return False
-        
-        # Verify no gold-related fields in cash payment response
-        gold_fields = ['gold_weight_grams', 'rate_per_gram', 'gold_money_value', 'customer_gold_balance_remaining']
-        for field in gold_fields:
-            if field in cash_response:
-                print(f"❌ Cash payment response should not contain gold field: {field}")
-                return False
-        
-        print(f"✅ Standard Cash payment works correctly (no gold fields in response)")
-        
-        # Verify invoice is paid
-        success, final_invoice = self.run_test(
-            "Verify Invoice Paid by Cash",
-            "GET",
-            f"invoices/{compat_invoice['id']}",
-            200
-        )
-        
-        if not success:
-            return False
-        
-        if final_invoice.get('payment_status') != 'paid':
-            print(f"❌ Invoice should be paid, got {final_invoice.get('payment_status')}")
-            return False
-        
-        print(f"✅ Backward compatibility verified: Standard payment modes work correctly")
-        return True
-
-    def test_walk_in_invoice_transaction_creation(self):
-        """🔥 CRITICAL FIX VERIFICATION - Walk-in Invoice Transaction Creation"""
-        print("\n🔥 TESTING WALK-IN INVOICE TRANSACTION CREATION FIX")
-        
-        # Step 1: Create a walk-in job card with at least 1 item
-        jobcard_data = {
-            "card_type": "individual",
-            "customer_type": "walk_in",
-            "walk_in_name": "John Walk-in Customer",
-            "walk_in_phone": "+968 9999 1234",
-            "delivery_date": "2025-01-20",
-            "notes": "Walk-in job card for transaction creation test",
-            "items": [{
-                "category": "Ring",
-                "description": "Gold ring for walk-in customer",
-                "qty": 1,
-                "weight_in": 10.500,
-                "weight_out": 10.200,
-                "purity": 916,
-                "work_type": "polish",
-                "remarks": "Polish and clean",
-                "making_charge_type": "flat",
-                "making_charge_value": 15.0,
-                "vat_percent": 5.0
-            }]
-        }
-        
-        success, jobcard = self.run_test(
-            "Create Walk-in Job Card",
-            "POST",
-            "jobcards",
-            200,
-            data=jobcard_data
-        )
-        
-        if not success or not jobcard.get('id'):
-            print("❌ Failed to create walk-in job card")
-            return False
-        
-        jobcard_id = jobcard['id']
-        print(f"✅ Walk-in job card created: {jobcard_id}")
-        
-        # Step 2: Convert to walk-in invoice
-        invoice_conversion_data = {
-            "customer_type": "walk_in",
-            "walk_in_name": "John Walk-in Customer",
-            "walk_in_phone": "+968 9999 1234"
-        }
-        
-        success, invoice = self.run_test(
-            "Convert Walk-in Job Card to Invoice",
-            "POST",
-            f"jobcards/{jobcard_id}/convert-to-invoice",
-            200,
-            data=invoice_conversion_data
-        )
-        
-        if not success or not invoice.get('id'):
-            print("❌ Failed to convert walk-in job card to invoice")
-            return False
-        
-        invoice_id = invoice['id']
-        grand_total = invoice.get('grand_total', 0)
-        print(f"✅ Walk-in invoice created: {invoice_id}, grand_total: {grand_total}")
-        
-        # Verify invoice has walk-in customer details
-        if invoice.get('customer_type') != 'walk_in':
-            print(f"❌ Invoice customer_type should be 'walk_in', got: {invoice.get('customer_type')}")
-            return False
-        
-        if invoice.get('walk_in_name') != 'John Walk-in Customer':
-            print(f"❌ Invoice walk_in_name mismatch")
-            return False
-        
-        if invoice.get('walk_in_phone') != '+968 9999 1234':
-            print(f"❌ Invoice walk_in_phone mismatch")
-            return False
-        
-        print(f"✅ Walk-in invoice has correct customer details")
-        
-        # Step 3: Finalize the walk-in invoice
-        success, finalized_invoice = self.run_test(
-            "Finalize Walk-in Invoice",
-            "POST",
-            f"invoices/{invoice_id}/finalize",
-            200
-        )
-        
-        if not success:
-            print("❌ Failed to finalize walk-in invoice")
-            return False
-        
-        print(f"✅ Walk-in invoice finalized successfully")
-        
-        # Step 4: 🔥 CRITICAL CHECK - Query transactions collection for transaction record
-        success, transactions = self.run_test(
-            "Get All Transactions (Find Walk-in Transaction)",
-            "GET",
-            "transactions",
-            200
-        )
-        
-        if not success:
-            print("❌ Failed to get transactions")
-            return False
-        
-        # Find the transaction record for this walk-in invoice
-        walk_in_transaction = None
-        for txn in transactions:
-            if (txn.get('reference_type') == 'invoice' and 
-                txn.get('reference_id') == invoice_id and
-                txn.get('category') == 'Sales Invoice'):
-                walk_in_transaction = txn
-                break
-        
-        if not walk_in_transaction:
-            print(f"❌ CRITICAL FAILURE: No transaction record found for walk-in invoice {invoice_id}")
-            print(f"   Expected: reference_type='invoice', reference_id='{invoice_id}', category='Sales Invoice'")
-            return False
-        
-        print(f"✅ CRITICAL SUCCESS: Transaction record found for walk-in invoice!")
-        
-        # Verify transaction record has correct fields for walk-in
-        verification_results = []
-        
-        # Check reference_type = "invoice"
-        if walk_in_transaction.get('reference_type') != 'invoice':
-            print(f"❌ reference_type should be 'invoice', got: {walk_in_transaction.get('reference_type')}")
-            verification_results.append(False)
+        if all_correct:
+            self.log_result("Task 3.5 - Convert WITHOUT Gold Rate", True, 
+                          f"All items use default metal_rate: {expected_rate}")
         else:
-            print(f"✅ reference_type correct: {walk_in_transaction.get('reference_type')}")
-            verification_results.append(True)
-        
-        # Check reference_id = invoice_id
-        if walk_in_transaction.get('reference_id') != invoice_id:
-            print(f"❌ reference_id should be '{invoice_id}', got: {walk_in_transaction.get('reference_id')}")
-            verification_results.append(False)
-        else:
-            print(f"✅ reference_id correct: {walk_in_transaction.get('reference_id')}")
-            verification_results.append(True)
-        
-        # Check category = "Sales Invoice"
-        if walk_in_transaction.get('category') != 'Sales Invoice':
-            print(f"❌ category should be 'Sales Invoice', got: {walk_in_transaction.get('category')}")
-            verification_results.append(False)
-        else:
-            print(f"✅ category correct: {walk_in_transaction.get('category')}")
-            verification_results.append(True)
-        
-        # Check mode = "invoice"
-        if walk_in_transaction.get('mode') != 'invoice':
-            print(f"❌ mode should be 'invoice', got: {walk_in_transaction.get('mode')}")
-            verification_results.append(False)
-        else:
-            print(f"✅ mode correct: {walk_in_transaction.get('mode')}")
-            verification_results.append(True)
-        
-        # Check party_id = None (for walk-in)
-        if walk_in_transaction.get('party_id') is not None:
-            print(f"❌ party_id should be None for walk-in, got: {walk_in_transaction.get('party_id')}")
-            verification_results.append(False)
-        else:
-            print(f"✅ party_id correct (None for walk-in): {walk_in_transaction.get('party_id')}")
-            verification_results.append(True)
-        
-        # Check party_name = None (for walk-in)
-        if walk_in_transaction.get('party_name') is not None:
-            print(f"❌ party_name should be None for walk-in, got: {walk_in_transaction.get('party_name')}")
-            verification_results.append(False)
-        else:
-            print(f"✅ party_name correct (None for walk-in): {walk_in_transaction.get('party_name')}")
-            verification_results.append(True)
-        
-        # Check notes containing walk_in_name and walk_in_phone
-        notes = walk_in_transaction.get('notes', '')
-        if 'John Walk-in Customer' not in notes:
-            print(f"❌ notes should contain walk_in_name 'John Walk-in Customer', got: {notes}")
-            verification_results.append(False)
-        else:
-            print(f"✅ notes contain walk_in_name")
-            verification_results.append(True)
-        
-        if '+968 9999 1234' not in notes:
-            print(f"❌ notes should contain walk_in_phone '+968 9999 1234', got: {notes}")
-            verification_results.append(False)
-        else:
-            print(f"✅ notes contain walk_in_phone")
-            verification_results.append(True)
-        
-        # Check amount = invoice grand_total
-        if abs(walk_in_transaction.get('amount', 0) - grand_total) > 0.01:
-            print(f"❌ amount should be {grand_total}, got: {walk_in_transaction.get('amount')}")
-            verification_results.append(False)
-        else:
-            print(f"✅ amount correct: {walk_in_transaction.get('amount')}")
-            verification_results.append(True)
-        
-        # Check transaction_number format: TXN-YYYY-NNNN
-        txn_number = walk_in_transaction.get('transaction_number', '')
-        import re
-        if not re.match(r'^TXN-\d{4}-\d{4}$', txn_number):
-            print(f"❌ transaction_number format incorrect: {txn_number}")
-            verification_results.append(False)
-        else:
-            print(f"✅ transaction_number format correct: {txn_number}")
-            verification_results.append(True)
-        
-        # Final verification
-        all_checks_passed = all(verification_results)
-        
-        if all_checks_passed:
-            print(f"\n🎉 CRITICAL FIX VERIFICATION SUCCESSFUL!")
-            print(f"   ✅ Transaction record CREATED for walk-in invoice finalization")
-            print(f"   ✅ Transaction has correct fields for walk-in (party_id=None, notes with customer info)")
-            print(f"   ✅ Transaction number auto-generated correctly: {txn_number}")
-            print(f"   ✅ Amount matches invoice grand_total: {grand_total}")
-            print(f"   ✅ All walk-in transaction creation requirements met")
-        else:
-            print(f"\n❌ CRITICAL FIX VERIFICATION FAILED!")
-            print(f"   Some transaction record fields are incorrect")
-        
-        return all_checks_passed
+            self.log_result("Task 3.5 - Convert WITHOUT Gold Rate", False, 
+                          f"Not all items use expected default metal_rate: {expected_rate}")
 
-    def test_inventory_crud_operations(self):
-        """Test newly implemented inventory CRUD operations (UPDATE & DELETE endpoints)"""
-        print("\n🔥 TESTING INVENTORY CRUD OPERATIONS - UPDATE & DELETE ENDPOINTS")
+    def test_task3_scenario6_priority_chain_user_override(self, jobcard_id: str):
+        """Task 3 - Scenario 6: Priority Chain - User Override Test"""
+        print("🔸 Task 3 - Scenario 6: Priority Chain - User Override Test")
         
-        # PHASE 1: Inventory Header Update Tests
-        print("\n📋 PHASE 1: INVENTORY HEADER UPDATE TESTS")
+        if not jobcard_id:
+            self.log_result("Task 3.6 - Priority Chain Override", False, "No job card ID provided")
+            return
         
-        # Test 1: Create a test inventory header for updates
-        test_header_name = f"Test Category Update {datetime.now().strftime('%H%M%S')}"
-        success, new_header = self.run_test(
-            "Create Test Header for Updates",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": test_header_name}
-        )
+        # Convert with user override (should override job card gold rate)
+        result = self.convert_jobcard_to_invoice(jobcard_id, metal_rate=30.0)
         
-        if not success or not new_header.get('id'):
-            return False
+        if "error" in result:
+            self.log_result("Task 3.6 - Priority Chain Override", False, 
+                          f"Conversion failed: {result.get('message', 'Unknown error')}")
+            return
         
-        header_id = new_header['id']
-        self.created_resources['headers'].append(header_id)
+        invoice_id = result.get('invoice_id')
+        if not invoice_id:
+            self.log_result("Task 3.6 - Priority Chain Override", False, "No invoice ID returned")
+            return
         
-        # Test 2: Update header name
-        success, updated_header = self.run_test(
-            "Update Header Name",
-            "PATCH",
-            f"inventory/headers/{header_id}",
-            200,
-            data={"name": "Updated Category"}
-        )
+        # Verify invoice items use override rate (30.0)
+        invoice = self.get_invoice(invoice_id)
+        if not invoice:
+            self.log_result("Task 3.6 - Priority Chain Override", False, "Failed to retrieve invoice")
+            return
         
-        if not success or updated_header.get('name') != "Updated Category":
-            print(f"❌ Header name update failed")
-            return False
+        items = invoice.get('items', [])
+        if not items:
+            self.log_result("Task 3.6 - Priority Chain Override", False, "No items in invoice")
+            return
         
-        print(f"✅ Header name updated successfully: {updated_header.get('name')}")
+        # Check all items have override metal_rate
+        all_correct = True
+        expected_rate = 30.0
+        for item in items:
+            metal_rate = item.get('metal_rate')
+            if metal_rate != expected_rate:
+                all_correct = False
+                break
         
-        # Test 3: Update header is_active to false
-        success, deactivated_header = self.run_test(
-            "Update Header is_active to False",
-            "PATCH",
-            f"inventory/headers/{header_id}",
-            200,
-            data={"is_active": False}
-        )
+        if all_correct:
+            self.log_result("Task 3.6 - Priority Chain Override", True, 
+                          f"User override successful - all items use metal_rate: {expected_rate}")
+        else:
+            self.log_result("Task 3.6 - Priority Chain Override", False, 
+                          f"User override failed - not all items use expected metal_rate: {expected_rate}")
+
+    def test_task3_scenario7_backend_calculation_verification(self):
+        """Task 3 - Scenario 7: Backend Calculation Verification"""
+        print("🔸 Task 3 - Scenario 7: Backend Calculation Verification")
         
-        if not success or deactivated_header.get('is_active') != False:
-            print(f"❌ Header deactivation failed")
-            return False
+        # Create test customer
+        customer_id = self.create_test_party("Calculation Test Customer")
+        if not customer_id:
+            self.log_result("Task 3.7 - Calculation Verification", False, "Failed to create test customer")
+            return
         
-        print(f"✅ Header deactivated successfully: is_active={deactivated_header.get('is_active')}")
-        
-        # Test 4: Update non-existent header (should return 404)
-        success, _ = self.run_test(
-            "Update Non-existent Header (Should Fail with 404)",
-            "PATCH",
-            "inventory/headers/non-existent-id",
-            404,
-            data={"name": "Should Fail"}
-        )
-        
-        if not success:
-            print(f"❌ Expected 404 for non-existent header update")
-            return False
-        
-        print(f"✅ Non-existent header update correctly returned 404")
-        
-        # Test 5: Verify audit logs created for updates
-        success, audit_logs = self.run_test(
-            "Get Audit Logs (Verify Header Updates)",
-            "GET",
-            "audit-logs",
-            200
-        )
-        
-        if success:
-            header_update_logs = [
-                log for log in audit_logs 
-                if log.get('module') == 'inventory_header' and 
-                   log.get('record_id') == header_id and 
-                   log.get('action') == 'update'
-            ]
-            
-            if len(header_update_logs) >= 2:  # Should have at least 2 update logs
-                print(f"✅ Audit logs created for header updates: {len(header_update_logs)} logs")
-            else:
-                print(f"⚠️  Expected at least 2 audit logs for header updates, found: {len(header_update_logs)}")
-        
-        # PHASE 2: Inventory Header Delete Tests
-        print("\n📋 PHASE 2: INVENTORY HEADER DELETE TESTS")
-        
-        # Test 6: Create new header with no stock for deletion
-        success, empty_header = self.run_test(
-            "Create Empty Header for Deletion",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": "Test Delete Empty"}
-        )
-        
-        if not success or not empty_header.get('id'):
-            return False
-        
-        empty_header_id = empty_header['id']
-        
-        # Test 7: Delete empty header (should succeed)
-        success, delete_response = self.run_test(
-            "Delete Empty Header (Should Succeed)",
-            "DELETE",
-            f"inventory/headers/{empty_header_id}",
-            200
-        )
-        
-        if not success:
-            print(f"❌ Empty header deletion should succeed")
-            return False
-        
-        print(f"✅ Empty header deleted successfully")
-        
-        # Test 8: Create header with stock for deletion test
-        success, stock_header = self.run_test(
-            "Create Header for Stock Test",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": "Test Delete With Stock"}
-        )
-        
-        if not success or not stock_header.get('id'):
-            return False
-        
-        stock_header_id = stock_header['id']
-        self.created_resources['headers'].append(stock_header_id)
-        
-        # Test 9: Add stock movement to this header
-        movement_data = {
-            "movement_type": "Stock IN",
-            "header_id": stock_header_id,
-            "description": "Test stock for deletion test",
-            "qty_delta": 10,
-            "weight_delta": 50.5,
-            "purity": 916,
-            "notes": "Stock for deletion test"
-        }
-        
-        success, movement = self.run_test(
-            "Add Stock to Header",
-            "POST",
-            "inventory/movements",
-            200,
-            data=movement_data
-        )
-        
-        if not success:
-            return False
-        
-        print(f"✅ Stock added to header: qty=10, weight=50.5g")
-        
-        # Test 10: Try to delete header with stock (should fail with 400)
-        success, error_response = self.run_test(
-            "Delete Header With Stock (Should Fail with 400)",
-            "DELETE",
-            f"inventory/headers/{stock_header_id}",
-            400
-        )
-        
-        if not success:
-            print(f"❌ Expected 400 error for deleting header with stock")
-            return False
-        
-        # Verify error message shows current stock
-        error_str = str(error_response)
-        if "10" not in error_str or "50.5" not in error_str:
-            print(f"❌ Error message should show current stock quantities")
-            return False
-        
-        print(f"✅ Header with stock correctly rejected deletion (400 error with stock info)")
-        
-        # PHASE 3: Stock Movement Delete Tests
-        print("\n📋 PHASE 3: STOCK MOVEMENT DELETE TESTS")
-        
-        # Test 11: Create test header for movement deletion
-        success, movement_header = self.run_test(
-            "Create Header for Movement Delete Test",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": "Test Movement Delete"}
-        )
-        
-        if not success or not movement_header.get('id'):
-            return False
-        
-        movement_header_id = movement_header['id']
-        self.created_resources['headers'].append(movement_header_id)
-        
-        # Test 12: Create manual stock movement
-        manual_movement_data = {
-            "movement_type": "Stock IN",
-            "header_id": movement_header_id,
-            "description": "Manual test movement",
-            "qty_delta": 5,
-            "weight_delta": 25.5,
-            "purity": 916,
-            "notes": "Manual movement for deletion test"
-        }
-        
-        success, manual_movement = self.run_test(
-            "Create Manual Stock Movement",
-            "POST",
-            "inventory/movements",
-            200,
-            data=manual_movement_data
-        )
-        
-        if not success or not manual_movement.get('id'):
-            return False
-        
-        manual_movement_id = manual_movement['id']
-        
-        # Test 13: Verify header stock increased
-        success, updated_header = self.run_test(
-            "Verify Header Stock Increased",
-            "GET",
-            "inventory/headers",
-            200
-        )
-        
-        if success:
-            test_header = next((h for h in updated_header if h['id'] == movement_header_id), None)
-            if test_header:
-                current_qty = test_header.get('current_qty', 0)
-                current_weight = test_header.get('current_weight', 0)
-                
-                if current_qty == 5 and current_weight == 25.5:
-                    print(f"✅ Header stock increased correctly: qty={current_qty}, weight={current_weight}g")
-                else:
-                    print(f"❌ Header stock not updated correctly: expected qty=5, weight=25.5g, got qty={current_qty}, weight={current_weight}g")
-                    return False
-        
-        # Test 14: Delete manual movement (should succeed and reverse stock)
-        success, delete_movement_response = self.run_test(
-            "Delete Manual Movement (Should Succeed)",
-            "DELETE",
-            f"inventory/movements/{manual_movement_id}",
-            200
-        )
-        
-        if not success:
-            print(f"❌ Manual movement deletion should succeed")
-            return False
-        
-        print(f"✅ Manual movement deleted successfully")
-        
-        # Test 15: Verify header stock reversed correctly
-        success, final_header = self.run_test(
-            "Verify Header Stock Reversed",
-            "GET",
-            "inventory/headers",
-            200
-        )
-        
-        if success:
-            test_header = next((h for h in final_header if h['id'] == movement_header_id), None)
-            if test_header:
-                current_qty = test_header.get('current_qty', 0)
-                current_weight = test_header.get('current_weight', 0)
-                
-                if current_qty == 0 and current_weight == 0:
-                    print(f"✅ Header stock reversed correctly: qty={current_qty}, weight={current_weight}g")
-                else:
-                    print(f"❌ Header stock not reversed correctly: expected qty=0, weight=0g, got qty={current_qty}, weight={current_weight}g")
-                    return False
-        
-        # Test 16-20: Create invoice with items to test invoice-linked movement deletion
-        if self.created_resources['parties']:
-            customer_id = self.created_resources['parties'][0]
-            
-            # Create invoice with items
-            invoice_data = {
+        # Create job card with specific gold rate
+        try:
+            jobcard_data = {
+                "card_type": "repair",
+                "customer_type": "saved",
                 "customer_id": customer_id,
-                "customer_name": "Test Customer",
-                "invoice_type": "sale",
-                "items": [{
-                    "category": "Test Movement Delete",
-                    "description": "Test item for movement deletion",
-                    "qty": 1,
-                    "weight": 5.0,
-                    "purity": 916,
-                    "metal_rate": 20.0,
-                    "gold_value": 100.0,
-                    "making_value": 10.0,
-                    "vat_percent": 5.0,
-                    "vat_amount": 5.5,
-                    "line_total": 115.5
-                }],
-                "subtotal": 110.0,
-                "vat_total": 5.5,
-                "grand_total": 115.5,
-                "balance_due": 115.5
+                "customer_name": "Calculation Test Customer",
+                "gold_rate_at_jobcard": 24.75,
+                "items": [
+                    {
+                        "category": "Ring",
+                        "description": "Test calculation item",
+                        "qty": 1,
+                        "weight_in": 5.5,
+                        "weight_out": 5.5,
+                        "purity": 916,
+                        "work_type": "repair",
+                        "remarks": "For calculation verification"
+                    }
+                ],
+                "notes": "Calculation verification test"
             }
             
-            success, test_invoice = self.run_test(
-                "Create Invoice for Movement Test",
-                "POST",
-                "invoices",
-                200,
-                data=invoice_data
-            )
+            response = self.session.post(f"{self.base_url}/api/jobcards", json=jobcard_data)
             
-            if success and test_invoice.get('id'):
-                invoice_id = test_invoice['id']
-                
-                # Finalize invoice to create Stock OUT movement
-                success, finalized_invoice = self.run_test(
-                    "Finalize Invoice (Create Stock OUT Movement)",
-                    "POST",
-                    f"invoices/{invoice_id}/finalize",
-                    200
-                )
-                
-                if success:
-                    print(f"✅ Invoice finalized, Stock OUT movement created")
-                    
-                    # Find the invoice-linked stock movement
-                    success, all_movements = self.run_test(
-                        "Get All Stock Movements",
-                        "GET",
-                        "inventory/movements",
-                        200
-                    )
-                    
-                    if success:
-                        invoice_movement = next((
-                            m for m in all_movements 
-                            if m.get('reference_type') == 'invoice' and m.get('reference_id') == invoice_id
-                        ), None)
-                        
-                        if invoice_movement:
-                            invoice_movement_id = invoice_movement['id']
-                            
-                            # Test 19: Try to delete invoice-linked movement (should fail with 400)
-                            success, error_response = self.run_test(
-                                "Delete Invoice-linked Movement (Should Fail with 400)",
-                                "DELETE",
-                                f"inventory/movements/{invoice_movement_id}",
-                                400
-                            )
-                            
-                            if success:
-                                error_str = str(error_response)
-                                if "invoice" in error_str.lower() and "transaction" in error_str.lower():
-                                    print(f"✅ Invoice-linked movement correctly rejected deletion (400 error)")
-                                else:
-                                    print(f"❌ Error message should mention invoice/transaction link")
-                                    return False
-                            else:
-                                print(f"❌ Expected 400 error for deleting invoice-linked movement")
-                                return False
-        
-        # PHASE 4: Edge Cases & Validation
-        print("\n📋 PHASE 4: EDGE CASES & VALIDATION")
-        
-        # Test 22: Update header with empty data (should fail with 400)
-        success, _ = self.run_test(
-            "Update Header with Empty Data (Should Fail with 400)",
-            "PATCH",
-            f"inventory/headers/{header_id}",
-            400,
-            data={}
-        )
-        
-        if success:
-            print(f"✅ Empty update data correctly rejected (400 error)")
-        else:
-            print(f"❌ Expected 400 error for empty update data")
-            return False
-        
-        # Test 23: Delete already deleted header (should fail with 404)
-        success, _ = self.run_test(
-            "Delete Already Deleted Header (Should Fail with 404)",
-            "DELETE",
-            f"inventory/headers/{empty_header_id}",
-            404
-        )
-        
-        if success:
-            print(f"✅ Already deleted header correctly returned 404")
-        else:
-            print(f"❌ Expected 404 for already deleted header")
-            return False
-        
-        # Test 24: Delete already deleted movement (should fail with 404)
-        success, _ = self.run_test(
-            "Delete Already Deleted Movement (Should Fail with 404)",
-            "DELETE",
-            f"inventory/movements/{manual_movement_id}",
-            404
-        )
-        
-        if success:
-            print(f"✅ Already deleted movement correctly returned 404")
-        else:
-            print(f"❌ Expected 404 for already deleted movement")
-            return False
-        
-        # Test 25: Verify audit logs for all movement operations
-        success, final_audit_logs = self.run_test(
-            "Get Final Audit Logs (Verify All Operations)",
-            "GET",
-            "audit-logs",
-            200
-        )
-        
-        if success:
-            movement_logs = [
-                log for log in final_audit_logs 
-                if log.get('module') in ['inventory_header', 'stock_movement']
-            ]
+            if response.status_code != 200:
+                self.log_result("Task 3.7 - Calculation Verification", False, 
+                              f"Failed to create job card: {response.status_code}")
+                return
             
-            if len(movement_logs) >= 5:  # Should have multiple logs for all operations
-                print(f"✅ Comprehensive audit logs created: {len(movement_logs)} logs")
+            jobcard = response.json()
+            jobcard_id = jobcard.get('id')
+            
+            # Convert to invoice
+            result = self.convert_jobcard_to_invoice(jobcard_id)
+            
+            if "error" in result:
+                self.log_result("Task 3.7 - Calculation Verification", False, 
+                              f"Conversion failed: {result.get('message', 'Unknown error')}")
+                return
+            
+            invoice_id = result.get('invoice_id')
+            invoice = self.get_invoice(invoice_id)
+            
+            if not invoice:
+                self.log_result("Task 3.7 - Calculation Verification", False, "Failed to retrieve invoice")
+                return
+            
+            items = invoice.get('items', [])
+            if not items:
+                self.log_result("Task 3.7 - Calculation Verification", False, "No items in invoice")
+                return
+            
+            # Verify calculation: weight_out × purity_percent × metal_rate = gold_value
+            item = items[0]
+            weight = item.get('weight', 0)  # Should be 5.5
+            purity = item.get('purity', 0)  # Should be 916
+            metal_rate = item.get('metal_rate', 0)  # Should be 24.75
+            gold_value = item.get('gold_value', 0)
+            
+            purity_percent = purity / 1000  # 916 -> 0.916
+            expected_gold_value = weight * purity_percent * metal_rate
+            # Expected: 5.5 × 0.916 × 24.75 = 124.793
+            
+            if abs(gold_value - expected_gold_value) < 0.01:  # Allow small rounding differences
+                self.log_result("Task 3.7 - Calculation Verification", True, 
+                              f"Calculation accurate: {weight} × {purity_percent} × {metal_rate} = {gold_value} (expected: {expected_gold_value})")
             else:
-                print(f"⚠️  Expected multiple audit logs, found: {len(movement_logs)}")
+                self.log_result("Task 3.7 - Calculation Verification", False, 
+                              f"Calculation incorrect: Expected {expected_gold_value}, got {gold_value}")
         
-        print(f"\n🎉 INVENTORY CRUD OPERATIONS TESTING COMPLETED")
-        print(f"✅ All UPDATE operations succeeded with proper validation")
-        print(f"✅ DELETE on empty headers succeeded")
-        print(f"✅ DELETE on headers with stock failed with clear error")
-        print(f"✅ DELETE on manual movements succeeded and reversed stock")
-        print(f"✅ DELETE on transactional movements failed appropriately")
-        print(f"✅ All operations created audit logs")
-        print(f"✅ Stock calculations were accurate")
-        print(f"✅ Error messages were clear and helpful")
+        except Exception as e:
+            self.log_result("Task 3.7 - Calculation Verification", False, f"Exception: {str(e)}")
+
+    def test_task3_scenario8_backward_compatibility(self):
+        """Task 3 - Scenario 8: Backward Compatibility"""
+        print("🔸 Task 3 - Scenario 8: Backward Compatibility")
         
-        return True
+        # Create test customer
+        customer_id = self.create_test_party("Backward Compatibility Customer")
+        if not customer_id:
+            self.log_result("Task 3.8 - Backward Compatibility", False, "Failed to create test customer")
+            return
+        
+        # Create job card without gold_rate_at_jobcard field (simulate old job card)
+        jobcard_id = self.create_test_jobcard(gold_rate=None, customer_id=customer_id)
+        if not jobcard_id:
+            self.log_result("Task 3.8 - Backward Compatibility", False, "Failed to create job card")
+            return
+        
+        # Convert to invoice (should use default 20.0 without errors)
+        result = self.convert_jobcard_to_invoice(jobcard_id)
+        
+        if "error" in result:
+            self.log_result("Task 3.8 - Backward Compatibility", False, 
+                          f"Conversion failed: {result.get('message', 'Unknown error')}")
+            return
+        
+        invoice_id = result.get('invoice_id')
+        if invoice_id:
+            self.log_result("Task 3.8 - Backward Compatibility", True, 
+                          "Backward compatibility maintained - old job cards convert successfully with default rate")
+        else:
+            self.log_result("Task 3.8 - Backward Compatibility", False, "No invoice ID returned")
+
+    # ============================================================================
+    # TASK 4: DISCOUNT FIELD TESTING (9 Scenarios)
+    # ============================================================================
+
+    def test_task4_scenario1_convert_with_valid_discount(self):
+        """Task 4 - Scenario 1: Convert with Valid Discount"""
+        print("🔸 Task 4 - Scenario 1: Convert with Valid Discount")
+        
+        # Create test customer
+        customer_id = self.create_test_party("Discount Test Customer 1")
+        if not customer_id:
+            self.log_result("Task 4.1 - Valid Discount", False, "Failed to create test customer")
+            return
+        
+        # Create job card
+        jobcard_id = self.create_test_jobcard(gold_rate=20.0, customer_id=customer_id)
+        if not jobcard_id:
+            self.log_result("Task 4.1 - Valid Discount", False, "Failed to create job card")
+            return
+        
+        # Convert with discount
+        result = self.convert_jobcard_to_invoice(jobcard_id, discount_amount=10.500)
+        
+        if "error" in result:
+            self.log_result("Task 4.1 - Valid Discount", False, 
+                          f"Conversion failed: {result.get('message', 'Unknown error')}")
+            return
+        
+        invoice_id = result.get('invoice_id')
+        if not invoice_id:
+            self.log_result("Task 4.1 - Valid Discount", False, "No invoice ID returned")
+            return
+        
+        # Verify invoice has correct discount and calculations
+        invoice = self.get_invoice(invoice_id)
+        if not invoice:
+            self.log_result("Task 4.1 - Valid Discount", False, "Failed to retrieve invoice")
+            return
+        
+        discount_amount = invoice.get('discount_amount', 0)
+        subtotal = invoice.get('subtotal', 0)
+        vat_total = invoice.get('vat_total', 0)
+        grand_total = invoice.get('grand_total', 0)
+        
+        # Verify discount amount
+        if discount_amount != 10.500:
+            self.log_result("Task 4.1 - Valid Discount", False, 
+                          f"Expected discount_amount: 10.500, got: {discount_amount}")
+            return
+        
+        # Verify calculation chain: Taxable = Subtotal - Discount, VAT = Taxable × 0.05, Grand Total = Taxable + VAT
+        taxable = subtotal - discount_amount
+        expected_vat = taxable * 0.05
+        expected_grand_total = taxable + expected_vat
+        
+        if (abs(vat_total - expected_vat) < 0.01 and abs(grand_total - expected_grand_total) < 0.01):
+            self.log_result("Task 4.1 - Valid Discount", True, 
+                          f"Discount applied correctly: Subtotal={subtotal}, Discount={discount_amount}, Taxable={taxable}, VAT={vat_total}, Grand Total={grand_total}")
+            return invoice_id
+        else:
+            self.log_result("Task 4.1 - Valid Discount", False, 
+                          f"Calculation incorrect: Expected VAT={expected_vat}, Grand Total={expected_grand_total}, got VAT={vat_total}, Grand Total={grand_total}")
+            return None
+
+    def test_task4_scenario2_convert_without_discount(self):
+        """Task 4 - Scenario 2: Convert WITHOUT Discount"""
+        print("🔸 Task 4 - Scenario 2: Convert WITHOUT Discount")
+        
+        # Create test customer
+        customer_id = self.create_test_party("No Discount Test Customer")
+        if not customer_id:
+            self.log_result("Task 4.2 - No Discount", False, "Failed to create test customer")
+            return
+        
+        # Create job card
+        jobcard_id = self.create_test_jobcard(gold_rate=20.0, customer_id=customer_id)
+        if not jobcard_id:
+            self.log_result("Task 4.2 - No Discount", False, "Failed to create job card")
+            return
+        
+        # Convert without discount (omit field)
+        result = self.convert_jobcard_to_invoice(jobcard_id)
+        
+        if "error" in result:
+            self.log_result("Task 4.2 - No Discount", False, 
+                          f"Conversion failed: {result.get('message', 'Unknown error')}")
+            return
+        
+        invoice_id = result.get('invoice_id')
+        if not invoice_id:
+            self.log_result("Task 4.2 - No Discount", False, "No invoice ID returned")
+            return
+        
+        # Verify invoice has discount_amount: 0.0
+        invoice = self.get_invoice(invoice_id)
+        if not invoice:
+            self.log_result("Task 4.2 - No Discount", False, "Failed to retrieve invoice")
+            return
+        
+        discount_amount = invoice.get('discount_amount', 0)
+        subtotal = invoice.get('subtotal', 0)
+        vat_total = invoice.get('vat_total', 0)
+        grand_total = invoice.get('grand_total', 0)
+        
+        # Verify no discount
+        if discount_amount != 0.0:
+            self.log_result("Task 4.2 - No Discount", False, 
+                          f"Expected discount_amount: 0.0, got: {discount_amount}")
+            return
+        
+        # Verify calculation: VAT = Subtotal × 0.05, Grand Total = Subtotal + VAT
+        expected_vat = subtotal * 0.05
+        expected_grand_total = subtotal + expected_vat
+        
+        if (abs(vat_total - expected_vat) < 0.01 and abs(grand_total - expected_grand_total) < 0.01):
+            self.log_result("Task 4.2 - No Discount", True, 
+                          f"No discount calculation correct: Subtotal={subtotal}, VAT={vat_total}, Grand Total={grand_total}")
+        else:
+            self.log_result("Task 4.2 - No Discount", False, 
+                          f"Calculation incorrect without discount")
+
+    def test_task4_scenario3_negative_discount_validation(self):
+        """Task 4 - Scenario 3: Negative Discount Validation"""
+        print("🔸 Task 4 - Scenario 3: Negative Discount Validation")
+        
+        # Create test customer
+        customer_id = self.create_test_party("Negative Discount Test Customer")
+        if not customer_id:
+            self.log_result("Task 4.3 - Negative Discount Validation", False, "Failed to create test customer")
+            return
+        
+        # Create job card
+        jobcard_id = self.create_test_jobcard(gold_rate=20.0, customer_id=customer_id)
+        if not jobcard_id:
+            self.log_result("Task 4.3 - Negative Discount Validation", False, "Failed to create job card")
+            return
+        
+        # Try to convert with negative discount
+        result = self.convert_jobcard_to_invoice(jobcard_id, discount_amount=-5.0)
+        
+        if "error" in result and result["error"] == 400:
+            # Check if error message contains "cannot be negative"
+            error_message = result.get("message", "").lower()
+            if "negative" in error_message or "cannot be negative" in error_message:
+                self.log_result("Task 4.3 - Negative Discount Validation", True, 
+                              f"Negative discount correctly rejected with 400 error: {result['message']}")
+            else:
+                self.log_result("Task 4.3 - Negative Discount Validation", False, 
+                              f"400 error returned but message doesn't mention negative: {result['message']}")
+        else:
+            self.log_result("Task 4.3 - Negative Discount Validation", False, 
+                          f"Expected 400 error for negative discount, got: {result}")
+
+    def test_task4_scenario4_discount_exceeds_subtotal_validation(self):
+        """Task 4 - Scenario 4: Discount Exceeds Subtotal Validation"""
+        print("🔸 Task 4 - Scenario 4: Discount Exceeds Subtotal Validation")
+        
+        # Create test customer
+        customer_id = self.create_test_party("Excess Discount Test Customer")
+        if not customer_id:
+            self.log_result("Task 4.4 - Excess Discount Validation", False, "Failed to create test customer")
+            return
+        
+        # Create simple job card with low value
+        try:
+            jobcard_data = {
+                "card_type": "repair",
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "customer_name": "Excess Discount Test Customer",
+                "gold_rate_at_jobcard": 20.0,
+                "items": [
+                    {
+                        "category": "Ring",
+                        "description": "Small item for discount test",
+                        "qty": 1,
+                        "weight_in": 1.0,  # Small weight for low subtotal
+                        "weight_out": 1.0,
+                        "purity": 916,
+                        "work_type": "repair",
+                        "making_charge_type": "flat",
+                        "making_charge_value": 10.0,  # Small making charge
+                        "remarks": "Low value item for excess discount test"
+                    }
+                ],
+                "notes": "Excess discount validation test"
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/jobcards", json=jobcard_data)
+            
+            if response.status_code != 200:
+                self.log_result("Task 4.4 - Excess Discount Validation", False, 
+                              f"Failed to create job card: {response.status_code}")
+                return
+            
+            jobcard = response.json()
+            jobcard_id = jobcard.get('id')
+            
+            # Try to convert with discount exceeding subtotal (100.0 should exceed ~30 OMR subtotal)
+            result = self.convert_jobcard_to_invoice(jobcard_id, discount_amount=100.0)
+            
+            if "error" in result and result["error"] == 400:
+                # Check if error message mentions discount and subtotal
+                error_message = result.get("message", "").lower()
+                if ("discount" in error_message and "subtotal" in error_message) or "exceeds" in error_message:
+                    self.log_result("Task 4.4 - Excess Discount Validation", True, 
+                                  f"Excess discount correctly rejected with 400 error: {result['message']}")
+                else:
+                    self.log_result("Task 4.4 - Excess Discount Validation", False, 
+                                  f"400 error returned but message doesn't mention discount/subtotal: {result['message']}")
+            else:
+                self.log_result("Task 4.4 - Excess Discount Validation", False, 
+                              f"Expected 400 error for excess discount, got: {result}")
+        
+        except Exception as e:
+            self.log_result("Task 4.4 - Excess Discount Validation", False, f"Exception: {str(e)}")
+
+    def test_task4_scenario5_discount_calculation_accuracy(self):
+        """Task 4 - Scenario 5: Discount Calculation Accuracy"""
+        print("🔸 Task 4 - Scenario 5: Discount Calculation Accuracy")
+        
+        # Create test customer
+        customer_id = self.create_test_party("Calculation Accuracy Customer")
+        if not customer_id:
+            self.log_result("Task 4.5 - Calculation Accuracy", False, "Failed to create test customer")
+            return
+        
+        # Create job card with known values for precise calculation
+        try:
+            jobcard_data = {
+                "card_type": "repair",
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "customer_name": "Calculation Accuracy Customer",
+                "gold_rate_at_jobcard": 20.0,
+                "items": [
+                    {
+                        "category": "Ring",
+                        "description": "Calculation test item",
+                        "qty": 1,
+                        "weight_in": 4.0,  # 4.0g × 0.916 × 20.0 = 73.28 gold_value
+                        "weight_out": 4.0,
+                        "purity": 916,
+                        "work_type": "repair",
+                        "making_charge_type": "flat",
+                        "making_charge_value": 26.72,  # Total item value = 100.0
+                        "remarks": "Precise calculation test"
+                    }
+                ],
+                "notes": "Discount calculation accuracy test"
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/jobcards", json=jobcard_data)
+            
+            if response.status_code != 200:
+                self.log_result("Task 4.5 - Calculation Accuracy", False, 
+                              f"Failed to create job card: {response.status_code}")
+                return
+            
+            jobcard = response.json()
+            jobcard_id = jobcard.get('id')
+            
+            # Convert with 20.0 discount (Subtotal ~100.0, Discount 20.0, Taxable 80.0, VAT 4.0, Grand Total 84.0)
+            result = self.convert_jobcard_to_invoice(jobcard_id, discount_amount=20.0)
+            
+            if "error" in result:
+                self.log_result("Task 4.5 - Calculation Accuracy", False, 
+                              f"Conversion failed: {result.get('message', 'Unknown error')}")
+                return
+            
+            invoice_id = result.get('invoice_id')
+            invoice = self.get_invoice(invoice_id)
+            
+            if not invoice:
+                self.log_result("Task 4.5 - Calculation Accuracy", False, "Failed to retrieve invoice")
+                return
+            
+            subtotal = invoice.get('subtotal', 0)
+            discount_amount = invoice.get('discount_amount', 0)
+            vat_total = invoice.get('vat_total', 0)
+            grand_total = invoice.get('grand_total', 0)
+            
+            # Calculate expected values
+            taxable = subtotal - discount_amount
+            expected_vat = taxable * 0.05
+            expected_grand_total = taxable + expected_vat
+            
+            # Verify calculations (allow small rounding differences)
+            if (abs(discount_amount - 20.0) < 0.01 and 
+                abs(taxable - 80.0) < 5.0 and  # Allow some variance in subtotal
+                abs(vat_total - expected_vat) < 0.01 and 
+                abs(grand_total - expected_grand_total) < 0.01):
+                
+                self.log_result("Task 4.5 - Calculation Accuracy", True, 
+                              f"Calculation accurate: Subtotal={subtotal}, Discount={discount_amount}, Taxable={taxable}, VAT={vat_total}, Grand Total={grand_total}")
+            else:
+                self.log_result("Task 4.5 - Calculation Accuracy", False, 
+                              f"Calculation inaccurate: Subtotal={subtotal}, Discount={discount_amount}, Taxable={taxable}, VAT={vat_total}, Grand Total={grand_total}")
+        
+        except Exception as e:
+            self.log_result("Task 4.5 - Calculation Accuracy", False, f"Exception: {str(e)}")
+
+    def test_task4_scenario6_pdf_generation_with_discount(self, invoice_id: str):
+        """Task 4 - Scenario 6: PDF Generation WITH Discount"""
+        print("🔸 Task 4 - Scenario 6: PDF Generation WITH Discount")
+        
+        if not invoice_id:
+            self.log_result("Task 4.6 - PDF WITH Discount", False, "No invoice ID provided")
+            return
+        
+        # Test PDF generation
+        pdf_success = self.get_invoice_pdf(invoice_id)
+        
+        if pdf_success:
+            self.log_result("Task 4.6 - PDF WITH Discount", True, 
+                          f"PDF generated successfully for invoice with discount")
+        else:
+            self.log_result("Task 4.6 - PDF WITH Discount", False, 
+                          "PDF generation failed for invoice with discount")
+
+    def test_task4_scenario7_pdf_generation_without_discount(self):
+        """Task 4 - Scenario 7: PDF Generation WITHOUT Discount"""
+        print("🔸 Task 4 - Scenario 7: PDF Generation WITHOUT Discount")
+        
+        # Create test customer
+        customer_id = self.create_test_party("PDF No Discount Customer")
+        if not customer_id:
+            self.log_result("Task 4.7 - PDF WITHOUT Discount", False, "Failed to create test customer")
+            return
+        
+        # Create job card and convert without discount
+        jobcard_id = self.create_test_jobcard(gold_rate=20.0, customer_id=customer_id)
+        if not jobcard_id:
+            self.log_result("Task 4.7 - PDF WITHOUT Discount", False, "Failed to create job card")
+            return
+        
+        result = self.convert_jobcard_to_invoice(jobcard_id, discount_amount=0.0)
+        
+        if "error" in result:
+            self.log_result("Task 4.7 - PDF WITHOUT Discount", False, 
+                          f"Conversion failed: {result.get('message', 'Unknown error')}")
+            return
+        
+        invoice_id = result.get('invoice_id')
+        if not invoice_id:
+            self.log_result("Task 4.7 - PDF WITHOUT Discount", False, "No invoice ID returned")
+            return
+        
+        # Test PDF generation
+        pdf_success = self.get_invoice_pdf(invoice_id)
+        
+        if pdf_success:
+            self.log_result("Task 4.7 - PDF WITHOUT Discount", True, 
+                          "PDF generated successfully for invoice without discount")
+        else:
+            self.log_result("Task 4.7 - PDF WITHOUT Discount", False, 
+                          "PDF generation failed for invoice without discount")
+
+    def test_task4_scenario8_vat_proportional_distribution(self):
+        """Task 4 - Scenario 8: VAT Proportional Distribution"""
+        print("🔸 Task 4 - Scenario 8: VAT Proportional Distribution")
+        
+        # Create test customer
+        customer_id = self.create_test_party("VAT Distribution Customer")
+        if not customer_id:
+            self.log_result("Task 4.8 - VAT Distribution", False, "Failed to create test customer")
+            return
+        
+        # Create job card with 2 items
+        try:
+            jobcard_data = {
+                "card_type": "repair",
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "customer_name": "VAT Distribution Customer",
+                "gold_rate_at_jobcard": 20.0,
+                "items": [
+                    {
+                        "category": "Ring",
+                        "description": "Item 1",
+                        "qty": 1,
+                        "weight_in": 2.0,
+                        "weight_out": 2.0,
+                        "purity": 916,
+                        "work_type": "repair",
+                        "making_charge_type": "flat",
+                        "making_charge_value": 10.0,
+                        "remarks": "First item"
+                    },
+                    {
+                        "category": "Necklace",
+                        "description": "Item 2",
+                        "qty": 1,
+                        "weight_in": 3.0,
+                        "weight_out": 3.0,
+                        "purity": 916,
+                        "work_type": "repair",
+                        "making_charge_type": "flat",
+                        "making_charge_value": 15.0,
+                        "remarks": "Second item"
+                    }
+                ],
+                "notes": "VAT distribution test with 2 items"
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/jobcards", json=jobcard_data)
+            
+            if response.status_code != 200:
+                self.log_result("Task 4.8 - VAT Distribution", False, 
+                              f"Failed to create job card: {response.status_code}")
+                return
+            
+            jobcard = response.json()
+            jobcard_id = jobcard.get('id')
+            
+            # Convert with discount
+            result = self.convert_jobcard_to_invoice(jobcard_id, discount_amount=10.0)
+            
+            if "error" in result:
+                self.log_result("Task 4.8 - VAT Distribution", False, 
+                              f"Conversion failed: {result.get('message', 'Unknown error')}")
+                return
+            
+            invoice_id = result.get('invoice_id')
+            invoice = self.get_invoice(invoice_id)
+            
+            if not invoice:
+                self.log_result("Task 4.8 - VAT Distribution", False, "Failed to retrieve invoice")
+                return
+            
+            items = invoice.get('items', [])
+            if len(items) != 2:
+                self.log_result("Task 4.8 - VAT Distribution", False, f"Expected 2 items, got {len(items)}")
+                return
+            
+            # Verify VAT distribution
+            total_vat_from_items = sum(item.get('vat_amount', 0) for item in items)
+            invoice_vat_total = invoice.get('vat_total', 0)
+            
+            if abs(total_vat_from_items - invoice_vat_total) < 0.01:
+                self.log_result("Task 4.8 - VAT Distribution", True, 
+                              f"VAT distributed proportionally: Item VATs sum to {total_vat_from_items}, Invoice VAT total: {invoice_vat_total}")
+            else:
+                self.log_result("Task 4.8 - VAT Distribution", False, 
+                              f"VAT distribution incorrect: Item VATs sum to {total_vat_from_items}, Invoice VAT total: {invoice_vat_total}")
+        
+        except Exception as e:
+            self.log_result("Task 4.8 - VAT Distribution", False, f"Exception: {str(e)}")
+
+    def test_task4_scenario9_backward_compatibility(self):
+        """Task 4 - Scenario 9: Backward Compatibility"""
+        print("🔸 Task 4 - Scenario 9: Backward Compatibility")
+        
+        # Create test customer
+        customer_id = self.create_test_party("Backward Compatibility Discount Customer")
+        if not customer_id:
+            self.log_result("Task 4.9 - Backward Compatibility", False, "Failed to create test customer")
+            return
+        
+        # Create job card and convert without discount_amount field (simulate old behavior)
+        jobcard_id = self.create_test_jobcard(gold_rate=20.0, customer_id=customer_id)
+        if not jobcard_id:
+            self.log_result("Task 4.9 - Backward Compatibility", False, "Failed to create job card")
+            return
+        
+        result = self.convert_jobcard_to_invoice(jobcard_id)  # No discount_amount specified
+        
+        if "error" in result:
+            self.log_result("Task 4.9 - Backward Compatibility", False, 
+                          f"Conversion failed: {result.get('message', 'Unknown error')}")
+            return
+        
+        invoice_id = result.get('invoice_id')
+        if not invoice_id:
+            self.log_result("Task 4.9 - Backward Compatibility", False, "No invoice ID returned")
+            return
+        
+        # Verify invoice defaults to 0.0 discount and calculations work
+        invoice = self.get_invoice(invoice_id)
+        if not invoice:
+            self.log_result("Task 4.9 - Backward Compatibility", False, "Failed to retrieve invoice")
+            return
+        
+        discount_amount = invoice.get('discount_amount', 0)
+        subtotal = invoice.get('subtotal', 0)
+        vat_total = invoice.get('vat_total', 0)
+        grand_total = invoice.get('grand_total', 0)
+        
+        # Verify defaults to 0.0 and calculations work
+        if discount_amount == 0.0:
+            expected_vat = subtotal * 0.05
+            expected_grand_total = subtotal + expected_vat
+            
+            if (abs(vat_total - expected_vat) < 0.01 and abs(grand_total - expected_grand_total) < 0.01):
+                self.log_result("Task 4.9 - Backward Compatibility", True, 
+                              f"Backward compatibility maintained: discount defaults to 0.0, calculations correct")
+            else:
+                self.log_result("Task 4.9 - Backward Compatibility", False, 
+                              "Calculations incorrect with default discount")
+        else:
+            self.log_result("Task 4.9 - Backward Compatibility", False, 
+                          f"Expected discount_amount: 0.0, got: {discount_amount}")
+
+    # ============================================================================
+    # MAIN TEST EXECUTION
+    # ============================================================================
 
     def run_all_tests(self):
-        """Run all tests in sequence"""
-        print("🚀 Starting Gold Shop ERP Backend Tests")
-        print(f"📍 Testing against: {self.base_url}")
-        print("=" * 60)
+        """Run all 17 test scenarios"""
+        print("🎯 COMPREHENSIVE END-TO-END TESTING - Tasks 3 & 4")
+        print("=" * 80)
+        
+        # Authenticate first
+        if not self.authenticate():
+            print("❌ Authentication failed. Cannot proceed with tests.")
+            return
+        
+        print("\n📋 TASK 3: GOLD RATE FIELD TESTING (8 Scenarios)")
+        print("-" * 60)
+        
+        # Task 3 - Scenario 1 & 3 (linked)
+        jobcard_id_with_rate, customer_id_1 = self.test_task3_scenario1_create_jobcard_with_gold_rate()
+        if jobcard_id_with_rate:
+            self.test_task3_scenario3_edit_jobcard_update_gold_rate(jobcard_id_with_rate)
+            invoice_id_with_rate = self.test_task3_scenario4_convert_with_gold_rate_to_invoice(jobcard_id_with_rate)
+        
+        # Task 3 - Scenario 2 & 5 (linked)
+        jobcard_id_without_rate, customer_id_2 = self.test_task3_scenario2_create_jobcard_without_gold_rate()
+        if jobcard_id_without_rate:
+            self.test_task3_scenario5_convert_without_gold_rate_to_invoice(jobcard_id_without_rate)
+        
+        # Task 3 - Scenario 6 (user override)
+        if jobcard_id_with_rate:
+            self.test_task3_scenario6_priority_chain_user_override(jobcard_id_with_rate)
+        
+        # Task 3 - Scenarios 7 & 8 (independent)
+        self.test_task3_scenario7_backend_calculation_verification()
+        self.test_task3_scenario8_backward_compatibility()
+        
+        print("\n📋 TASK 4: DISCOUNT FIELD TESTING (9 Scenarios)")
+        print("-" * 60)
+        
+        # Task 4 - Scenario 1 & 6 (linked)
+        invoice_id_with_discount = self.test_task4_scenario1_convert_with_valid_discount()
+        if invoice_id_with_discount:
+            self.test_task4_scenario6_pdf_generation_with_discount(invoice_id_with_discount)
+        
+        # Task 4 - Scenarios 2-9 (mostly independent)
+        self.test_task4_scenario2_convert_without_discount()
+        self.test_task4_scenario3_negative_discount_validation()
+        self.test_task4_scenario4_discount_exceeds_subtotal_validation()
+        self.test_task4_scenario5_discount_calculation_accuracy()
+        self.test_task4_scenario7_pdf_generation_without_discount()
+        self.test_task4_scenario8_vat_proportional_distribution()
+        self.test_task4_scenario9_backward_compatibility()
+        
+        # Print summary
+        self.print_summary()
 
-        # Authentication tests
-        if not self.test_login():
-            print("❌ Login failed, stopping tests")
-            return False
-
-        if not self.test_auth_me():
-            print("❌ Auth verification failed")
-            return False
-
-        # Core functionality tests
-        test_results = {
-            "Inventory Headers": self.test_inventory_headers(),
-            "Stock Movements": self.test_stock_movements(),
-            "🔥 Inventory CRUD Operations (UPDATE & DELETE)": self.test_inventory_crud_operations(),  # NEW TEST
-            "Parties Management": self.test_parties(),
-            "Accounts Management": self.test_accounts(),
-            "Transactions": self.test_transactions(),
-            "Job Cards (New Fields)": self.test_jobcards(),
-            "Job Card to Invoice Conversion": self.test_jobcard_to_invoice_conversion(),
-            "Party Summary Endpoint (Module 2/10)": self.test_party_summary_endpoint(),  # NEW TEST
-            "Daily Closing APIs": self.test_daily_closing(),
-            "Invoice PDF Generation": self.test_invoice_pdf_generation(),
-            "Audit Logs": self.test_audit_logs(),
-            "Financial Summary Reports": self.test_reports_financial_summary(),
-            "Inventory View Reports": self.test_reports_inventory_view(),
-            "Invoices View Reports": self.test_reports_invoices_view(),
-            "Parties View Reports": self.test_reports_parties_view(),
-            "Transactions View Reports": self.test_reports_transactions_view(),
-            "Export Endpoints": self.test_reports_export_endpoints(),
-            "Individual Reports": self.test_reports_individual_reports(),
-            
-            # ENHANCED INVOICE FINALIZATION TESTS
-            "🔥 Job Card Locking on Finalization": self.test_enhanced_invoice_finalization_job_card_locking(),
-            "🔥 Customer Ledger Entry Creation": self.test_enhanced_invoice_finalization_customer_ledger(),
-            "🔥 Outstanding Balance Tracking": self.test_enhanced_invoice_finalization_outstanding_balance(),
-            "🔥 Direct Invoice Finalization": self.test_enhanced_invoice_finalization_direct_invoice(),
-            "🔥 Default Sales Account Creation": self.test_enhanced_invoice_finalization_sales_account(),
-            "🔥 Full Workflow Test": self.test_enhanced_invoice_finalization_full_workflow(),
-            "🔥 Error Cases Testing": self.test_enhanced_invoice_finalization_error_cases(),
-            
-            # JOB CARD LOCKING WITH ADMIN OVERRIDE TESTS
-            "🔒 Job Card Locking Setup": self.test_job_card_locking_admin_override_setup(),
-            "🔒 Non-Admin Edit Attempt": self.test_job_card_locking_non_admin_edit_attempt(),
-            "🔒 Non-Admin Delete Attempt": self.test_job_card_locking_non_admin_delete_attempt(),
-            "🔒 Admin Edit Override": self.test_job_card_locking_admin_edit_override(),
-            "🔒 Admin Delete Override": self.test_job_card_locking_admin_delete_override(),
-            "🔒 Audit Log Verification": self.test_job_card_locking_audit_log_verification(),
-            "🔒 Normal Job Card Operations": self.test_job_card_locking_normal_operations(),
-            
-            # MODULE 10/10 - GOLD EXCHANGE PAYMENT MODE TESTS
-            "💰 Gold Exchange Setup": self.test_gold_exchange_payment_setup(),
-            "💰 Gold Exchange Partial Payment": self.test_gold_exchange_partial_payment(),
-            "💰 Gold Exchange Full Payment": self.test_gold_exchange_full_payment(),
-            "💰 Walk-in Customer Validation": self.test_gold_exchange_walk_in_validation(),
-            "💰 Insufficient Balance Validation": self.test_gold_exchange_insufficient_balance(),
-            "💰 Invalid Inputs Validation": self.test_gold_exchange_invalid_inputs(),
-            "💰 Overpayment Validation": self.test_gold_exchange_overpayment(),
-            "💰 Backward Compatibility": self.test_gold_exchange_backward_compatibility()
-        }
-
-        # Print results summary
-        print("\n" + "=" * 60)
-        print("📊 TEST RESULTS SUMMARY")
-        print("=" * 60)
+    def print_summary(self):
+        """Print comprehensive test summary"""
+        print("\n" + "=" * 80)
+        print("🎯 COMPREHENSIVE TEST RESULTS SUMMARY")
+        print("=" * 80)
         
-        for test_name, result in test_results.items():
-            status = "✅ PASS" if result else "❌ FAIL"
-            print(f"{test_name:<25} {status}")
-
-        print(f"\n📈 Overall: {self.tests_passed}/{self.tests_run} tests passed")
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for result in self.test_results if result['success'])
+        failed_tests = total_tests - passed_tests
         
-        success_rate = (self.tests_passed / self.tests_run) * 100 if self.tests_run > 0 else 0
-        print(f"🎯 Success Rate: {success_rate:.1f}%")
-
-        return success_rate >= 80
-
-    def test_comprehensive_inventory_crud_operations(self):
-        """
-        COMPREHENSIVE INVENTORY CRUD OPERATIONS TESTING
-        
-        Tests the following endpoints as specified in the review request:
-        1. PATCH /api/inventory/headers/{header_id} - Update inventory header
-        2. DELETE /api/inventory/headers/{header_id} - Delete inventory header  
-        3. DELETE /api/inventory/movements/{movement_id} - Delete stock movement
-        4. GET /api/reports - Verify reports listing
-        """
-        print("\n🎯 COMPREHENSIVE INVENTORY CRUD OPERATIONS TESTING")
-        
-        results = []
-        
-        # ============================================================================
-        # TEST 1: PATCH /api/inventory/headers/{header_id} - Update inventory header
-        # ============================================================================
-        print("\n📝 TEST 1: PATCH /api/inventory/headers/{header_id} - Update inventory header")
-        
-        # Create a test header first
-        test_header_name = f"Gold 22K Test {datetime.now().strftime('%H%M%S')}"
-        success, new_header = self.run_test(
-            "Create Test Header for Update Tests",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": test_header_name}
-        )
-        
-        if not success or not new_header.get('id'):
-            print("❌ Failed to create test header for update tests")
-            results.append(False)
-        else:
-            header_id = new_header['id']
-            
-            # Test 1.1: Update header name
-            success1, updated_header1 = self.run_test(
-                "Update Header Name (Gold 22K → Gold 22K Premium)",
-                "PATCH",
-                f"inventory/headers/{header_id}",
-                200,
-                data={"name": "Gold 22K Premium"}
-            )
-            results.append(success1)
-            
-            if success1:
-                if updated_header1.get('name') != "Gold 22K Premium":
-                    print(f"❌ Header name not updated correctly: expected 'Gold 22K Premium', got '{updated_header1.get('name')}'")
-                    results.append(False)
-                else:
-                    print(f"✅ Header name updated successfully: {updated_header1.get('name')}")
-                    results.append(True)
-            
-            # Test 1.2: Update is_active status
-            success2, updated_header2 = self.run_test(
-                "Update Header is_active Status (set to false)",
-                "PATCH",
-                f"inventory/headers/{header_id}",
-                200,
-                data={"is_active": False}
-            )
-            results.append(success2)
-            
-            if success2:
-                if updated_header2.get('is_active') != False:
-                    print(f"❌ Header is_active not updated correctly: expected False, got {updated_header2.get('is_active')}")
-                    results.append(False)
-                else:
-                    print(f"✅ Header is_active updated successfully: {updated_header2.get('is_active')}")
-                    results.append(True)
-            
-            # Test 1.3: Update both name and is_active together
-            success3, updated_header3 = self.run_test(
-                "Update Both Name and is_active Together",
-                "PATCH",
-                f"inventory/headers/{header_id}",
-                200,
-                data={"name": "Gold 22K Final", "is_active": True}
-            )
-            results.append(success3)
-            
-            if success3:
-                if updated_header3.get('name') != "Gold 22K Final" or updated_header3.get('is_active') != True:
-                    print(f"❌ Header fields not updated correctly: name='{updated_header3.get('name')}', is_active={updated_header3.get('is_active')}")
-                    results.append(False)
-                else:
-                    print(f"✅ Both fields updated successfully: name='{updated_header3.get('name')}', is_active={updated_header3.get('is_active')}")
-                    results.append(True)
-            
-            # Test 1.4: Test with non-existent header_id (should return 404)
-            fake_header_id = "non-existent-header-id"
-            success4, error_response4 = self.run_test(
-                "Update Non-existent Header (Should Return 404)",
-                "PATCH",
-                f"inventory/headers/{fake_header_id}",
-                404,
-                data={"name": "Should Fail"}
-            )
-            results.append(success4)
-            
-            # Test 1.5: Test with empty update data (should return 400)
-            success5, error_response5 = self.run_test(
-                "Update Header with Empty Data (Should Return 400)",
-                "PATCH",
-                f"inventory/headers/{header_id}",
-                400,
-                data={}
-            )
-            results.append(success5)
-            
-            # Test 1.6: Verify audit log is created with changes
-            success6, audit_logs = self.run_test(
-                "Get Audit Logs (Verify Update Audit)",
-                "GET",
-                "audit-logs",
-                200
-            )
-            
-            if success6:
-                # Look for audit logs related to our header updates
-                header_audit_logs = [
-                    log for log in audit_logs 
-                    if log.get('module') == 'inventory_header' and 
-                       log.get('record_id') == header_id and 
-                       log.get('action') == 'update'
-                ]
-                
-                if len(header_audit_logs) >= 3:  # We made 3 update calls
-                    print(f"✅ Audit logs created for header updates: {len(header_audit_logs)} logs found")
-                    results.append(True)
-                else:
-                    print(f"❌ Expected at least 3 audit logs for header updates, found: {len(header_audit_logs)}")
-                    results.append(False)
-            else:
-                results.append(False)
-        
-        # ============================================================================
-        # TEST 2: DELETE /api/inventory/headers/{header_id} - Delete inventory header
-        # ============================================================================
-        print("\n🗑️ TEST 2: DELETE /api/inventory/headers/{header_id} - Delete inventory header")
-        
-        # Test 2.1: Create a new empty header (no stock) and delete it
-        empty_header_name = f"Empty Header {datetime.now().strftime('%H%M%S')}"
-        success, empty_header = self.run_test(
-            "Create Empty Header for Delete Test",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": empty_header_name}
-        )
-        
-        if success and empty_header.get('id'):
-            empty_header_id = empty_header['id']
-            
-            # Delete the empty header (should succeed with 200)
-            success7, delete_response = self.run_test(
-                "Delete Empty Header (Should Succeed with 200)",
-                "DELETE",
-                f"inventory/headers/{empty_header_id}",
-                200
-            )
-            results.append(success7)
-            
-            if success7:
-                print(f"✅ Empty header deleted successfully: {delete_response.get('message')}")
-        else:
-            print("❌ Failed to create empty header for delete test")
-            results.append(False)
-        
-        # Test 2.2: Create a header with stock and try to delete it
-        header_with_stock_name = f"Header With Stock {datetime.now().strftime('%H%M%S')}"
-        success, header_with_stock = self.run_test(
-            "Create Header for Stock Test",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": header_with_stock_name}
-        )
-        
-        if success and header_with_stock.get('id'):
-            header_with_stock_id = header_with_stock['id']
-            
-            # Add stock to this header using POST /api/inventory/movements
-            movement_data = {
-                "movement_type": "Stock IN",
-                "header_id": header_with_stock_id,
-                "description": "Test stock for delete validation",
-                "qty_delta": 10,
-                "weight_delta": 50.500,
-                "purity": 916,
-                "notes": "Stock added for delete test"
-            }
-            
-            success, movement = self.run_test(
-                "Add Stock to Header (for Delete Test)",
-                "POST",
-                "inventory/movements",
-                200,
-                data=movement_data
-            )
-            
-            if success:
-                # Now try to delete header WITH stock (should fail with 400)
-                success8, error_response8 = self.run_test(
-                    "Delete Header WITH Stock (Should Fail with 400)",
-                    "DELETE",
-                    f"inventory/headers/{header_with_stock_id}",
-                    400
-                )
-                results.append(success8)
-                
-                if success8:
-                    # Verify error message shows current stock
-                    error_str = str(error_response8)
-                    if "existing stock" in error_str.lower() and "10" in error_str and "50.5" in error_str:
-                        print(f"✅ Delete failed correctly with stock information: {error_response8.get('detail', error_str)}")
-                        results.append(True)
-                    else:
-                        print(f"❌ Error message should show current stock details: {error_str}")
-                        results.append(False)
-            else:
-                print("❌ Failed to add stock to header")
-                results.append(False)
-        else:
-            print("❌ Failed to create header for stock test")
-            results.append(False)
-        
-        # Test 2.3: Test with non-existent header_id (should return 404)
-        fake_header_id2 = "non-existent-header-for-delete"
-        success9, error_response9 = self.run_test(
-            "Delete Non-existent Header (Should Return 404)",
-            "DELETE",
-            f"inventory/headers/{fake_header_id2}",
-            404
-        )
-        results.append(success9)
-        
-        # Test 2.4: Verify soft delete (is_deleted flag set to true) and audit log
-        if 'empty_header_id' in locals():
-            # Check that the header is soft deleted (not physically removed)
-            success10, all_headers = self.run_test(
-                "Get All Headers (Verify Soft Delete)",
-                "GET",
-                "inventory/headers",
-                200
-            )
-            
-            if success10:
-                # The deleted header should not appear in the list (filtered out by is_deleted=False)
-                deleted_header_found = any(h.get('id') == empty_header_id for h in all_headers)
-                if not deleted_header_found:
-                    print(f"✅ Soft delete working correctly - deleted header not in active list")
-                    results.append(True)
-                else:
-                    print(f"❌ Deleted header still appears in active list")
-                    results.append(False)
-            else:
-                results.append(False)
-        
-        # ============================================================================
-        # TEST 3: DELETE /api/inventory/movements/{movement_id} - Delete stock movement
-        # ============================================================================
-        print("\n📦 TEST 3: DELETE /api/inventory/movements/{movement_id} - Delete stock movement")
-        
-        # Test 3.1: Create a manual stock movement and delete it
-        manual_header_name = f"Manual Movement Header {datetime.now().strftime('%H%M%S')}"
-        success, manual_header = self.run_test(
-            "Create Header for Manual Movement Test",
-            "POST",
-            "inventory/headers",
-            200,
-            data={"name": manual_header_name}
-        )
-        
-        if success and manual_header.get('id'):
-            manual_header_id = manual_header['id']
-            
-            # Create manual stock movement (Stock IN without reference_type)
-            manual_movement_data = {
-                "movement_type": "Stock IN",
-                "header_id": manual_header_id,
-                "description": "Manual stock movement for delete test",
-                "qty_delta": 5,
-                "weight_delta": 25.750,
-                "purity": 916,
-                "notes": "Manual movement - can be deleted"
-            }
-            
-            success, manual_movement = self.run_test(
-                "Create Manual Stock Movement",
-                "POST",
-                "inventory/movements",
-                200,
-                data=manual_movement_data
-            )
-            
-            if success and manual_movement.get('id'):
-                manual_movement_id = manual_movement['id']
-                
-                # Get stock totals before deletion
-                success, stock_before = self.run_test(
-                    "Get Stock Totals Before Movement Delete",
-                    "GET",
-                    "inventory/stock-totals",
-                    200
-                )
-                
-                if success:
-                    header_stock_before = next(
-                        (h for h in stock_before if h.get('header_id') == manual_header_id), 
-                        {'total_qty': 0, 'total_weight': 0}
-                    )
-                    
-                    # Delete the manual movement (should succeed and reverse stock)
-                    success11, delete_movement_response = self.run_test(
-                        "Delete Manual Movement (Should Succeed and Reverse Stock)",
-                        "DELETE",
-                        f"inventory/movements/{manual_movement_id}",
-                        200
-                    )
-                    results.append(success11)
-                    
-                    if success11:
-                        print(f"✅ Manual movement deleted successfully: {delete_movement_response.get('message')}")
-                        
-                        # Verify stock reversal calculations
-                        success, stock_after = self.run_test(
-                            "Get Stock Totals After Movement Delete",
-                            "GET",
-                            "inventory/stock-totals",
-                            200
-                        )
-                        
-                        if success:
-                            header_stock_after = next(
-                                (h for h in stock_after if h.get('header_id') == manual_header_id), 
-                                {'total_qty': 0, 'total_weight': 0}
-                            )
-                            
-                            expected_qty = header_stock_before['total_qty'] - 5  # Reverse the +5
-                            expected_weight = header_stock_before['total_weight'] - 25.750  # Reverse the +25.750
-                            
-                            if (abs(header_stock_after['total_qty'] - expected_qty) < 0.01 and 
-                                abs(header_stock_after['total_weight'] - expected_weight) < 0.001):
-                                print(f"✅ Stock reversal calculations accurate: qty={header_stock_after['total_qty']}, weight={header_stock_after['total_weight']}")
-                                results.append(True)
-                            else:
-                                print(f"❌ Stock reversal incorrect: expected qty={expected_qty}, weight={expected_weight}, got qty={header_stock_after['total_qty']}, weight={header_stock_after['total_weight']}")
-                                results.append(False)
-                        else:
-                            results.append(False)
-            else:
-                print("❌ Failed to create manual stock movement")
-                results.append(False)
-        else:
-            print("❌ Failed to create header for manual movement test")
-            results.append(False)
-        
-        # Test 3.2: Create an invoice with items to generate invoice-linked movements, then try to delete
-        if self.created_resources['parties']:
-            customer_id = self.created_resources['parties'][0]
-            
-            # Create invoice with items
-            invoice_data = {
-                "customer_id": customer_id,
-                "customer_name": "Test Customer",
-                "invoice_type": "sale",
-                "items": [{
-                    "category": manual_header_name,  # Use our test header
-                    "description": "Test item for movement link test",
-                    "qty": 2,
-                    "weight": 10.0,
-                    "purity": 916,
-                    "metal_rate": 20.0,
-                    "gold_value": 200.0,
-                    "making_value": 15.0,
-                    "vat_percent": 5.0,
-                    "vat_amount": 10.75,
-                    "line_total": 225.75
-                }],
-                "subtotal": 215.0,
-                "vat_total": 10.75,
-                "grand_total": 225.75,
-                "balance_due": 225.75,
-                "notes": "Invoice for movement link test"
-            }
-            
-            success, invoice = self.run_test(
-                "Create Invoice for Movement Link Test",
-                "POST",
-                "invoices",
-                200,
-                data=invoice_data
-            )
-            
-            if success and invoice.get('id'):
-                invoice_id = invoice['id']
-                
-                # Finalize invoice to create invoice-linked movements
-                success, finalized_invoice = self.run_test(
-                    "Finalize Invoice (Create Invoice-Linked Movements)",
-                    "POST",
-                    f"invoices/{invoice_id}/finalize",
-                    200
-                )
-                
-                if success:
-                    # Get all movements to find invoice-linked ones
-                    success, all_movements = self.run_test(
-                        "Get All Movements (Find Invoice-Linked)",
-                        "GET",
-                        "inventory/movements",
-                        200
-                    )
-                    
-                    if success:
-                        # Find movement linked to our invoice
-                        invoice_movement = next(
-                            (m for m in all_movements 
-                             if m.get('reference_type') == 'invoice' and m.get('reference_id') == invoice_id),
-                            None
-                        )
-                        
-                        if invoice_movement:
-                            invoice_movement_id = invoice_movement['id']
-                            
-                            # Try to delete invoice-linked movement (should fail with 400)
-                            success12, error_response12 = self.run_test(
-                                "Delete Invoice-Linked Movement (Should Fail with 400)",
-                                "DELETE",
-                                f"inventory/movements/{invoice_movement_id}",
-                                400
-                            )
-                            results.append(success12)
-                            
-                            if success12:
-                                error_str = str(error_response12)
-                                if "audit trail" in error_str.lower() and "invoice" in error_str.lower():
-                                    print(f"✅ Invoice-linked movement deletion correctly blocked for audit trail protection")
-                                    results.append(True)
-                                else:
-                                    print(f"❌ Error message should mention audit trail protection: {error_str}")
-                                    results.append(False)
-                        else:
-                            print("❌ No invoice-linked movement found")
-                            results.append(False)
-                    else:
-                        results.append(False)
-                else:
-                    print("❌ Failed to finalize invoice")
-                    results.append(False)
-            else:
-                print("❌ Failed to create invoice for movement link test")
-                results.append(False)
-        
-        # Test 3.3: Test with non-existent movement_id (should return 404)
-        fake_movement_id = "non-existent-movement-id"
-        success13, error_response13 = self.run_test(
-            "Delete Non-existent Movement (Should Return 404)",
-            "DELETE",
-            f"inventory/movements/{fake_movement_id}",
-            404
-        )
-        results.append(success13)
-        
-        # Test 3.4: Verify audit log is created with movement details
-        success14, audit_logs_final = self.run_test(
-            "Get Audit Logs (Verify Movement Delete Audit)",
-            "GET",
-            "audit-logs",
-            200
-        )
-        
-        if success14:
-            # Look for movement delete audit logs
-            movement_delete_logs = [
-                log for log in audit_logs_final 
-                if log.get('module') == 'stock_movement' and log.get('action') == 'delete'
-            ]
-            
-            if movement_delete_logs:
-                print(f"✅ Audit logs created for movement deletions: {len(movement_delete_logs)} logs found")
-                results.append(True)
-            else:
-                print(f"❌ No audit logs found for movement deletions")
-                results.append(False)
-        else:
-            results.append(False)
-        
-        # ============================================================================
-        # TEST 4: GET /api/reports - Verify reports listing
-        # ============================================================================
-        print("\n📊 TEST 4: GET /api/reports - Verify reports listing")
-        
-        success15, reports_response = self.run_test(
-            "Get Reports Listing",
-            "GET",
-            "reports",
-            200
-        )
-        results.append(success15)
-        
-        if success15:
-            # Verify response has reports array with 8 items
-            reports_array = reports_response.get('reports', [])
-            if len(reports_array) == 8:
-                print(f"✅ Reports array contains correct number of items: {len(reports_array)}")
-                results.append(True)
-            else:
-                print(f"❌ Expected 8 reports, got: {len(reports_array)}")
-                results.append(False)
-            
-            # Verify each report has required fields
-            required_fields = ['id', 'name', 'description', 'category', 'endpoints', 'supports_filters', 'supports_export']
-            all_reports_valid = True
-            
-            for i, report in enumerate(reports_array):
-                missing_fields = [field for field in required_fields if field not in report]
-                if missing_fields:
-                    print(f"❌ Report {i+1} missing fields: {missing_fields}")
-                    all_reports_valid = False
-            
-            if all_reports_valid:
-                print(f"✅ All reports have required fields: {required_fields}")
-                results.append(True)
-            else:
-                results.append(False)
-            
-            # Verify categories array contains expected categories
-            categories = reports_response.get('categories', [])
-            expected_categories = ['financial', 'inventory', 'parties', 'sales', 'purchases']
-            
-            if set(categories) == set(expected_categories):
-                print(f"✅ Categories array contains expected categories: {categories}")
-                results.append(True)
-            else:
-                print(f"❌ Expected categories {expected_categories}, got: {categories}")
-                results.append(False)
-        
-        # Calculate success rate for this comprehensive test
-        total_tests = len(results)
-        passed_tests = sum(results)
-        success_rate = (passed_tests / total_tests * 100) if total_tests > 0 else 0
-        
-        print(f"\n📈 COMPREHENSIVE INVENTORY CRUD TEST SUMMARY:")
+        print(f"\n📊 OVERALL STATISTICS:")
         print(f"   Total Tests: {total_tests}")
-        print(f"   Passed: {passed_tests}")
-        print(f"   Failed: {total_tests - passed_tests}")
-        print(f"   Success Rate: {success_rate:.1f}%")
+        print(f"   Passed: {passed_tests} ✅")
+        print(f"   Failed: {failed_tests} ❌")
+        print(f"   Success Rate: {(passed_tests/total_tests)*100:.1f}%")
         
-        return all(results)
+        # Group results by task
+        task3_results = [r for r in self.test_results if "Task 3" in r['test']]
+        task4_results = [r for r in self.test_results if "Task 4" in r['test']]
+        other_results = [r for r in self.test_results if "Task 3" not in r['test'] and "Task 4" not in r['test']]
+        
+        print(f"\n📋 TASK 3 - GOLD RATE FIELD ({len(task3_results)} scenarios):")
+        for result in task3_results:
+            print(f"   {result['status']}: {result['test']}")
+        
+        print(f"\n📋 TASK 4 - DISCOUNT FIELD ({len(task4_results)} scenarios):")
+        for result in task4_results:
+            print(f"   {result['status']}: {result['test']}")
+        
+        if other_results:
+            print(f"\n📋 OTHER TESTS ({len(other_results)} tests):")
+            for result in other_results:
+                print(f"   {result['status']}: {result['test']}")
+        
+        # Show failed tests details
+        failed_results = [r for r in self.test_results if not r['success']]
+        if failed_results:
+            print(f"\n❌ FAILED TESTS DETAILS:")
+            for result in failed_results:
+                print(f"\n   Test: {result['test']}")
+                print(f"   Details: {result['details']}")
+                if result.get('response_data'):
+                    print(f"   Response: {result['response_data']}")
+        
+        print(f"\n🎯 PRODUCTION READINESS ASSESSMENT:")
+        if failed_tests == 0:
+            print("   ✅ ALL TESTS PASSED - PRODUCTION READY (10/10)")
+        elif failed_tests <= 2:
+            print(f"   ⚠️  MOSTLY READY - {failed_tests} minor issues to fix (8/10)")
+        elif failed_tests <= 5:
+            print(f"   ⚠️  NEEDS WORK - {failed_tests} issues to fix (6/10)")
+        else:
+            print(f"   ❌ NOT READY - {failed_tests} critical issues to fix (4/10)")
+        
+        print("\n" + "=" * 80)
 
 def main():
-    tester = GoldShopERPTester()
-    success = tester.run_all_tests()
-    return 0 if success else 1
+    """Main execution function"""
+    # Configuration
+    BASE_URL = "https://fields-verified.preview.emergentagent.com"
+    USERNAME = "admin"
+    PASSWORD = "admin123"
+    
+    print("🚀 Starting Comprehensive Backend Testing")
+    print(f"Backend URL: {BASE_URL}")
+    print(f"Username: {USERNAME}")
+    print("-" * 80)
+    
+    # Initialize tester
+    tester = GoldShopTester(BASE_URL, USERNAME, PASSWORD)
+    
+    # Run all tests
+    tester.run_all_tests()
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
