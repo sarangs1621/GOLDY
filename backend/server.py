@@ -692,6 +692,112 @@ async def delete_gold_ledger_entry(entry_id: str, current_user: User = Depends(g
     await create_audit_log(current_user.id, current_user.full_name, "gold_ledger", entry_id, "delete")
     return {"message": "Gold ledger entry deleted successfully"}
 
+# ============================================================================
+# MODULE 9/10 - GOLD DEPOSITS (Customer Gold Received) - Specific IN Entry API
+# ============================================================================
+
+@api_router.post("/gold-deposits", response_model=GoldLedgerEntry)
+async def create_gold_deposit(deposit_data: dict, current_user: User = Depends(get_current_user)):
+    """
+    Create a gold deposit entry - specifically for recording gold RECEIVED from customer.
+    This is a convenience endpoint that creates a GoldLedgerEntry with type="IN".
+    
+    Required fields:
+    - party_id: Customer ID who is depositing gold
+    - weight_grams: Weight of gold received (3 decimal precision)
+    - purity_entered: Purity in karats (e.g., 22, 24, 18)
+    - purpose: One of [job_work, exchange, advance_gold, adjustment]
+    
+    Optional fields:
+    - notes: Additional notes about the deposit
+    """
+    # Validate required fields
+    if 'party_id' not in deposit_data:
+        raise HTTPException(status_code=400, detail="party_id is required")
+    if 'weight_grams' not in deposit_data:
+        raise HTTPException(status_code=400, detail="weight_grams is required")
+    if 'purity_entered' not in deposit_data:
+        raise HTTPException(status_code=400, detail="purity_entered is required")
+    if 'purpose' not in deposit_data or deposit_data['purpose'] not in ['job_work', 'exchange', 'advance_gold', 'adjustment']:
+        raise HTTPException(status_code=400, detail="purpose must be one of: job_work, exchange, advance_gold, adjustment")
+    
+    # Verify party exists
+    party = await db.parties.find_one({"id": deposit_data['party_id'], "is_deleted": False})
+    if not party:
+        raise HTTPException(status_code=404, detail="Party not found")
+    
+    # Round weight to 3 decimal places
+    weight_grams = round(float(deposit_data['weight_grams']), 3)
+    
+    # Validate weight is positive
+    if weight_grams <= 0:
+        raise HTTPException(status_code=400, detail="weight_grams must be greater than 0")
+    
+    # Create gold deposit entry with type="IN"
+    entry = GoldLedgerEntry(
+        party_id=deposit_data['party_id'],
+        date=deposit_data.get('date', datetime.now(timezone.utc)),
+        type="IN",  # ALWAYS IN for deposits - customer gives gold to shop
+        weight_grams=weight_grams,
+        purity_entered=int(deposit_data['purity_entered']),
+        purpose=deposit_data['purpose'],
+        reference_type="manual",  # Manual gold deposit entry
+        reference_id=None,
+        notes=deposit_data.get('notes'),
+        created_by=current_user.id
+    )
+    
+    await db.gold_ledger.insert_one(entry.model_dump())
+    await create_audit_log(current_user.id, current_user.full_name, "gold_deposit", entry.id, "create")
+    return entry
+
+@api_router.get("/gold-deposits", response_model=List[GoldLedgerEntry])
+async def get_gold_deposits(
+    party_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get gold deposit entries - filters for type="IN" entries only.
+    These are gold deposits received from customers.
+    
+    Query parameters:
+    - party_id: Filter by specific party/customer
+    - date_from: Filter entries from this date (ISO format)
+    - date_to: Filter entries up to this date (ISO format)
+    """
+    query = {
+        "is_deleted": False,
+        "type": "IN"  # Only get IN entries (deposits received)
+    }
+    
+    # Filter by party_id
+    if party_id:
+        query['party_id'] = party_id
+    
+    # Filter by date range
+    if date_from or date_to:
+        date_query = {}
+        if date_from:
+            try:
+                date_query['$gte'] = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date_from format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
+        if date_to:
+            try:
+                date_query['$lte'] = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date_to format. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)")
+        query['date'] = date_query
+    
+    entries = await db.gold_ledger.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    return entries
+
+# Note: Soft delete is handled by existing DELETE /api/gold-ledger/{entry_id} endpoint
+
+# ============================================================================
+
 @api_router.get("/parties/{party_id}/gold-summary")
 async def get_party_gold_summary(party_id: str, current_user: User = Depends(get_current_user)):
     # Verify party exists
