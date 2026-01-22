@@ -2047,7 +2047,6 @@ frontend:
 
 test_plan:
   current_focus:
-    - "MODULE 6/10 - Test Purchase History Report backend endpoint"
     - "MODULE 6/10 - Test Purchase History Report UI"
   stuck_tasks: []
   test_all: false
