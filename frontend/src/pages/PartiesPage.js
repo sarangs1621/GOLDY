@@ -175,6 +175,65 @@ export default function PartiesPage() {
     }
   };
 
+  // MODULE 9: Handle opening gold deposit dialog
+  const handleOpenGoldDeposit = () => {
+    setDepositFormData({
+      weight_grams: '',
+      purity_entered: '',
+      purpose: 'job_work',
+      notes: ''
+    });
+    setShowGoldDepositDialog(true);
+  };
+
+  // MODULE 9: Handle creating gold deposit
+  const handleCreateGoldDeposit = async () => {
+    // Validation
+    if (!depositFormData.weight_grams || parseFloat(depositFormData.weight_grams) <= 0) {
+      toast.error('Please enter a valid weight');
+      return;
+    }
+    if (!depositFormData.purity_entered || parseFloat(depositFormData.purity_entered) <= 0) {
+      toast.error('Please enter a valid purity');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const depositPayload = {
+        party_id: ledgerData.party.id,
+        weight_grams: parseFloat(depositFormData.weight_grams),
+        purity_entered: parseInt(depositFormData.purity_entered),
+        purpose: depositFormData.purpose,
+        notes: depositFormData.notes || undefined
+      };
+
+      await axios.post(`${API}/gold-deposits`, depositPayload);
+      toast.success('Gold deposit recorded successfully');
+      
+      // Reload gold entries and summary
+      const goldResponse = await axios.get(`${API}/gold-ledger?party_id=${ledgerData.party.id}`);
+      setGoldEntries(goldResponse.data);
+      
+      const summaryResponse = await axios.get(`${API}/parties/${ledgerData.party.id}/summary`);
+      setLedgerData(summaryResponse.data);
+      
+      // Close dialog and reset form
+      setShowGoldDepositDialog(false);
+      setDepositFormData({
+        weight_grams: '',
+        purity_entered: '',
+        purpose: 'job_work',
+        notes: ''
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to record gold deposit');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filtered gold entries based on date and search
   const filteredGoldEntries = useMemo(() => {
     return goldEntries.filter(entry => {
