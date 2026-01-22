@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import sys
 
 # Configuration
-BASE_URL = "https://vendor-transactions.preview.emergentagent.com/api"
+BASE_URL = "https://purchase-report-fix.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 class PurchaseHistoryTester:
