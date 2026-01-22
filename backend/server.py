@@ -1456,7 +1456,7 @@ async def create_purchase(purchase: Purchase, current_user: User = Depends(get_c
     
     return purchase
 
-@api_router.get("/purchases", response_model=List[Purchase])
+@api_router.get("/purchases")
 async def get_purchases(
     vendor_party_id: Optional[str] = None,
     start_date: Optional[str] = None,
