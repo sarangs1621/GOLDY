@@ -63,7 +63,7 @@ export default function ReportsPageEnhanced() {
   }, []);
 
   useEffect(() => {
-    // Reload data when filters change
+    // Reload data when filters or active tab change
     if (activeTab === 'overview') {
       loadFinancialSummary();
     } else if (activeTab === 'outstanding') {
@@ -78,8 +78,10 @@ export default function ReportsPageEnhanced() {
       loadTransactionsReport();
     } else if (activeTab === 'sales-history') {
       loadSalesHistoryReport();
+    } else if (activeTab === 'purchase-history') {
+      loadPurchaseHistoryReport();
     }
-  }, [datePreset, startDate, endDate, selectedPartyId, sortBy]);
+  }, [activeTab, datePreset, startDate, endDate, selectedPartyId, sortBy]);
 
   // Date preset handler
   const applyDatePreset = (preset) => {
