@@ -785,6 +785,194 @@ backend:
           10. Backend calculation uses correct priority chain
           11. All invoice items use same metal_rate consistently
 
+  - task: "MODULE 10/10 - Gold Exchange Payment Mode (Convert Gold → Money Settlement)"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          MODULE 10 IMPLEMENTED - Gold Exchange Payment Mode for Invoice Settlements.
+          
+          Backend Implementation:
+          
+          1. ✅ Enhanced POST /api/invoices/{invoice_id}/add-payment Endpoint (lines 1865-2260):
+             
+             NEW PAYMENT MODE: GOLD_EXCHANGE
+             - Allows customers to use their gold balance to pay for invoices
+             - Only available for saved customers (requires party_id for gold ledger tracking)
+             - Walk-in customers cannot use GOLD_EXCHANGE mode
+             
+             Required Fields for GOLD_EXCHANGE:
+             - payment_mode: "GOLD_EXCHANGE"
+             - gold_weight_grams: float (3 decimal precision) - amount of gold to use
+             - rate_per_gram: float (2 decimal precision) - conversion rate
+             Optional:
+             - purity_entered: int (defaults to 916 - 22K gold standard)
+             - notes: Optional[str]
+          
+          2. ✅ Auto-Calculation Logic:
+             - gold_money_value = gold_weight_grams × rate_per_gram
+             - Rounded to 2 decimal precision for money
+             - This calculated value is used to reduce invoice balance_due
+          
+          3. ✅ Comprehensive Validation:
+             a. Customer Type Validation:
+                - Must be saved customer (customer_type = "saved")
+                - Must have customer_id (not walk-in)
+                - Returns 400 error for walk-in customers
+             
+             b. Input Validation:
+                - gold_weight_grams must be > 0
+                - rate_per_gram must be > 0
+                - Returns 400 error with clear message if invalid
+             
+             c. Gold Balance Validation:
+                - Queries gold_ledger to calculate customer's current gold balance
+                - gold_balance = SUM(IN entries) - SUM(OUT entries)
+                - Validates customer has sufficient gold (balance >= gold_weight_grams)
+                - Returns 400 error with available vs required gold if insufficient
+             
+             d. Payment Amount Validation:
+                - Validates gold_money_value doesn't exceed invoice balance_due
+                - Returns 400 error if overpayment attempted
+          
+          4. ✅ GoldLedgerEntry Creation (Type Determination):
+             Business Direction: Customer uses their gold to pay invoice
+             - Type: "OUT" (shop gives/returns gold to party, or party uses their gold with shop)
+             - Purpose: "exchange" (gold exchange for payment settlement)
+             - Reference: Links to invoice (reference_type="invoice", reference_id=invoice_id)
+             - Weight: gold_weight_grams (3 decimal precision)
+             - Purity: purity_entered (defaults to 916)
+             - Notes: Includes invoice number, rate, and calculation details
+             - Created by: current_user.id
+          
+          5. ✅ Transaction Record Creation (Financial Trace):
+             - transaction_type: "credit" (money coming in, even though paid in gold)
+             - mode: "GOLD_EXCHANGE"
+             - account_id: "Gold Exchange" account (auto-created if doesn't exist)
+             - account_name: "Gold Exchange"
+             - party_id: invoice.customer_id
+             - party_name: invoice.customer_name
+             - amount: gold_money_value (converted money value)
+             - category: "Invoice Payment"
+             - reference: Links to invoice
+             - notes: Detailed calculation (weight × rate = value)
+             - Auto-generates transaction_number (TXN-YYYY-NNNN format)
+          
+          6. ✅ Invoice Payment Update:
+             - paid_amount += gold_money_value
+             - balance_due = grand_total - paid_amount (cannot go negative)
+             - payment_status: "paid" if balance_due < 0.01, else "partial"
+             - All updates are atomic (succeed together or fail together)
+          
+          7. ✅ Default Account Creation:
+             - If "Gold Exchange" account doesn't exist, automatically creates it
+             - account_type: "asset"
+             - opening_balance: 0, current_balance: 0
+             - This ensures GOLD_EXCHANGE mode always works without setup
+          
+          8. ✅ Audit Trail (3 Audit Logs Created):
+             a. Gold Ledger Audit:
+                - entity_type: "gold_ledger"
+                - action: "create"
+                - Details: invoice_id, gold_weight, rate, money value
+             
+             b. Transaction Audit:
+                - entity_type: "transaction"
+                - action: "create"
+                - Details: invoice_id, payment_mode, gold details, amount
+             
+             c. Invoice Payment Audit:
+                - entity_type: "invoice"
+                - action: "add_payment_gold_exchange"
+                - Details: gold weight, rate, value, payment amounts, gold balance before/after
+          
+          9. ✅ Response Structure (Enhanced for GOLD_EXCHANGE):
+             Returns comprehensive details:
+             - message: "Gold exchange payment added successfully"
+             - payment_mode: "GOLD_EXCHANGE"
+             - gold_ledger_entry_id: UUID of created gold ledger entry
+             - gold_weight_grams: Amount of gold used (3 decimals)
+             - rate_per_gram: Conversion rate (2 decimals)
+             - gold_money_value: Calculated payment amount (2 decimals)
+             - transaction_id: UUID of created transaction
+             - transaction_number: TXN-YYYY-NNNN
+             - new_paid_amount: Updated total paid on invoice
+             - new_balance_due: Remaining balance on invoice
+             - payment_status: "paid" or "partial"
+             - customer_gold_balance_remaining: Customer's gold balance after payment (3 decimals)
+          
+          10. ✅ Backward Compatibility:
+              - All existing payment modes (Cash, Bank Transfer, Card, UPI/Online, Cheque) continue to work
+              - Standard payment modes unchanged - still require amount and account_id
+              - No breaking changes to existing invoice payment workflow
+          
+          Key Business Rules Implemented:
+          - ✅ Works ONLY for saved customers (not walk-in)
+          - ✅ Creates GoldLedgerEntry (type=OUT) to track gold usage
+          - ✅ Creates Transaction record for financial reporting
+          - ✅ Reduces invoice balance_due by gold_money_value
+          - ✅ Updates invoice payment_status (paid/partial) correctly
+          - ✅ Validates sufficient gold balance before allowing payment
+          - ✅ Prevents overpayment (gold value cannot exceed balance_due)
+          - ✅ All operations are atomic (all succeed or all fail)
+          - ✅ Complete audit trail maintained
+          - ✅ Proper precision: 3 decimals for gold, 2 decimals for money
+          - ✅ Auto-creates "Gold Exchange" account if needed
+          - ✅ Returns remaining customer gold balance for verification
+          
+          Financial Flow Example:
+          
+          Scenario: Customer has 50.500g gold with shop (IN entries), wants to pay 500 OMR invoice
+          
+          Step 1: Customer initiates GOLD_EXCHANGE payment:
+          - gold_weight_grams: 25.000g
+          - rate_per_gram: 20.00 OMR
+          
+          Step 2: System auto-calculates:
+          - gold_money_value = 25.000 × 20.00 = 500.00 OMR
+          
+          Step 3: System validates:
+          - Customer has 50.500g available ✅ (sufficient)
+          - Payment 500.00 OMR <= invoice balance 500.00 OMR ✅ (valid)
+          
+          Step 4: System creates 3 atomic records:
+          a. GoldLedgerEntry (type=OUT, weight=25.000g) - reduces customer gold balance
+          b. Transaction (mode=GOLD_EXCHANGE, amount=500.00 OMR) - financial trace
+          c. Invoice update (paid_amount=500.00, balance_due=0.00, status=paid)
+          
+          Step 5: Result:
+          - Customer gold balance: 50.500g - 25.000g = 25.500g remaining
+          - Invoice status: PAID
+          - Complete audit trail maintained
+          
+          READY FOR COMPREHENSIVE TESTING - Need to verify:
+          1. Create invoice for saved customer with outstanding balance
+          2. Ensure customer has gold IN entries (gold balance available)
+          3. Attempt GOLD_EXCHANGE payment with valid gold and rate
+          4. Verify gold_money_value calculated correctly (weight × rate)
+          5. Verify GoldLedgerEntry created (type=OUT, purpose=exchange)
+          6. Verify Transaction record created (mode=GOLD_EXCHANGE)
+          7. Verify invoice paid_amount and balance_due updated correctly
+          8. Verify invoice payment_status changes (paid/partial)
+          9. Verify customer gold balance reduced correctly
+          10. Validation: Attempt GOLD_EXCHANGE for walk-in customer (should fail with 400)
+          11. Validation: Insufficient gold balance (should fail with 400)
+          12. Validation: Overpayment attempt (should fail with 400)
+          13. Validation: Invalid gold_weight_grams (0 or negative, should fail)
+          14. Validation: Invalid rate_per_gram (0 or negative, should fail)
+          15. Verify "Gold Exchange" account auto-created if doesn't exist
+          16. Verify all 3 audit logs created with correct details
+          17. Verify response includes all GOLD_EXCHANGE specific fields
+          18. Verify precision: 3 decimals for gold, 2 decimals for money
+          19. Test partial payment scenario (gold value < balance_due)
+          20. Test full payment scenario (gold value = balance_due)
+
   - task: "Job Card Locking with Admin Override"
     implemented: true
     working: true
