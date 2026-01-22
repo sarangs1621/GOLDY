@@ -498,7 +498,7 @@ async def update_inventory_header(
         "inventory_header", 
         header_id, 
         "update",
-        details={"changes": update_data}
+        changes={"changes": update_data}
     )
     
     # Fetch and return updated header
