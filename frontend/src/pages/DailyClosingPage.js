@@ -92,6 +92,7 @@ export default function DailyClosingPage() {
       await axios.post(`${API}/daily-closings`, data);
       toast.success('Daily closing created successfully');
       setShowDialog(false);
+      setCalculationData(null);
       loadClosings();
       
       // Reset form
