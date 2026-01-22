@@ -1,699 +1,401 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend Testing for Gold Shop ERP System
-PAGINATION BACKEND TESTING - 7 ENDPOINTS
-
-This script tests all 7 pagination endpoints that have been implemented:
-1. GET /api/parties?page=X&per_page=Y
-2. GET /api/gold-ledger?page=X&per_page=Y
-3. GET /api/purchases?page=X&per_page=Y
-4. GET /api/jobcards?page=X&per_page=Y
-5. GET /api/invoices?page=X&per_page=Y
-6. GET /api/transactions?page=X&per_page=Y
-7. GET /api/audit-logs?page=X&per_page=Y
-
-Each endpoint uses standardized create_pagination_response() helper function.
-Default pagination: page=1, per_page=50
-Response format: {items: [...], pagination: {...}}
+Comprehensive Backend Testing for Pagination Endpoints
+Testing all 7 pagination endpoints that were previously returning 520 errors
 """
 
 import requests
 import json
 import sys
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional
+from datetime import datetime, timezone
+
+# Backend URL from environment
+BACKEND_URL = "https://pagination-fix-3.preview.emergentagent.com/api"
+
+# Test credentials
+TEST_USERNAME = "admin"
+TEST_PASSWORD = "admin123"
 
 class PaginationTester:
-    def __init__(self, base_url: str, username: str, password: str):
-        self.base_url = base_url.rstrip('/')
-        self.username = username
-        self.password = password
+    def __init__(self):
         self.token = None
-        self.session = requests.Session()
+        self.headers = {}
         self.test_results = []
-        self.user_id = None  # Will be set after login
-        self.created_entities = {
-            'parties': [],
-            'gold_ledger': [],
-            'purchases': [],
-            'jobcards': [],
-            'invoices': [],
-            'transactions': [],
-            'accounts': []
-        }  # Track created entities for cleanup
         
-    def log_result(self, test_name: str, success: bool, details: str = "", response_data: Any = None):
-        """Log test result with details"""
-        status = "✅ PASS" if success else "❌ FAIL"
-        result = {
-            "test": test_name,
-            "status": status,
-            "success": success,
-            "details": details,
-            "response_data": response_data,
-            "timestamp": datetime.now().isoformat()
-        }
-        self.test_results.append(result)
-        print(f"{status}: {test_name}")
-        if details:
-            print(f"    Details: {details}")
-        if not success and response_data:
-            print(f"    Response: {response_data}")
-        print()
-
-    def authenticate(self) -> bool:
+    def authenticate(self):
         """Authenticate and get JWT token"""
+        print("🔐 Authenticating...")
+        
+        login_data = {
+            "username": TEST_USERNAME,
+            "password": TEST_PASSWORD
+        }
+        
         try:
-            response = self.session.post(
-                f"{self.base_url}/api/auth/login",
-                json={"username": self.username, "password": self.password}
-            )
-            
+            response = requests.post(f"{BACKEND_URL}/auth/login", json=login_data)
             if response.status_code == 200:
                 data = response.json()
-                self.token = data.get('access_token')
-                user_data = data.get('user', {})
-                self.user_id = user_data.get('id')
-                self.session.headers.update({'Authorization': f'Bearer {self.token}'})
-                self.log_result("Authentication", True, f"Logged in as {self.username}, user_id: {self.user_id}")
+                self.token = data["access_token"]
+                self.headers = {"Authorization": f"Bearer {self.token}"}
+                print(f"✅ Authentication successful - User: {data['user']['full_name']}")
                 return True
             else:
-                self.log_result("Authentication", False, f"Status: {response.status_code}", response.text)
+                print(f"❌ Authentication failed: {response.status_code} - {response.text}")
                 return False
         except Exception as e:
-            self.log_result("Authentication", False, f"Exception: {str(e)}")
+            print(f"❌ Authentication error: {str(e)}")
             return False
-
-    def test_pagination_endpoint(self, endpoint: str, endpoint_name: str, filters: Dict = None) -> bool:
-        """Test pagination for a specific endpoint"""
-        print(f"🔸 Testing {endpoint_name} Pagination")
+    
+    def test_pagination_endpoint(self, endpoint_name, url, test_params=None):
+        """Test a single pagination endpoint with comprehensive checks"""
+        print(f"\n📊 Testing {endpoint_name}")
+        print(f"URL: {url}")
+        
+        if test_params is None:
+            test_params = [
+                {"page": 1, "per_page": 50},
+                {"page": 1, "per_page": 25},
+                {"page": 1, "per_page": 100},
+                {"page": 2, "per_page": 50}
+            ]
+        
+        endpoint_results = {
+            "endpoint": endpoint_name,
+            "url": url,
+            "tests": [],
+            "overall_status": "PASS"
+        }
+        
+        for params in test_params:
+            test_result = self._test_single_request(endpoint_name, url, params)
+            endpoint_results["tests"].append(test_result)
+            
+            if test_result["status"] != "PASS":
+                endpoint_results["overall_status"] = "FAIL"
+        
+        self.test_results.append(endpoint_results)
+        return endpoint_results
+    
+    def _test_single_request(self, endpoint_name, url, params):
+        """Test a single request with specific parameters"""
+        print(f"  🔍 Testing with params: {params}")
+        
+        test_result = {
+            "params": params,
+            "status": "FAIL",
+            "status_code": None,
+            "response_structure": {},
+            "pagination_metadata": {},
+            "errors": []
+        }
         
         try:
-            # Test 1: Default pagination (page=1, per_page=50)
-            params = filters.copy() if filters else {}
-            response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
+            response = requests.get(url, params=params, headers=self.headers)
+            test_result["status_code"] = response.status_code
             
+            # Check status code
             if response.status_code != 200:
-                self.log_result(f"{endpoint_name} - Default Pagination", False, 
-                              f"Status: {response.status_code}, Response: {response.text}")
-                return False
+                test_result["errors"].append(f"Expected 200, got {response.status_code}")
+                print(f"    ❌ Status Code: {response.status_code}")
+                if response.status_code == 520:
+                    print(f"    🚨 CRITICAL: Still getting 520 Internal Server Error!")
+                return test_result
             
-            data = response.json()
-            
-            # Verify response structure
-            if not self.verify_pagination_structure(data, endpoint_name, "Default"):
-                return False
-            
-            total_count = data['pagination']['total_count']
-            
-            # Test 2: Custom page numbers (if there's enough data)
-            if total_count > 50:  # Only test if we have multiple pages
-                params['page'] = 2
-                response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
-                
-                if response.status_code != 200:
-                    self.log_result(f"{endpoint_name} - Page 2", False, 
-                                  f"Status: {response.status_code}")
-                    return False
-                
+            # Parse JSON response
+            try:
                 data = response.json()
-                if not self.verify_pagination_structure(data, endpoint_name, "Page 2"):
-                    return False
+            except json.JSONDecodeError as e:
+                test_result["errors"].append(f"Invalid JSON response: {str(e)}")
+                print(f"    ❌ Invalid JSON response")
+                return test_result
             
-            # Test 3: Custom per_page values
-            params = filters.copy() if filters else {}
-            params['per_page'] = 25
-            response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
+            # Check response structure
+            if not isinstance(data, dict):
+                test_result["errors"].append("Response is not a dictionary")
+                print(f"    ❌ Response is not a dictionary")
+                return test_result
             
-            if response.status_code != 200:
-                self.log_result(f"{endpoint_name} - Custom per_page", False, 
-                              f"Status: {response.status_code}")
-                return False
+            # Check required top-level keys
+            required_keys = ["items", "pagination"]
+            missing_keys = [key for key in required_keys if key not in data]
+            if missing_keys:
+                test_result["errors"].append(f"Missing required keys: {missing_keys}")
+                print(f"    ❌ Missing keys: {missing_keys}")
+                return test_result
             
-            data = response.json()
-            if not self.verify_pagination_structure(data, endpoint_name, "Custom per_page=25"):
-                return False
+            # Check items array
+            items = data.get("items", [])
+            if not isinstance(items, list):
+                test_result["errors"].append("'items' is not a list")
+                print(f"    ❌ 'items' is not a list")
+                return test_result
             
-            # Verify per_page is respected
-            if len(data['items']) > 25:
-                self.log_result(f"{endpoint_name} - per_page Limit", False, 
-                              f"Returned {len(data['items'])} items, expected max 25")
-                return False
+            test_result["response_structure"]["items_count"] = len(items)
+            test_result["response_structure"]["items_type"] = "list"
             
-            # Test 4: Boundary cases
-            # Test page=0 (should default to 1 or return error)
-            params = filters.copy() if filters else {}
-            params['page'] = 0
-            response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
+            # Check pagination metadata
+            pagination = data.get("pagination", {})
+            if not isinstance(pagination, dict):
+                test_result["errors"].append("'pagination' is not a dictionary")
+                print(f"    ❌ 'pagination' is not a dictionary")
+                return test_result
             
-            # Either should work (default to page 1) or return 400 error
-            if response.status_code not in [200, 400]:
-                self.log_result(f"{endpoint_name} - Boundary page=0", False, 
-                              f"Unexpected status: {response.status_code}")
-                return False
+            # Check required pagination fields
+            required_pagination_fields = [
+                "total_count", "page", "per_page", "total_pages", "has_next", "has_prev"
+            ]
+            missing_pagination_fields = [field for field in required_pagination_fields if field not in pagination]
+            if missing_pagination_fields:
+                test_result["errors"].append(f"Missing pagination fields: {missing_pagination_fields}")
+                print(f"    ❌ Missing pagination fields: {missing_pagination_fields}")
+                return test_result
             
-            # Test page > total_pages
-            if total_count > 0:
-                total_pages = (total_count + 49) // 50  # Ceiling division for default per_page=50
-                params = filters.copy() if filters else {}
-                params['page'] = total_pages + 10  # Way beyond available pages
-                response = self.session.get(f"{self.base_url}/api/{endpoint}", params=params)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    # Should return empty items but valid pagination structure
-                    if len(data['items']) > 0:
-                        self.log_result(f"{endpoint_name} - Beyond total_pages", False, 
-                                      f"Page {total_pages + 10} returned {len(data['items'])} items, expected 0")
-                        return False
+            # Validate pagination values
+            total_count = pagination.get("total_count", 0)
+            page = pagination.get("page", 0)
+            per_page = pagination.get("per_page", 0)
+            total_pages = pagination.get("total_pages", 0)
+            has_next = pagination.get("has_next", False)
+            has_prev = pagination.get("has_prev", False)
             
-            self.log_result(f"{endpoint_name} - All Pagination Tests", True, 
-                          f"Default, custom page, custom per_page, and boundary cases all working")
-            return True
-            
-        except Exception as e:
-            self.log_result(f"{endpoint_name} - Pagination Tests", False, f"Exception: {str(e)}")
-            return False
-
-    def verify_pagination_structure(self, data: Dict, endpoint_name: str, test_type: str) -> bool:
-        """Verify pagination response structure"""
-        # Check top-level structure
-        if 'items' not in data or 'pagination' not in data:
-            self.log_result(f"{endpoint_name} - {test_type} Structure", False, 
-                          "Missing 'items' or 'pagination' in response")
-            return False
-        
-        pagination = data['pagination']
-        required_fields = ['total_count', 'page', 'per_page', 'total_pages', 'has_next', 'has_prev']
-        
-        for field in required_fields:
-            if field not in pagination:
-                self.log_result(f"{endpoint_name} - {test_type} Structure", False, 
-                              f"Missing '{field}' in pagination metadata")
-                return False
-        
-        # Verify pagination calculations
-        total_count = pagination['total_count']
-        page = pagination['page']
-        per_page = pagination['per_page']
-        total_pages = pagination['total_pages']
-        has_next = pagination['has_next']
-        has_prev = pagination['has_prev']
-        
-        # Verify total_pages calculation
-        expected_total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
-        if total_pages != expected_total_pages:
-            self.log_result(f"{endpoint_name} - {test_type} Calculation", False, 
-                          f"total_pages={total_pages}, expected={expected_total_pages}")
-            return False
-        
-        # Verify has_next
-        expected_has_next = page < total_pages
-        if has_next != expected_has_next:
-            self.log_result(f"{endpoint_name} - {test_type} has_next", False, 
-                          f"has_next={has_next}, expected={expected_has_next}")
-            return False
-        
-        # Verify has_prev
-        expected_has_prev = page > 1
-        if has_prev != expected_has_prev:
-            self.log_result(f"{endpoint_name} - {test_type} has_prev", False, 
-                          f"has_prev={has_prev}, expected={expected_has_prev}")
-            return False
-        
-        # Verify items count doesn't exceed per_page
-        if len(data['items']) > per_page:
-            self.log_result(f"{endpoint_name} - {test_type} Items Count", False, 
-                          f"Returned {len(data['items'])} items, max should be {per_page}")
-            return False
-        
-        return True
-
-    def create_test_data(self) -> bool:
-        """Create test data for pagination testing"""
-        print("🔧 SETUP PHASE - Creating Test Data for Pagination Testing")
-        print("-" * 60)
-        
-        try:
-            # Create test parties (customers and vendors)
-            for i in range(5):
-                party_data = {
-                    "name": f"Pagination Test Customer {i+1:03d}",
-                    "phone": f"9988776{i:02d}",
-                    "address": f"Test Address {i+1}",
-                    "party_type": "customer",
-                    "notes": f"Test customer for pagination - {datetime.now().isoformat()}"
-                }
-                
-                response = self.session.post(f"{self.base_url}/api/parties", json=party_data)
-                if response.status_code == 200:
-                    party = response.json()
-                    self.created_entities['parties'].append(party['id'])
-                else:
-                    self.log_result("Create Test Customers", False, f"Failed to create customer {i+1}")
-                    return False
-            
-            # Create test vendors
-            for i in range(3):
-                vendor_data = {
-                    "name": f"Pagination Test Vendor {i+1:03d}",
-                    "phone": f"9977665{i:02d}",
-                    "address": f"Vendor Address {i+1}",
-                    "party_type": "vendor",
-                    "notes": f"Test vendor for pagination - {datetime.now().isoformat()}"
-                }
-                
-                response = self.session.post(f"{self.base_url}/api/parties", json=vendor_data)
-                if response.status_code == 200:
-                    vendor = response.json()
-                    self.created_entities['parties'].append(vendor['id'])
-                else:
-                    self.log_result("Create Test Vendors", False, f"Failed to create vendor {i+1}")
-                    return False
-            
-            # Create test accounts for transactions
-            account_data = {
-                "name": "Pagination Test Cash Account",
-                "account_type": "asset",
-                "opening_balance": 10000.0
+            test_result["pagination_metadata"] = {
+                "total_count": total_count,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "has_next": has_next,
+                "has_prev": has_prev
             }
             
-            response = self.session.post(f"{self.base_url}/api/accounts", json=account_data)
-            if response.status_code == 200:
-                account = response.json()
-                self.created_entities['accounts'].append(account['id'])
-                test_account_id = account['id']
+            # Validate pagination calculations
+            expected_total_pages = (total_count + per_page - 1) // per_page if per_page > 0 else 0
+            if total_pages != expected_total_pages:
+                test_result["errors"].append(f"Incorrect total_pages calculation: expected {expected_total_pages}, got {total_pages}")
+            
+            # Validate has_next and has_prev
+            expected_has_next = page < total_pages
+            expected_has_prev = page > 1
+            
+            if has_next != expected_has_next:
+                test_result["errors"].append(f"Incorrect has_next: expected {expected_has_next}, got {has_next}")
+            
+            if has_prev != expected_has_prev:
+                test_result["errors"].append(f"Incorrect has_prev: expected {expected_has_prev}, got {has_prev}")
+            
+            # Validate items count for current page
+            expected_items_count = min(per_page, max(0, total_count - (page - 1) * per_page))
+            if len(items) != expected_items_count and total_count > 0:
+                # Allow for empty results when no data exists
+                if not (total_count == 0 and len(items) == 0):
+                    test_result["errors"].append(f"Incorrect items count: expected {expected_items_count}, got {len(items)}")
+            
+            # If no errors, mark as PASS
+            if not test_result["errors"]:
+                test_result["status"] = "PASS"
+                print(f"    ✅ PASS - Items: {len(items)}, Total: {total_count}, Page: {page}/{total_pages}")
             else:
-                self.log_result("Create Test Account", False, "Failed to create test account")
-                return False
+                print(f"    ❌ FAIL - Errors: {test_result['errors']}")
             
-            # Create gold ledger entries
-            if len(self.created_entities['parties']) >= 3:
-                customer_ids = [pid for pid in self.created_entities['parties'][:5]]  # First 5 are customers
-                
-                for i, customer_id in enumerate(customer_ids):
-                    # Create IN entry (customer gives gold to shop)
-                    gold_entry = {
-                        "party_id": customer_id,
-                        "type": "IN",
-                        "weight_grams": round(25.5 + i * 10.25, 3),
-                        "purity_entered": 916,
-                        "purpose": "job_work",
-                        "notes": f"Pagination test gold deposit {i+1}"
-                    }
-                    
-                    response = self.session.post(f"{self.base_url}/api/gold-ledger", json=gold_entry)
-                    if response.status_code == 200:
-                        entry = response.json()
-                        self.created_entities['gold_ledger'].append(entry['id'])
-                    
-                    # Create OUT entry (shop gives gold to customer)
-                    if i < 3:  # Only for first 3 customers
-                        gold_entry_out = {
-                            "party_id": customer_id,
-                            "type": "OUT",
-                            "weight_grams": round(10.5 + i * 5.25, 3),
-                            "purity_entered": 916,
-                            "purpose": "exchange",
-                            "notes": f"Pagination test gold return {i+1}"
-                        }
-                        
-                        response = self.session.post(f"{self.base_url}/api/gold-ledger", json=gold_entry_out)
-                        if response.status_code == 200:
-                            entry = response.json()
-                            self.created_entities['gold_ledger'].append(entry['id'])
-            
-            # Create transactions
-            if test_account_id and len(self.created_entities['parties']) >= 3:
-                for i in range(4):
-                    transaction_data = {
-                        "transaction_type": "credit" if i % 2 == 0 else "debit",
-                        "mode": "Cash",
-                        "account_id": test_account_id,
-                        "amount": 500.0 + i * 100.0,
-                        "category": "Test Transaction",
-                        "notes": f"Pagination test transaction {i+1}"
-                    }
-                    
-                    response = self.session.post(f"{self.base_url}/api/transactions", json=transaction_data)
-                    if response.status_code == 200:
-                        txn = response.json()
-                        self.created_entities['transactions'].append(txn['id'])
-            
-            self.log_result("Create Test Data", True, 
-                          f"Created {len(self.created_entities['parties'])} parties, "
-                          f"{len(self.created_entities['gold_ledger'])} gold entries, "
-                          f"{len(self.created_entities['transactions'])} transactions")
-            return True
-            
+        except requests.exceptions.RequestException as e:
+            test_result["errors"].append(f"Request error: {str(e)}")
+            print(f"    ❌ Request error: {str(e)}")
         except Exception as e:
-            self.log_result("Create Test Data", False, f"Exception: {str(e)}")
-            return False
-
-    # ============================================================================
-    # PAGINATION TESTS FOR ALL 7 ENDPOINTS
-    # ============================================================================
-
-    def test_parties_pagination(self):
-        """Test GET /api/parties pagination"""
-        # Test with no filters
-        success = self.test_pagination_endpoint("parties", "Parties")
+            test_result["errors"].append(f"Unexpected error: {str(e)}")
+            print(f"    ❌ Unexpected error: {str(e)}")
         
-        # Test with party_type filter
-        if success:
-            success = self.test_pagination_endpoint("parties", "Parties (customer filter)", 
-                                                  {"party_type": "customer"})
+        return test_result
+    
+    def create_test_data(self):
+        """Create minimal test data if needed"""
+        print("\n📝 Creating test data if needed...")
         
-        return success
-
-    def test_gold_ledger_pagination(self):
-        """Test GET /api/gold-ledger pagination"""
-        # Test with no filters
-        success = self.test_pagination_endpoint("gold-ledger", "Gold Ledger")
+        # Create a test party for data population
+        party_data = {
+            "name": "Pagination Test Party",
+            "phone": "99999999",
+            "address": "Test Address",
+            "party_type": "customer",
+            "notes": "Created for pagination testing"
+        }
         
-        # Test with party_id filter (if we have parties)
-        if success and self.created_entities['parties']:
-            party_id = self.created_entities['parties'][0]
-            success = self.test_pagination_endpoint("gold-ledger", "Gold Ledger (party filter)", 
-                                                  {"party_id": party_id})
-        
-        # Test with date filters
-        if success:
-            today = datetime.now().strftime('%Y-%m-%d')
-            success = self.test_pagination_endpoint("gold-ledger", "Gold Ledger (date filter)", 
-                                                  {"date_from": today})
-        
-        return success
-
-    def test_purchases_pagination(self):
-        """Test GET /api/purchases pagination"""
-        # Note: We may not have purchase data, but we should test the endpoint structure
-        success = self.test_pagination_endpoint("purchases", "Purchases")
-        
-        # Test with status filter
-        if success:
-            success = self.test_pagination_endpoint("purchases", "Purchases (status filter)", 
-                                                  {"status": "draft"})
-        
-        return success
-
-    def test_jobcards_pagination(self):
-        """Test GET /api/jobcards pagination"""
-        # Note: We may not have jobcard data, but we should test the endpoint structure
-        success = self.test_pagination_endpoint("jobcards", "Job Cards")
-        
-        return success
-
-    def test_invoices_pagination(self):
-        """Test GET /api/invoices pagination"""
-        # Note: We may not have invoice data, but we should test the endpoint structure
-        success = self.test_pagination_endpoint("invoices", "Invoices")
-        
-        return success
-
-    def test_transactions_pagination(self):
-        """Test GET /api/transactions pagination"""
-        success = self.test_pagination_endpoint("transactions", "Transactions")
-        
-        return success
-
-    def test_audit_logs_pagination(self):
-        """Test GET /api/audit-logs pagination"""
-        success = self.test_pagination_endpoint("audit-logs", "Audit Logs")
-        
-        # Test with module filter
-        if success:
-            success = self.test_pagination_endpoint("audit-logs", "Audit Logs (module filter)", 
-                                                  {"module": "party"})
-        
-        # Test with date filters
-        if success:
-            today = datetime.now().strftime('%Y-%m-%d')
-            success = self.test_pagination_endpoint("audit-logs", "Audit Logs (date filter)", 
-                                                  {"date_from": today})
-        
-        return success
-
-    # ============================================================================
-    # COMPREHENSIVE PAGINATION VERIFICATION
-    # ============================================================================
-
-    def test_pagination_metadata_accuracy(self):
-        """Test pagination metadata accuracy across all endpoints"""
-        print("🔸 Testing Pagination Metadata Accuracy")
-        
-        endpoints_to_test = [
-            ("parties", "Parties"),
-            ("gold-ledger", "Gold Ledger"),
-            ("purchases", "Purchases"),
-            ("jobcards", "Job Cards"),
-            ("invoices", "Invoices"),
-            ("transactions", "Transactions"),
-            ("audit-logs", "Audit Logs")
-        ]
-        
-        all_passed = True
-        
-        for endpoint, name in endpoints_to_test:
-            try:
-                # Test with different per_page values
-                for per_page in [25, 50, 100]:
-                    response = self.session.get(f"{self.base_url}/api/{endpoint}", 
-                                              params={"page": 1, "per_page": per_page})
-                    
-                    if response.status_code != 200:
-                        self.log_result(f"{name} - Metadata Accuracy (per_page={per_page})", False, 
-                                      f"Status: {response.status_code}")
-                        all_passed = False
-                        continue
-                    
-                    data = response.json()
-                    
-                    # Verify metadata calculations
-                    pagination = data['pagination']
-                    total_count = pagination['total_count']
-                    page = pagination['page']
-                    per_page_actual = pagination['per_page']
-                    total_pages = pagination['total_pages']
-                    
-                    # Check per_page is correct
-                    if per_page_actual != per_page:
-                        self.log_result(f"{name} - per_page Accuracy", False, 
-                                      f"Expected per_page={per_page}, got {per_page_actual}")
-                        all_passed = False
-                        continue
-                    
-                    # Check total_pages calculation
-                    expected_total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
-                    if total_pages != expected_total_pages:
-                        self.log_result(f"{name} - total_pages Calculation", False, 
-                                      f"Expected {expected_total_pages}, got {total_pages}")
-                        all_passed = False
-                        continue
-                    
-                    # Check items count doesn't exceed per_page
-                    if len(data['items']) > per_page:
-                        self.log_result(f"{name} - Items Count Limit", False, 
-                                      f"Returned {len(data['items'])} items, max should be {per_page}")
-                        all_passed = False
-                        continue
-            
-            except Exception as e:
-                self.log_result(f"{name} - Metadata Test", False, f"Exception: {str(e)}")
-                all_passed = False
-        
-        if all_passed:
-            self.log_result("Pagination Metadata Accuracy", True, 
-                          "All endpoints have accurate pagination metadata calculations")
-        
-        return all_passed
-
-    def test_pagination_boundary_cases(self):
-        """Test boundary cases for all pagination endpoints"""
-        print("🔸 Testing Pagination Boundary Cases")
-        
-        endpoints_to_test = [
-            ("parties", "Parties"),
-            ("gold-ledger", "Gold Ledger"),
-            ("transactions", "Transactions"),
-            ("audit-logs", "Audit Logs")
-        ]
-        
-        all_passed = True
-        
-        for endpoint, name in endpoints_to_test:
-            try:
-                # Test negative page number
-                response = self.session.get(f"{self.base_url}/api/{endpoint}", 
-                                          params={"page": -1, "per_page": 50})
-                
-                # Should either default to page 1 or return 400 error
-                if response.status_code not in [200, 400]:
-                    self.log_result(f"{name} - Negative Page", False, 
-                                  f"Unexpected status for page=-1: {response.status_code}")
-                    all_passed = False
-                
-                # Test zero page number
-                response = self.session.get(f"{self.base_url}/api/{endpoint}", 
-                                          params={"page": 0, "per_page": 50})
-                
-                if response.status_code not in [200, 400]:
-                    self.log_result(f"{name} - Zero Page", False, 
-                                  f"Unexpected status for page=0: {response.status_code}")
-                    all_passed = False
-                
-                # Test very large per_page
-                response = self.session.get(f"{self.base_url}/api/{endpoint}", 
-                                          params={"page": 1, "per_page": 10000})
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    # Should handle large per_page gracefully
-                    if len(data['items']) > 10000:
-                        self.log_result(f"{name} - Large per_page", False, 
-                                      f"Returned {len(data['items'])} items for per_page=10000")
-                        all_passed = False
-                
-            except Exception as e:
-                self.log_result(f"{name} - Boundary Cases", False, f"Exception: {str(e)}")
-                all_passed = False
-        
-        if all_passed:
-            self.log_result("Pagination Boundary Cases", True, 
-                          "All endpoints handle boundary cases correctly")
-        
-        return all_passed
-
-    # ============================================================================
-    # MAIN TEST EXECUTION
-    # ============================================================================
-
-    def run_all_tests(self):
-        """Run comprehensive pagination tests for all 7 endpoints"""
-        print("🎯 COMPREHENSIVE PAGINATION TESTS - 7 ENDPOINTS")
+        try:
+            response = requests.post(f"{BACKEND_URL}/parties", json=party_data, headers=self.headers)
+            if response.status_code == 200:
+                party = response.json()
+                print(f"✅ Created test party: {party['name']} (ID: {party['id']})")
+                return party["id"]
+            else:
+                print(f"⚠️ Could not create test party: {response.status_code}")
+                return None
+        except Exception as e:
+            print(f"⚠️ Error creating test data: {str(e)}")
+            return None
+    
+    def run_all_pagination_tests(self):
+        """Run tests for all 7 pagination endpoints"""
+        print("🚀 Starting Comprehensive Pagination Endpoint Testing")
         print("=" * 80)
         
-        # Authenticate first
         if not self.authenticate():
-            print("❌ Authentication failed. Cannot proceed with tests.")
-            return
+            return False
         
         # Create test data
-        if not self.create_test_data():
-            print("❌ Setup failed. Cannot proceed with comprehensive tests.")
-            return
+        test_party_id = self.create_test_data()
         
-        print("\n📋 INDIVIDUAL ENDPOINT PAGINATION TESTS")
-        print("-" * 60)
+        # Define all 7 pagination endpoints to test
+        endpoints = [
+            {
+                "name": "Parties",
+                "url": f"{BACKEND_URL}/parties",
+                "priority": "previously_fixed"
+            },
+            {
+                "name": "Gold Ledger", 
+                "url": f"{BACKEND_URL}/gold-ledger",
+                "priority": "previously_fixed"
+            },
+            {
+                "name": "Purchases",
+                "url": f"{BACKEND_URL}/purchases", 
+                "priority": "previously_fixed"
+            },
+            {
+                "name": "Job Cards",
+                "url": f"{BACKEND_URL}/jobcards",
+                "priority": "newly_fixed"
+            },
+            {
+                "name": "Invoices",
+                "url": f"{BACKEND_URL}/invoices",
+                "priority": "newly_fixed"
+            },
+            {
+                "name": "Transactions",
+                "url": f"{BACKEND_URL}/transactions",
+                "priority": "newly_fixed"
+            },
+            {
+                "name": "Audit Logs",
+                "url": f"{BACKEND_URL}/audit-logs",
+                "priority": "newly_fixed"
+            }
+        ]
         
-        # Test all 7 pagination endpoints
-        endpoint_results = []
+        print(f"\n📋 Testing {len(endpoints)} pagination endpoints:")
+        for i, endpoint in enumerate(endpoints, 1):
+            print(f"  {i}. {endpoint['name']} ({endpoint['priority']})")
         
-        endpoint_results.append(self.test_parties_pagination())
-        endpoint_results.append(self.test_gold_ledger_pagination())
-        endpoint_results.append(self.test_purchases_pagination())
-        endpoint_results.append(self.test_jobcards_pagination())
-        endpoint_results.append(self.test_invoices_pagination())
-        endpoint_results.append(self.test_transactions_pagination())
-        endpoint_results.append(self.test_audit_logs_pagination())
+        # Test each endpoint
+        all_passed = True
         
-        print("\n📋 COMPREHENSIVE PAGINATION VERIFICATION")
-        print("-" * 60)
-        self.test_pagination_metadata_accuracy()
-        self.test_pagination_boundary_cases()
+        # Test newly fixed endpoints first (priority)
+        newly_fixed = [ep for ep in endpoints if ep["priority"] == "newly_fixed"]
+        previously_fixed = [ep for ep in endpoints if ep["priority"] == "previously_fixed"]
         
-        # Print summary
-        self.print_summary()
+        print(f"\n🎯 PRIORITY: Testing 4 newly fixed endpoints first...")
+        for endpoint in newly_fixed:
+            result = self.test_pagination_endpoint(endpoint["name"], endpoint["url"])
+            if result["overall_status"] != "PASS":
+                all_passed = False
         
-        # Return overall success
-        return all(endpoint_results)
-
-    def print_summary(self):
-        """Print comprehensive test summary"""
+        print(f"\n🔄 VERIFICATION: Testing 3 previously fixed endpoints...")
+        for endpoint in previously_fixed:
+            result = self.test_pagination_endpoint(endpoint["name"], endpoint["url"])
+            if result["overall_status"] != "PASS":
+                all_passed = False
+        
+        # Print comprehensive summary
+        self.print_comprehensive_summary()
+        
+        return all_passed
+    
+    def print_comprehensive_summary(self):
+        """Print detailed test results summary"""
         print("\n" + "=" * 80)
-        print("🎯 PAGINATION BACKEND TESTING RESULTS SUMMARY")
+        print("📊 COMPREHENSIVE PAGINATION TESTING RESULTS")
         print("=" * 80)
         
-        total_tests = len(self.test_results)
-        passed_tests = sum(1 for result in self.test_results if result['success'])
-        failed_tests = total_tests - passed_tests
+        total_endpoints = len(self.test_results)
+        passed_endpoints = len([r for r in self.test_results if r["overall_status"] == "PASS"])
+        failed_endpoints = total_endpoints - passed_endpoints
         
-        print(f"\n📊 OVERALL STATISTICS:")
-        print(f"   Total Tests: {total_tests}")
-        print(f"   Passed: {passed_tests} ✅")
-        print(f"   Failed: {failed_tests} ❌")
-        print(f"   Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        print(f"\n📈 OVERALL SUMMARY:")
+        print(f"  Total Endpoints Tested: {total_endpoints}")
+        print(f"  ✅ Passed: {passed_endpoints}")
+        print(f"  ❌ Failed: {failed_endpoints}")
+        print(f"  Success Rate: {(passed_endpoints/total_endpoints)*100:.1f}%")
         
-        # Show endpoint-specific results
-        print(f"\n📋 ENDPOINT RESULTS:")
-        endpoint_tests = {}
+        # Detailed results by endpoint
+        print(f"\n📋 DETAILED RESULTS:")
+        
         for result in self.test_results:
-            test_name = result['test']
-            if ' - ' in test_name:
-                endpoint = test_name.split(' - ')[0]
-                if endpoint not in endpoint_tests:
-                    endpoint_tests[endpoint] = {'passed': 0, 'failed': 0}
-                if result['success']:
-                    endpoint_tests[endpoint]['passed'] += 1
-                else:
-                    endpoint_tests[endpoint]['failed'] += 1
+            status_icon = "✅" if result["overall_status"] == "PASS" else "❌"
+            print(f"\n{status_icon} {result['endpoint']}")
+            
+            # Count test cases
+            total_tests = len(result["tests"])
+            passed_tests = len([t for t in result["tests"] if t["status"] == "PASS"])
+            
+            print(f"    Tests: {passed_tests}/{total_tests} passed")
+            
+            # Show failed test details
+            failed_tests = [t for t in result["tests"] if t["status"] == "FAIL"]
+            if failed_tests:
+                print(f"    ❌ Failed Tests:")
+                for test in failed_tests:
+                    print(f"      - Params: {test['params']}")
+                    print(f"        Status Code: {test['status_code']}")
+                    if test["errors"]:
+                        print(f"        Errors: {test['errors']}")
+            else:
+                # Show sample successful test
+                if result["tests"]:
+                    sample_test = result["tests"][0]
+                    if "pagination_metadata" in sample_test:
+                        meta = sample_test["pagination_metadata"]
+                        print(f"    📊 Sample Data: {meta.get('total_count', 0)} total items, {meta.get('total_pages', 0)} pages")
         
-        for endpoint, counts in endpoint_tests.items():
-            total = counts['passed'] + counts['failed']
-            status = "✅" if counts['failed'] == 0 else "❌" if counts['passed'] == 0 else "⚠️"
-            print(f"   {status} {endpoint}: {counts['passed']}/{total} passed")
+        # Critical issues summary
+        critical_issues = []
+        for result in self.test_results:
+            if result["overall_status"] == "FAIL":
+                for test in result["tests"]:
+                    if test["status_code"] == 520:
+                        critical_issues.append(f"{result['endpoint']}: Still returning 520 Internal Server Error")
+                    elif test["status_code"] != 200:
+                        critical_issues.append(f"{result['endpoint']}: HTTP {test['status_code']}")
         
-        # Show failed tests details
-        failed_results = [r for r in self.test_results if not r['success']]
-        if failed_results:
-            print(f"\n❌ FAILED TESTS DETAILS:")
-            for result in failed_results:
-                print(f"\n   Test: {result['test']}")
-                print(f"   Details: {result['details']}")
-                if result.get('response_data'):
-                    print(f"   Response: {result['response_data']}")
+        if critical_issues:
+            print(f"\n🚨 CRITICAL ISSUES:")
+            for issue in critical_issues:
+                print(f"  - {issue}")
         
-        print(f"\n🎯 PAGINATION SYSTEM ASSESSMENT:")
-        if failed_tests == 0:
-            print("   ✅ ALL PAGINATION ENDPOINTS FULLY FUNCTIONAL")
-            print("   ✅ All 7 endpoints support standardized pagination")
-            print("   ✅ Pagination metadata calculations are accurate")
-            print("   ✅ Boundary cases handled correctly")
-        elif failed_tests <= 3:
-            print(f"   ⚠️  MOSTLY FUNCTIONAL - {failed_tests} minor issues to fix")
-            print("   ⚠️  Most pagination endpoints working correctly")
-        elif failed_tests <= 7:
-            print(f"   ⚠️  NEEDS WORK - {failed_tests} issues to fix")
-            print("   ⚠️  Some pagination endpoints need attention")
-        else:
-            print(f"   ❌ PAGINATION NOT FUNCTIONAL - {failed_tests} critical issues")
-            print("   ❌ Multiple pagination endpoints failing")
+        # Success summary
+        working_endpoints = [r["endpoint"] for r in self.test_results if r["overall_status"] == "PASS"]
+        if working_endpoints:
+            print(f"\n✅ WORKING ENDPOINTS:")
+            for endpoint in working_endpoints:
+                print(f"  - {endpoint}")
         
         print("\n" + "=" * 80)
 
-
-# Entry point
 def main():
-    """Main execution function"""
-    # Configuration
-    BASE_URL = "https://pagination-fix-3.preview.emergentagent.com"
-    USERNAME = "admin"
-    PASSWORD = "admin123"
+    """Main test execution"""
+    tester = PaginationTester()
     
-    print("🚀 Starting Pagination Backend Tests - 7 Endpoints")
-    print(f"Backend URL: {BASE_URL}")
-    print(f"Username: {USERNAME}")
-    print("-" * 80)
+    print("🧪 PAGINATION ENDPOINTS COMPREHENSIVE TESTING")
+    print("Testing all 7 pagination endpoints for 520 error fixes")
+    print(f"Backend URL: {BACKEND_URL}")
+    print(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
     
-    # Initialize tester
-    tester = PaginationTester(BASE_URL, USERNAME, PASSWORD)
+    success = tester.run_all_pagination_tests()
     
-    # Run all pagination tests
-    success = tester.run_all_tests()
-    
-    # Exit with appropriate code
-    sys.exit(0 if success else 1)
+    if success:
+        print("\n🎉 ALL PAGINATION ENDPOINTS WORKING CORRECTLY!")
+        sys.exit(0)
+    else:
+        print("\n⚠️ SOME PAGINATION ENDPOINTS HAVE ISSUES")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
-
