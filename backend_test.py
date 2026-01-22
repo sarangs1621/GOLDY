@@ -299,6 +299,44 @@ class PurchaseHistoryTester:
                          "Vendor information properly joined" if vendor_info_ok else "Vendor information missing")
         
         return True
+    
+    def test_excel_export(self):
+        """Test Excel export functionality"""
+        if not hasattr(self, 'endpoint_available') or not self.endpoint_available:
+            return
+        
+        try:
+            response = requests.get(f"{BASE_URL}/reports/purchase-history-export", headers=self.get_headers())
+            
+            if response.status_code == 200:
+                # Check content type
+                content_type = response.headers.get('content-type', '')
+                if 'spreadsheet' in content_type or 'excel' in content_type:
+                    self.log_test("Excel Export - Content Type", True, f"Correct Excel content type: {content_type}")
+                else:
+                    self.log_test("Excel Export - Content Type", False, f"Unexpected content type: {content_type}")
+                
+                # Check content disposition header
+                content_disposition = response.headers.get('content-disposition', '')
+                if 'attachment' in content_disposition and 'filename' in content_disposition:
+                    self.log_test("Excel Export - Headers", True, "Proper download headers present")
+                else:
+                    self.log_test("Excel Export - Headers", False, f"Missing download headers: {content_disposition}")
+                
+                # Check file size (should be > 0)
+                content_length = len(response.content)
+                if content_length > 0:
+                    self.log_test("Excel Export - File Size", True, f"Excel file generated ({content_length} bytes)")
+                else:
+                    self.log_test("Excel Export - File Size", False, "Empty file generated")
+                
+            else:
+                self.log_test("Excel Export - Basic Function", False, f"Export failed: {response.status_code}")
+        
+        except Exception as e:
+            self.log_test("Excel Export - Basic Function", False, f"Error testing export: {str(e)}")
+    
+    def test_filters(self):
         """Test various filter combinations"""
         if not hasattr(self, 'endpoint_available') or not self.endpoint_available:
             return
