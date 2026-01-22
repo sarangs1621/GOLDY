@@ -1166,6 +1166,63 @@ agent_communication:
     message: "NEW FEATURE IMPLEMENTED - Walk-in vs Saved Customer Handling: (1) Backend - Added customer_type field to Invoice model with walk_in_name/walk_in_phone fields. Updated convert_jobcard_to_invoice to accept customer type and validate accordingly. Created POST /api/invoices/{invoice_id}/add-payment endpoint that accepts amount, payment_mode, account_id, notes. All payments now create Transaction records for finance tracking. For saved customers: links to party_id. For walk-in: party_id=None with '(Walk-in)' suffix in party_name. Returns warning flag for walk-in partial payments. (2) Frontend - JobCardsPage: Added customer type selection dialog before invoice conversion with radio buttons for Saved/Walk-in. Shows party dropdown for saved, name/phone inputs for walk-in with appropriate warnings. InvoicesPage: Added 'Add Payment' button for invoices with balance. Payment dialog includes amount, payment mode dropdown (Cash/Bank Transfer/Card/UPI/Online/Cheque), account selection, notes. Shows walk-in warning for partial payments. Displays 'Walk-in' badge in invoice table. READY FOR COMPREHENSIVE TESTING - Need to verify: (a) Job card to invoice conversion with both customer types, (b) Walk-in customers NOT saved in Parties, (c) Payment collection creates Transaction records, (d) Walk-in partial payment warnings, (e) Login still working with admin/admin123."
   - agent: "main"
     message: "✅ REPORTS & FILTERS FEATURE COMPLETE - Production-Ready Implementation: Implemented comprehensive reports & filters system per requirements. BACKEND (Phase 1): (1) ✅ Added due_date field to Invoice model for overdue calculations (defaults to invoice_date). (2) ✅ Created Outstanding Report endpoint GET /api/reports/outstanding with: party-wise outstanding tracking, customer due vs vendor payable breakdown, overdue buckets (0-7, 8-30, 31+ days), last invoice/payment dates, filters for party_id, party_type, date_range. (3) ✅ Enhanced Financial Summary endpoint with: cash_balance (sum of cash accounts), bank_balance (sum of bank accounts), net_flow (credit - debit), daily_closing_difference (actual - expected). (4) ✅ Added global filters to all report view endpoints: party_id filter, sort_by parameter (date_asc, date_desc, amount_desc, outstanding_desc). (5) ✅ Implemented 5 PDF export endpoints: /reports/outstanding-pdf, /reports/invoices-pdf, /reports/parties-pdf, /reports/transactions-pdf, /reports/inventory-pdf - All using tabular format with A4 layout, header, summary, table, proper styling. FRONTEND (Phase 2): (1) ✅ Created GlobalFilters component with: Date presets (Today, Yesterday, This Week [Monday start], This Month, Custom range), Party dropdown (All Parties / Specific Party), Sorting options (Latest/Oldest/Highest Amount/Outstanding), Clear filters & Export buttons (PDF + Excel). (2) ✅ Added Outstanding Report Tab with: Summary cards (Customer Due, Vendor Payable, Total Outstanding), Overdue buckets visualization (0-7, 8-30, 31+ days color-coded), Party-wise outstanding table with all details, Last payment/invoice date columns. (3) ✅ Enhanced Overview Tab with: Cash Balance card, Bank Balance card, Net Flow card (Credit - Debit), Daily Closing Difference card, Color-coded positive/negative indicators. (4) ✅ Integrated global filters across ALL tabs: Overview, Outstanding, Invoices, Parties, Transactions, Inventory - All filters work dynamically with auto-reload. ACCEPTANCE CRITERIA MET: ✅ Date filters with presets + custom range, ✅ Party dropdown shows all parties with search, ✅ All Names shows full data, specific party filters correctly, ✅ Outstanding report with overdue buckets based on balance_due > 0, ✅ Finance summary shows Cash/Bank/Credit/Debit/Net flow, ✅ PDF & Excel exports for all reports with applied filters, ✅ Sorting works (Latest/Oldest/Highest Outstanding), ✅ Outstanding totals match invoice totals minus payments. READY FOR TESTING."
+  - agent: "main"
+    message: |
+      ✅ MODULE 7/10 - INVOICE DISCOUNT (AMOUNT BASED) IMPLEMENTATION COMPLETE
+      
+      Implemented comprehensive invoice discount feature with amount-based discounts and proper VAT recalculation.
+      
+      BACKEND CHANGES:
+      1. ✅ Invoice Model Enhancement:
+         - Added discount_amount field (float, 3 decimal precision, default 0.0)
+         - Backward compatible - existing invoices default to 0 discount
+      
+      2. ✅ Calculation Formula Updated (convert_jobcard_to_invoice):
+         - Step 1: Calculate subtotal = sum(gold_value + making_value)
+         - Step 2: Apply discount = subtotal - discount_amount
+         - Step 3: Calculate taxable = subtotal - discount
+         - Step 4: Calculate VAT = taxable × 5% (NOT subtotal × 5%)
+         - Step 5: Calculate grand_total = taxable + VAT
+         - VAT is distributed proportionally across items
+      
+      3. ✅ Validation Rules:
+         - Discount amount must be >= 0 (prevents negative discounts)
+         - Discount amount cannot exceed subtotal (prevents negative taxable)
+         - Clear 400 error messages for validation failures
+      
+      4. ✅ Backend PDF Enhanced:
+         - Shows discount line between Subtotal and VAT when discount > 0
+         - Format: "Discount: -{amount:.2f} OMR"
+         - Dynamic spacing adjusts based on discount presence
+      
+      FRONTEND CHANGES:
+      1. ✅ JobCardsPage - Convert to Invoice Dialog:
+         - Added discount_amount input field (number, step 0.001)
+         - Positioned after customer details, before action buttons
+         - Helper text: "Optional: Enter discount amount to be applied before VAT calculation"
+         - Defaults to 0 if not entered
+      
+      2. ✅ InvoicesPage - Print PDF:
+         - Shows discount line in totals section when discount > 0
+         - Proper order: Subtotal → Discount → VAT → Grand Total → Balance Due
+         - Discount appears as negative value with minus sign prefix
+      
+      BUSINESS LOGIC:
+      - ✅ Discount applies to ENTIRE invoice (not per item)
+      - ✅ Discount deducted BEFORE VAT calculation
+      - ✅ VAT calculated on (subtotal - discount), maintaining tax compliance
+      - ✅ All monetary values maintain 3 decimal precision (OMR standard)
+      - ✅ Backward compatible with existing invoices
+      
+      READY FOR TESTING - Test scenarios:
+      1. Convert job card to invoice WITH discount (e.g., 10.500 OMR)
+      2. Convert job card to invoice WITHOUT discount (default 0)
+      3. Test validation: negative discount (should fail)
+      4. Test validation: discount > subtotal (should fail)
+      5. Verify calculation: VAT = (subtotal - discount) × 5%
+      6. Verify print PDF shows discount line correctly
+      7. Verify print PDF hides discount line when discount = 0
+      8. Verify grand_total = (subtotal - discount) + VAT
 
 
     implemented: false
