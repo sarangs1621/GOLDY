@@ -435,340 +435,134 @@ class PaginationTester:
         return success
 
     # ============================================================================
-    # TEST INDIVIDUAL FILTERS
+    # COMPREHENSIVE PAGINATION VERIFICATION
     # ============================================================================
 
-    def test_date_range_filters(self):
-        """Test date range filtering (date_from, date_to)"""
-        print("🔸 Testing Date Range Filters")
+    def test_pagination_metadata_accuracy(self):
+        """Test pagination metadata accuracy across all endpoints"""
+        print("🔸 Testing Pagination Metadata Accuracy")
         
-        # Test 1: date_from filter
-        today = datetime.now().strftime('%Y-%m-%d')
-        result = self.get_audit_logs(date_from=today)
+        endpoints_to_test = [
+            ("parties", "Parties"),
+            ("gold-ledger", "Gold Ledger"),
+            ("purchases", "Purchases"),
+            ("jobcards", "Job Cards"),
+            ("invoices", "Invoices"),
+            ("transactions", "Transactions"),
+            ("audit-logs", "Audit Logs")
+        ]
         
-        if "error" in result:
-            self.log_result("Date Range Filter - date_from", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-            return
+        all_passed = True
         
-        logs = result if isinstance(result, list) else result.get('logs', [])
-        if logs:
-            # Verify all logs are from today or later
-            all_valid = True
-            for log in logs:
-                log_date = log.get('timestamp', '')[:10]  # Extract YYYY-MM-DD
-                if log_date < today:
-                    all_valid = False
-                    break
+        for endpoint, name in endpoints_to_test:
+            try:
+                # Test with different per_page values
+                for per_page in [25, 50, 100]:
+                    response = self.session.get(f"{self.base_url}/api/{endpoint}", 
+                                              params={"page": 1, "per_page": per_page})
+                    
+                    if response.status_code != 200:
+                        self.log_result(f"{name} - Metadata Accuracy (per_page={per_page})", False, 
+                                      f"Status: {response.status_code}")
+                        all_passed = False
+                        continue
+                    
+                    data = response.json()
+                    
+                    # Verify metadata calculations
+                    pagination = data['pagination']
+                    total_count = pagination['total_count']
+                    page = pagination['page']
+                    per_page_actual = pagination['per_page']
+                    total_pages = pagination['total_pages']
+                    
+                    # Check per_page is correct
+                    if per_page_actual != per_page:
+                        self.log_result(f"{name} - per_page Accuracy", False, 
+                                      f"Expected per_page={per_page}, got {per_page_actual}")
+                        all_passed = False
+                        continue
+                    
+                    # Check total_pages calculation
+                    expected_total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
+                    if total_pages != expected_total_pages:
+                        self.log_result(f"{name} - total_pages Calculation", False, 
+                                      f"Expected {expected_total_pages}, got {total_pages}")
+                        all_passed = False
+                        continue
+                    
+                    # Check items count doesn't exceed per_page
+                    if len(data['items']) > per_page:
+                        self.log_result(f"{name} - Items Count Limit", False, 
+                                      f"Returned {len(data['items'])} items, max should be {per_page}")
+                        all_passed = False
+                        continue
             
-            if all_valid:
-                self.log_result("Date Range Filter - date_from", True, 
-                              f"Found {len(logs)} logs from {today} onwards")
-            else:
-                self.log_result("Date Range Filter - date_from", False, 
-                              "Some logs are from before the specified date_from")
-        else:
-            self.log_result("Date Range Filter - date_from", True, 
-                          "No logs found for today (expected if no recent activity)")
+            except Exception as e:
+                self.log_result(f"{name} - Metadata Test", False, f"Exception: {str(e)}")
+                all_passed = False
         
-        # Test 2: date_to filter
-        tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        result = self.get_audit_logs(date_to=tomorrow)
+        if all_passed:
+            self.log_result("Pagination Metadata Accuracy", True, 
+                          "All endpoints have accurate pagination metadata calculations")
         
-        if "error" in result:
-            self.log_result("Date Range Filter - date_to", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-            return
-        
-        logs = result if isinstance(result, list) else result.get('logs', [])
-        self.log_result("Date Range Filter - date_to", True, 
-                      f"Found {len(logs)} logs up to {tomorrow}")
-        
-        # Test 3: Combined date range
-        result = self.get_audit_logs(date_from=today, date_to=tomorrow)
-        
-        if "error" in result:
-            self.log_result("Date Range Filter - Combined", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-            return
-        
-        logs = result if isinstance(result, list) else result.get('logs', [])
-        self.log_result("Date Range Filter - Combined", True, 
-                      f"Found {len(logs)} logs between {today} and {tomorrow}")
+        return all_passed
 
-    def test_user_filter(self):
-        """Test user_id filtering"""
-        print("🔸 Testing User Filter")
+    def test_pagination_boundary_cases(self):
+        """Test boundary cases for all pagination endpoints"""
+        print("🔸 Testing Pagination Boundary Cases")
         
-        if not self.user_id:
-            self.log_result("User Filter", False, "No user_id available from login")
-            return
+        endpoints_to_test = [
+            ("parties", "Parties"),
+            ("gold-ledger", "Gold Ledger"),
+            ("transactions", "Transactions"),
+            ("audit-logs", "Audit Logs")
+        ]
         
-        result = self.get_audit_logs(user_id=self.user_id)
+        all_passed = True
         
-        if "error" in result:
-            self.log_result("User Filter", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-            return
+        for endpoint, name in endpoints_to_test:
+            try:
+                # Test negative page number
+                response = self.session.get(f"{self.base_url}/api/{endpoint}", 
+                                          params={"page": -1, "per_page": 50})
+                
+                # Should either default to page 1 or return 400 error
+                if response.status_code not in [200, 400]:
+                    self.log_result(f"{name} - Negative Page", False, 
+                                  f"Unexpected status for page=-1: {response.status_code}")
+                    all_passed = False
+                
+                # Test zero page number
+                response = self.session.get(f"{self.base_url}/api/{endpoint}", 
+                                          params={"page": 0, "per_page": 50})
+                
+                if response.status_code not in [200, 400]:
+                    self.log_result(f"{name} - Zero Page", False, 
+                                  f"Unexpected status for page=0: {response.status_code}")
+                    all_passed = False
+                
+                # Test very large per_page
+                response = self.session.get(f"{self.base_url}/api/{endpoint}", 
+                                          params={"page": 1, "per_page": 10000})
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    # Should handle large per_page gracefully
+                    if len(data['items']) > 10000:
+                        self.log_result(f"{name} - Large per_page", False, 
+                                      f"Returned {len(data['items'])} items for per_page=10000")
+                        all_passed = False
+                
+            except Exception as e:
+                self.log_result(f"{name} - Boundary Cases", False, f"Exception: {str(e)}")
+                all_passed = False
         
-        logs = result if isinstance(result, list) else result.get('logs', [])
+        if all_passed:
+            self.log_result("Pagination Boundary Cases", True, 
+                          "All endpoints handle boundary cases correctly")
         
-        if logs:
-            # Verify all logs have matching user_id
-            all_match = True
-            for log in logs:
-                if log.get('user_id') != self.user_id:
-                    all_match = False
-                    break
-            
-            if all_match:
-                self.log_result("User Filter", True, 
-                              f"Found {len(logs)} logs for user_id: {self.user_id}")
-            else:
-                self.log_result("User Filter", False, 
-                              "Some logs have different user_id than expected")
-        else:
-            self.log_result("User Filter", True, 
-                          f"No logs found for user_id: {self.user_id} (expected if no activity)")
-
-    def test_module_filter(self):
-        """Test module filtering"""
-        print("🔸 Testing Module Filter")
-        
-        result = self.get_audit_logs(module="party")
-        
-        if "error" in result:
-            self.log_result("Module Filter", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-            return
-        
-        logs = result if isinstance(result, list) else result.get('logs', [])
-        
-        if logs:
-            # Verify all logs have module='party'
-            all_match = True
-            for log in logs:
-                if log.get('module') != 'party':
-                    all_match = False
-                    break
-            
-            if all_match:
-                self.log_result("Module Filter", True, 
-                              f"Found {len(logs)} logs with module='party'")
-            else:
-                self.log_result("Module Filter", False, 
-                              "Some logs have different module than 'party'")
-        else:
-            self.log_result("Module Filter", True, 
-                          "No logs found with module='party' (expected if no party operations)")
-
-    def test_action_filters(self):
-        """Test action filtering"""
-        print("🔸 Testing Action Filters")
-        
-        # Test create action
-        result = self.get_audit_logs(action="create")
-        
-        if "error" in result:
-            self.log_result("Action Filter - create", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-        else:
-            logs = result if isinstance(result, list) else result.get('logs', [])
-            if logs:
-                all_match = all(log.get('action') == 'create' for log in logs)
-                if all_match:
-                    self.log_result("Action Filter - create", True, 
-                                  f"Found {len(logs)} logs with action='create'")
-                else:
-                    self.log_result("Action Filter - create", False, 
-                                  "Some logs have different action than 'create'")
-            else:
-                self.log_result("Action Filter - create", True, 
-                              "No logs found with action='create'")
-        
-        # Test update action
-        result = self.get_audit_logs(action="update")
-        
-        if "error" in result:
-            self.log_result("Action Filter - update", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-        else:
-            logs = result if isinstance(result, list) else result.get('logs', [])
-            self.log_result("Action Filter - update", True, 
-                          f"Found {len(logs)} logs with action='update'")
-        
-        # Test delete action
-        result = self.get_audit_logs(action="delete")
-        
-        if "error" in result:
-            self.log_result("Action Filter - delete", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-        else:
-            logs = result if isinstance(result, list) else result.get('logs', [])
-            self.log_result("Action Filter - delete", True, 
-                          f"Found {len(logs)} logs with action='delete'")
-
-    # ============================================================================
-    # TEST COMBINED FILTERS
-    # ============================================================================
-
-    def test_combined_filters(self):
-        """Test multiple filters combined"""
-        print("🔸 Testing Combined Filters")
-        
-        # Test module + action
-        result = self.get_audit_logs(module="party", action="create")
-        
-        if "error" in result:
-            self.log_result("Combined Filter - module+action", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-        else:
-            logs = result if isinstance(result, list) else result.get('logs', [])
-            if logs:
-                all_match = all(log.get('module') == 'party' and log.get('action') == 'create' for log in logs)
-                if all_match:
-                    self.log_result("Combined Filter - module+action", True, 
-                                  f"Found {len(logs)} logs with module='party' AND action='create'")
-                else:
-                    self.log_result("Combined Filter - module+action", False, 
-                                  "Some logs don't match both module='party' AND action='create'")
-            else:
-                self.log_result("Combined Filter - module+action", True, 
-                              "No logs found with module='party' AND action='create'")
-        
-        # Test module + user_id
-        if self.user_id:
-            result = self.get_audit_logs(module="party", user_id=self.user_id)
-            
-            if "error" in result:
-                self.log_result("Combined Filter - module+user", False, 
-                              f"API error: {result.get('message', 'Unknown error')}")
-            else:
-                logs = result if isinstance(result, list) else result.get('logs', [])
-                self.log_result("Combined Filter - module+user", True, 
-                              f"Found {len(logs)} logs with module='party' AND user_id='{self.user_id}'")
-        
-        # Test date + module + action
-        today = datetime.now().strftime('%Y-%m-%d')
-        result = self.get_audit_logs(date_from=today, module="party", action="create")
-        
-        if "error" in result:
-            self.log_result("Combined Filter - date+module+action", False, 
-                          f"API error: {result.get('message', 'Unknown error')}")
-        else:
-            logs = result if isinstance(result, list) else result.get('logs', [])
-            self.log_result("Combined Filter - date+module+action", True, 
-                          f"Found {len(logs)} logs with date_from='{today}' AND module='party' AND action='create'")
-
-    # ============================================================================
-    # TEST EDGE CASES
-    # ============================================================================
-
-    def test_edge_cases(self):
-        """Test edge cases and error handling"""
-        print("🔸 Testing Edge Cases")
-        
-        # Test invalid date format
-        result = self.get_audit_logs(date_from="invalid-date")
-        
-        if "error" in result:
-            self.log_result("Edge Case - Invalid Date", True, 
-                          f"Invalid date correctly rejected: {result.get('message', 'Unknown error')}")
-        else:
-            self.log_result("Edge Case - Invalid Date", False, 
-                          "Invalid date was accepted (should be rejected)")
-        
-        # Test non-existent user
-        result = self.get_audit_logs(user_id="non-existent-user-id")
-        
-        if "error" in result:
-            # API might return error or empty results - both are acceptable
-            self.log_result("Edge Case - Non-existent User", True, 
-                          f"Non-existent user handled gracefully: {result.get('message', 'Unknown error')}")
-        else:
-            logs = result if isinstance(result, list) else result.get('logs', [])
-            self.log_result("Edge Case - Non-existent User", True, 
-                          f"Non-existent user returned {len(logs)} logs (empty result is expected)")
-        
-        # Test non-existent module
-        result = self.get_audit_logs(module="nonexistent_module")
-        
-        if "error" in result:
-            self.log_result("Edge Case - Non-existent Module", True, 
-                          f"Non-existent module handled gracefully: {result.get('message', 'Unknown error')}")
-        else:
-            logs = result if isinstance(result, list) else result.get('logs', [])
-            self.log_result("Edge Case - Non-existent Module", True, 
-                          f"Non-existent module returned {len(logs)} logs (empty result is expected)")
-
-    # ============================================================================
-    # VERIFICATION CHECKLIST
-    # ============================================================================
-
-    def test_verification_checklist(self):
-        """Test comprehensive verification checklist"""
-        print("🔸 Testing Verification Checklist")
-        
-        # Get all audit logs to verify structure and sorting
-        result = self.get_audit_logs()
-        
-        if "error" in result:
-            self.log_result("Verification - API Response", False, 
-                          f"Failed to get audit logs: {result.get('message', 'Unknown error')}")
-            return
-        
-        logs = result if isinstance(result, list) else result.get('logs', [])
-        
-        if not logs:
-            self.log_result("Verification - API Response", True, 
-                          "No audit logs found (expected if system is new)")
-            return
-        
-        # Check response structure
-        first_log = logs[0]
-        required_fields = ['id', 'timestamp', 'user_id', 'user_name', 'module', 'record_id', 'action']
-        missing_fields = [field for field in required_fields if field not in first_log]
-        
-        if not missing_fields:
-            self.log_result("Verification - Response Structure", True, 
-                          f"All required fields present: {required_fields}")
-        else:
-            self.log_result("Verification - Response Structure", False, 
-                          f"Missing fields: {missing_fields}")
-        
-        # Check sorting (newest first)
-        if len(logs) > 1:
-            timestamps = [log.get('timestamp', '') for log in logs[:5]]  # Check first 5
-            is_sorted = all(timestamps[i] >= timestamps[i+1] for i in range(len(timestamps)-1))
-            
-            if is_sorted:
-                self.log_result("Verification - Sorting", True, 
-                              "Logs are sorted by timestamp descending (newest first)")
-            else:
-                self.log_result("Verification - Sorting", False, 
-                              "Logs are not properly sorted by timestamp")
-        else:
-            self.log_result("Verification - Sorting", True, 
-                          "Only one log found, sorting not applicable")
-        
-        # Count logs before and after applying filters
-        all_logs_count = len(logs)
-        
-        # Apply a filter and verify it reduces results
-        filtered_result = self.get_audit_logs(module="party")
-        if "error" not in filtered_result:
-            filtered_logs = filtered_result if isinstance(filtered_result, list) else filtered_result.get('logs', [])
-            filtered_count = len(filtered_logs)
-            
-            if filtered_count <= all_logs_count:
-                self.log_result("Verification - Filter Reduction", True, 
-                              f"Filter reduced results: {all_logs_count} → {filtered_count}")
-            else:
-                self.log_result("Verification - Filter Reduction", False, 
-                              f"Filter increased results: {all_logs_count} → {filtered_count}")
-        else:
-            self.log_result("Verification - Filter Reduction", False, 
-                          "Failed to test filter reduction")
+        return all_passed
 
     # ============================================================================
     # MAIN TEST EXECUTION
