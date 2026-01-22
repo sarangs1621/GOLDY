@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 
 class WalkInInvoiceTransactionTester:
-    def __init__(self, base_url="https://workflow-fixes-4.preview.emergentagent.com"):
+    def __init__(self, base_url="https://precise-match-9.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0
