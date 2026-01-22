@@ -937,6 +937,135 @@ export default function ReportsPageEnhanced() {
           )}
         </TabsContent>
 
+
+        {/* SALES HISTORY TAB - Finalized Invoices Only */}
+        <TabsContent value="sales-history" className="space-y-6">
+          <GlobalFilters showPartyFilter={true} showSorting={false} exportType="sales-history" />
+
+          {/* Search Bar */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Label>Search</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search by customer name, phone, or invoice ID..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={loadSalesHistoryReport}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Load Report
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {loading && (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          )}
+
+          {salesHistoryData && !loading && (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Invoices</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{salesHistoryData.summary.total_invoices}</div>
+                    <p className="text-xs text-gray-500 mt-1">Finalized only</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Weight</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{salesHistoryData.summary.total_weight?.toFixed(3)} g</div>
+                    <p className="text-xs text-gray-500 mt-1">Combined gold weight</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Sales</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{salesHistoryData.summary.total_sales?.toFixed(2)} OMR</div>
+                    <p className="text-xs text-gray-500 mt-1">Grand total</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Sales History Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sales History ({salesHistoryData.sales_records.length})</CardTitle>
+                  <p className="text-sm text-gray-500">Showing finalized invoices only</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice #</TableHead>
+                          <TableHead>Customer Name</TableHead>
+                          <TableHead>Phone</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="text-right">Weight (g)</TableHead>
+                          <TableHead>Purity</TableHead>
+                          <TableHead className="text-right">Grand Total (OMR)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {salesHistoryData.sales_records.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                              No sales history found. Only finalized invoices are displayed.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          salesHistoryData.sales_records.map((record, index) => (
+                            <TableRow key={record.invoice_id || index}>
+                              <TableCell className="font-medium">{record.invoice_id}</TableCell>
+                              <TableCell>{record.customer_name}</TableCell>
+                              <TableCell>{record.customer_phone || '-'}</TableCell>
+                              <TableCell>{record.date}</TableCell>
+                              <TableCell className="text-right font-mono">{record.total_weight_grams?.toFixed(3)}</TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  record.purity_summary === 'Mixed' 
+                                    ? 'bg-purple-100 text-purple-800' 
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {record.purity_summary}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right font-bold">{record.grand_total?.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+
         {/* PARTIES TAB */}
         <TabsContent value="parties" className="space-y-6">
           <GlobalFilters showPartyFilter={false} showSorting={true} exportType="parties" />
