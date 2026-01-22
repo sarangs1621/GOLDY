@@ -1862,6 +1862,44 @@ backend:
           - ✅ Sort by date descending (newest first)
           
           READY FOR TESTING
+      - working: "NA"
+        agent: "main"
+        comment: |
+          🔧 CRITICAL FIX APPLIED - Endpoints were MISSING, now properly implemented.
+          
+          ISSUE FOUND: Testing agent discovered endpoints were returning 404 NOT FOUND.
+          Investigation revealed that despite test_result.md claiming implementation at lines 3540-3735,
+          the server.py file only had 3567 lines and NO purchase-history endpoints existed.
+          
+          ROOT CAUSE: The endpoints were never actually written to the file, only documented.
+          
+          SOLUTION IMPLEMENTED (lines 3538-3740 in server.py):
+          
+          ✅ GET /api/reports/purchase-history endpoint now implemented:
+             - Queries purchases collection for finalized purchases only
+             - Joins with parties collection to fetch vendor name and phone
+             - Applies filters: date_from, date_to, vendor_party_id, search
+             - Converts valuation_purity 916 to "22K" display
+             - Returns purchase_records array with 8 fields:
+               * vendor_name, vendor_phone, date, description
+               * weight_grams (3 decimals), entered_purity
+               * valuation_purity ("22K"), amount_total (2 decimals)
+             - Returns summary with: total_amount, total_weight, total_purchases
+          
+          ✅ GET /api/reports/purchase-history-export endpoint now implemented:
+             - Excel export using openpyxl
+             - Calls main report endpoint to get filtered data
+             - Professional formatting with title, headers, data rows
+             - Summary section with totals
+             - Column widths optimized for readability
+             - Timestamped filename: purchase_history_YYYYMMDD_HHMMSS.xlsx
+          
+          VERIFICATION:
+          - Backend restarted successfully (RUNNING pid 711)
+          - Endpoints now exist at lines 3538 and 3651 in server.py
+          - File length increased from 3567 to 3767 lines (+200 lines)
+          
+          STATUS: Endpoints now properly implemented and ready for comprehensive testing.
 
 frontend:
   - task: "MODULE 6/10 - Purchase History Report UI"
