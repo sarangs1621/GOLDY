@@ -437,6 +437,15 @@ export default function PartiesPage() {
               </table>
             </div>
           )}
+          
+          {/* Pagination */}
+          {pagination && (
+            <Pagination
+              pagination={pagination}
+              onPageChange={handlePageChange}
+              onPerPageChange={handlePerPageChange}
+            />
+          )}
         </CardContent>
       </Card>
 
