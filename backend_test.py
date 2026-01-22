@@ -4334,7 +4334,17 @@ class GoldShopERPTester:
             "🔒 Admin Edit Override": self.test_job_card_locking_admin_edit_override(),
             "🔒 Admin Delete Override": self.test_job_card_locking_admin_delete_override(),
             "🔒 Audit Log Verification": self.test_job_card_locking_audit_log_verification(),
-            "🔒 Normal Job Card Operations": self.test_job_card_locking_normal_operations()
+            "🔒 Normal Job Card Operations": self.test_job_card_locking_normal_operations(),
+            
+            # MODULE 10/10 - GOLD EXCHANGE PAYMENT MODE TESTS
+            "💰 Gold Exchange Setup": self.test_gold_exchange_payment_setup(),
+            "💰 Gold Exchange Partial Payment": self.test_gold_exchange_partial_payment(),
+            "💰 Gold Exchange Full Payment": self.test_gold_exchange_full_payment(),
+            "💰 Walk-in Customer Validation": self.test_gold_exchange_walk_in_validation(),
+            "💰 Insufficient Balance Validation": self.test_gold_exchange_insufficient_balance(),
+            "💰 Invalid Inputs Validation": self.test_gold_exchange_invalid_inputs(),
+            "💰 Overpayment Validation": self.test_gold_exchange_overpayment(),
+            "💰 Backward Compatibility": self.test_gold_exchange_backward_compatibility()
         }
 
         # Print results summary
