@@ -3537,6 +3537,205 @@ async def export_sales_history(
 
 
 
+# ==================== MODULE 6/10: PURCHASE HISTORY REPORT ====================
+
+@api_router.get("/reports/purchase-history")
+async def get_purchase_history_report(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    vendor_id: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get purchase history report showing ONLY finalized purchases.
+    
+    Filters:
+    - date_from/date_to: Date range filter
+    - vendor_id: Filter by specific vendor (or "all" for all vendors)
+    - search: Search in vendor name, phone, or description
+    
+    Returns table with:
+    - vendor_name + phone
+    - date
+    - weight_grams (3 decimal precision)
+    - entered_purity (as claimed by vendor)
+    - valuation_purity display "22K" (from valuation_purity_fixed 916)
+    - amount_total (2 decimal precision)
+    """
+    # Query for FINALIZED purchases only
+    query = {
+        "is_deleted": False,
+        "status": "finalized"  # CRITICAL: Only finalized purchases
+    }
+    
+    # Date filters
+    if date_from:
+        query['date'] = {"$gte": datetime.fromisoformat(date_from)}
+    if date_to:
+        end_dt = datetime.fromisoformat(date_to)
+        if 'date' in query:
+            query['date']['$lte'] = end_dt
+        else:
+            query['date'] = {"$lte": end_dt}
+    
+    # Vendor filter
+    if vendor_id and vendor_id != 'all':
+        query['vendor_party_id'] = vendor_id
+    
+    # Get purchases
+    purchases = await db.purchases.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
+    
+    # Process each purchase
+    purchase_records = []
+    total_amount = 0.0
+    total_weight = 0.0
+    
+    for purchase in purchases:
+        # Get vendor info from parties collection
+        vendor_name = 'Unknown Vendor'
+        vendor_phone = ''
+        vendor_id_val = purchase.get('vendor_party_id')
+        if vendor_id_val:
+            vendor = await db.parties.find_one({"id": vendor_id_val}, {"_id": 0, "name": 1, "phone": 1})
+            if vendor:
+                vendor_name = vendor.get('name', 'Unknown Vendor')
+                vendor_phone = vendor.get('phone', '')
+        
+        # Apply search filter (if provided)
+        if search:
+            search_lower = search.lower()
+            if not (
+                search_lower in vendor_name.lower() or
+                search_lower in vendor_phone.lower() or
+                search_lower in purchase.get('description', '').lower()
+            ):
+                continue  # Skip this purchase if search doesn't match
+        
+        # Format date
+        purchase_date = purchase.get('date', '')
+        if isinstance(purchase_date, str):
+            purchase_date = purchase_date[:10]
+        elif hasattr(purchase_date, 'strftime'):
+            purchase_date = purchase_date.strftime('%Y-%m-%d')
+        
+        # Convert valuation_purity_fixed (916) to display format "22K"
+        valuation_purity_fixed = purchase.get('valuation_purity_fixed', 916)
+        purity_in_karats = round(valuation_purity_fixed / 41.67)  # 916/41.67 ≈ 22K
+        valuation_purity_display = f"{purity_in_karats}K"
+        
+        purchase_records.append({
+            "vendor_name": vendor_name,
+            "vendor_phone": vendor_phone,
+            "date": purchase_date,
+            "weight_grams": round(purchase.get('weight_grams', 0), 3),
+            "entered_purity": purchase.get('entered_purity', 0),
+            "valuation_purity": valuation_purity_display,
+            "amount_total": round(purchase.get('amount_total', 0), 2)
+        })
+        
+        total_amount += purchase.get('amount_total', 0)
+        total_weight += purchase.get('weight_grams', 0)
+    
+    return {
+        "purchase_records": purchase_records,
+        "summary": {
+            "total_amount": round(total_amount, 2),
+            "total_weight": round(total_weight, 3),
+            "total_purchases": len(purchase_records)
+        }
+    }
+
+
+@api_router.get("/reports/purchase-history-export")
+async def export_purchase_history(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    vendor_id: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Export purchase history report as Excel file with applied filters"""
+    from fastapi.responses import StreamingResponse
+    from io import BytesIO
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    
+    # Get data using the main report function
+    data = await get_purchase_history_report(
+        date_from=date_from,
+        date_to=date_to,
+        vendor_id=vendor_id,
+        search=search,
+        current_user=current_user
+    )
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Purchase History"
+    
+    # Add summary section
+    ws.merge_cells('A1:G1')
+    title_cell = ws['A1']
+    title_cell.value = "Purchase History Report (Finalized Purchases)"
+    title_cell.font = Font(bold=True, size=14)
+    title_cell.alignment = Alignment(horizontal='center')
+    
+    ws['A2'] = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    if date_from or date_to:
+        ws['A3'] = f"Period: {date_from or 'Start'} to {date_to or 'End'}"
+    
+    # Summary row
+    summary_row = 5
+    ws[f'A{summary_row}'] = "Total Purchases:"
+    ws[f'B{summary_row}'] = data['summary']['total_purchases']
+    ws[f'C{summary_row}'] = "Total Weight:"
+    ws[f'D{summary_row}'] = f"{data['summary']['total_weight']:.3f} g"
+    ws[f'E{summary_row}'] = "Total Amount:"
+    ws[f'F{summary_row}'] = f"{data['summary']['total_amount']:.2f} OMR"
+    
+    # Headers
+    header_row = summary_row + 2
+    headers = ["Vendor Name", "Phone", "Date", "Weight (g)", "Entered Purity", "Valuation Purity", "Amount Total (OMR)"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data rows
+    for row_idx, record in enumerate(data['purchase_records'], header_row + 1):
+        ws.cell(row=row_idx, column=1, value=record['vendor_name'])
+        ws.cell(row=row_idx, column=2, value=record['vendor_phone'])
+        ws.cell(row=row_idx, column=3, value=record['date'])
+        ws.cell(row=row_idx, column=4, value=record['weight_grams'])
+        ws.cell(row=row_idx, column=5, value=record['entered_purity'])
+        ws.cell(row=row_idx, column=6, value=record['valuation_purity'])
+        ws.cell(row=row_idx, column=7, value=record['amount_total'])
+    
+    # Column widths
+    ws.column_dimensions['A'].width = 25
+    ws.column_dimensions['B'].width = 15
+    ws.column_dimensions['C'].width = 12
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 18
+    ws.column_dimensions['G'].width = 18
+    
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    filename = f"purchase_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+
+
 app.include_router(api_router)
 
 app.add_middleware(
