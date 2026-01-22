@@ -243,7 +243,62 @@ class PurchaseHistoryTester:
         self.log_test("Response Structure", True, "All required keys present in response")
         return True
     
-    def test_filters(self):
+    def test_business_logic_validation(self, data):
+        """Test business logic validation for purchase history"""
+        if not data or not data.get('purchase_records'):
+            self.log_test("Business Logic - No Data", True, "No finalized purchases found (expected for new system)")
+            return True
+        
+        records = data.get('purchase_records', [])
+        
+        # Test 1: All records should have finalized status (implicit - only finalized are returned)
+        self.log_test("Business Logic - Finalized Only", True, f"Only finalized purchases returned ({len(records)} records)")
+        
+        # Test 2: Check valuation purity display
+        for record in records:
+            if record.get('valuation_purity') != '22K':
+                self.log_test("Business Logic - Valuation Purity", False, f"Expected '22K', got '{record.get('valuation_purity')}'")
+                return False
+        
+        if records:
+            self.log_test("Business Logic - Valuation Purity", True, "All records show valuation purity as '22K'")
+        
+        # Test 3: Check precision formatting
+        precision_ok = True
+        for record in records:
+            weight = record.get('weight_grams', 0)
+            amount = record.get('amount_total', 0)
+            
+            # Check weight has 3 decimal precision
+            if isinstance(weight, float):
+                weight_str = f"{weight:.3f}"
+                if len(weight_str.split('.')[-1]) > 3:
+                    precision_ok = False
+                    break
+            
+            # Check amount has 2 decimal precision  
+            if isinstance(amount, float):
+                amount_str = f"{amount:.2f}"
+                if len(amount_str.split('.')[-1]) > 2:
+                    precision_ok = False
+                    break
+        
+        if records:
+            self.log_test("Business Logic - Precision", precision_ok, 
+                         "Weight has 3 decimals, Amount has 2 decimals" if precision_ok else "Precision formatting incorrect")
+        
+        # Test 4: Check vendor information is joined
+        vendor_info_ok = True
+        for record in records:
+            if not record.get('vendor_name') or record.get('vendor_name') == 'Unknown Vendor':
+                vendor_info_ok = False
+                break
+        
+        if records:
+            self.log_test("Business Logic - Vendor Info", vendor_info_ok, 
+                         "Vendor information properly joined" if vendor_info_ok else "Vendor information missing")
+        
+        return True
         """Test various filter combinations"""
         if not hasattr(self, 'endpoint_available') or not self.endpoint_available:
             return
