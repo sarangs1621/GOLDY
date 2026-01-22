@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://lockcontrol.preview.emergentagent.com"
+    BASE_URL = "https://logs-user-filter.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     

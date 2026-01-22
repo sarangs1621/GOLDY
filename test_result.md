@@ -3732,7 +3732,7 @@ agent_communication:
       - Backend: RUNNING on port 8001
       - Frontend: RUNNING on port 3000
       - MongoDB: RUNNING
-      - Application accessible at: https://lockcontrol.preview.emergentagent.com
+      - Application accessible at: https://logs-user-filter.preview.emergentagent.com
       - Admin credentials: admin/admin123
       
       NOW EXECUTING FOCUSED, PRIORITIZED TESTING APPROACH:
@@ -4240,7 +4240,7 @@ agent_communication:
       - ✅ Frontend services running successfully (localhost:3000)
       - ✅ MongoDB running and accessible
       - ✅ Frontend dependencies installed successfully (yarn install completed)
-      - ✅ Backend URL configured: https://lockcontrol.preview.emergentagent.com
+      - ✅ Backend URL configured: https://logs-user-filter.preview.emergentagent.com
       
       Testing Plan - Comprehensive Frontend UI Testing:
       
