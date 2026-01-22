@@ -347,6 +347,14 @@ export default function ReportsPageEnhanced() {
         if (searchQuery) params.search = searchQuery;
       }
       
+      // Special handling for purchase history
+      if (reportType === 'purchase-history') {
+        if (startDate) params.date_from = startDate;
+        if (endDate) params.date_to = endDate;
+        if (selectedPartyId && selectedPartyId !== 'all') params.vendor_id = selectedPartyId;
+        if (purchaseSearchQuery) params.search = purchaseSearchQuery;
+      }
+      
       const response = await axios.get(`${API}/reports/${reportType}-export`, {
         params,
         responseType: 'blob'
