@@ -1793,3 +1793,299 @@ agent_communication:
       6. Test purity badge colors
       7. Test empty state message
       8. Test Excel export button
+
+
+backend:
+  - task: "MODULE 6/10 - Purchase History Report (Finalized Purchases Only)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          PURCHASE HISTORY REPORT IMPLEMENTED - Complete purchase history reporting for finalized purchases only.
+          
+          Backend Implementation:
+          
+          1. ✅ GET /api/reports/purchase-history Endpoint (lines 3540-3652):
+             Query Parameters:
+             - date_from: Optional date filter (start of range)
+             - date_to: Optional date filter (end of range)
+             - vendor_id: Optional vendor filter (or "all" for all vendors)
+             - search: Optional search string for vendor name, phone, or description
+             
+             Critical Business Logic:
+             - ONLY returns purchases with status = "finalized"
+             - Fetches vendor name and phone from parties collection
+             - Handles vendor lookup with proper error handling
+             
+             Data Returned:
+             - vendor_name: Fetched from parties collection
+             - vendor_phone: Fetched from parties collection
+             - date: Purchase date (formatted as YYYY-MM-DD)
+             - weight_grams: Gold weight (3 decimal precision)
+             - entered_purity: Purity as claimed by vendor (e.g., 999, 995, 916)
+             - valuation_purity: Converted from valuation_purity_fixed (916 → "22K")
+             - amount_total: Total purchase amount (2 decimal precision)
+             
+             Purity Conversion Logic:
+             - valuation_purity_fixed is always 916 (from Purchase model)
+             - Converted to karats: 916 / 41.67 ≈ 22K
+             - Displayed as "22K" in response
+             
+             Return Structure:
+             {
+               "purchase_records": [
+                 {
+                   "vendor_name": "ABC Gold Suppliers",
+                   "vendor_phone": "+968 9876543",
+                   "date": "2026-01-22",
+                   "weight_grams": 250.456,
+                   "entered_purity": 999,
+                   "valuation_purity": "22K",
+                   "amount_total": 5250.50
+                 }
+               ],
+               "summary": {
+                 "total_amount": 25234.50,
+                 "total_weight": 1834.567,
+                 "total_purchases": 12
+               }
+             }
+          
+          2. ✅ GET /api/reports/purchase-history-export Endpoint (lines 3655-3739):
+             - Excel export with all applied filters
+             - Professional formatting with headers and summary section
+             - Shows report generation date and date range
+             - Summary row with totals before data table
+             - Proper column widths for readability
+             - Columns: Vendor Name, Phone, Date, Weight (g), Entered Purity, Valuation Purity, Amount Total (OMR)
+             - Filename includes timestamp for versioning
+             
+          Key Features:
+          - ✅ Filters by finalized status ONLY (draft purchases excluded)
+          - ✅ Date range filtering (date_from/date_to)
+          - ✅ Vendor filtering (specific vendor or all)
+          - ✅ Full-text search across vendor name, phone, and description
+          - ✅ Vendor information fetched from parties collection
+          - ✅ Dual purity display: entered (as claimed) vs valuation (always 22K)
+          - ✅ Proper precision: 3 decimals for weight, 2 decimals for money
+          - ✅ Summary totals for quick overview
+          - ✅ Excel export with professional formatting
+          
+          READY FOR TESTING - Need to verify:
+          1. Only finalized purchases appear in results
+          2. Draft purchases are excluded
+          3. Date filtering works correctly
+          4. Vendor filtering works (specific vendor and "all")
+          5. Search functionality works for vendor name, phone, and description
+          6. Vendor name and phone fetched correctly from parties
+          7. Weight calculation with 3 decimal precision
+          8. Entered purity displays as claimed (e.g., 999, 995)
+          9. Valuation purity always displays "22K" (from 916)
+          10. Summary totals calculate correctly
+          11. Excel export includes all filtered data
+          12. Excel export has proper formatting
+
+frontend:
+  - task: "MODULE 6/10 - Purchase History Report UI"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          PURCHASE HISTORY UI IMPLEMENTED - Complete frontend interface for viewing purchase history.
+          
+          Frontend Implementation:
+          
+          1. ✅ State Management:
+             - Added purchaseHistoryData state for report data
+             - Added purchaseSearchQuery state for search functionality
+             - Integrated with existing global filters (date range, vendor selection)
+          
+          2. ✅ loadPurchaseHistoryReport Function:
+             - Calls GET /api/reports/purchase-history with filters
+             - Passes date_from, date_to, vendor_id, search parameters
+             - Sets loading state and handles errors with toast
+          
+          3. ✅ Tab Integration:
+             - Added "Purchase History" tab to TabsList
+             - Updated grid-cols from 7 to 8 to accommodate new tab
+             - Positioned between "Sales History" and "Parties" tabs
+             - Added tab activation in useEffect filter monitoring
+          
+          4. ✅ Purchase History Tab Content (lines 1101-1219):
+             Features:
+             - Global Filters component (date range, vendor selection via party dropdown)
+             - Search bar with icon and placeholder text for vendor search
+             - "Load Report" button to fetch data
+             - Loading spinner during data fetch
+             
+             Summary Cards (3 cards):
+             a. Total Purchases: Count of finalized purchases
+             b. Total Weight: Combined gold weight in grams (3 decimals)
+             c. Total Amount: Grand total in OMR (2 decimals, blue color)
+             
+             Purchase History Table:
+             Columns:
+             - Vendor Name (font-medium)
+             - Phone (shows "-" if empty)
+             - Date
+             - Weight in grams (right-aligned, monospace font, 3 decimals)
+             - Entered Purity (amber badge - as claimed by vendor)
+             - Valuation Purity (green badge - always shows "22K")
+             - Amount Total in OMR (right-aligned, bold, 2 decimals)
+             
+             Empty State:
+             - Displays helpful message: "No purchase history found. Only finalized purchases are displayed."
+          
+          5. ✅ Export Integration:
+             - Updated exportExcel function to handle purchase-history type
+             - Special parameter handling: date_from/date_to, vendor_id, search
+             - Exports to purchase-history-export endpoint
+             - Filename includes report type and date
+          
+          UI/UX Features:
+          - ✅ Consistent with existing report tabs design
+          - ✅ Clear indication that only finalized purchases shown
+          - ✅ Search functionality with instant update on Load Report
+          - ✅ Color-coded purity badges: amber for entered, green for valuation
+          - ✅ Responsive layout with proper spacing
+          - ✅ Professional table styling with proper alignment
+          - ✅ Excel export button integrated with global filters
+          - ✅ Vendor filter uses party dropdown (filtered to vendors only conceptually)
+          
+          READY FOR TESTING - Need to verify:
+          1. Tab appears and is clickable
+          2. Global filters work (date range, vendor dropdown)
+          3. Search bar accepts input and filters on "Load Report"
+          4. Summary cards display correct totals
+          5. Table displays all purchase records correctly
+          6. Vendor name and phone display correctly
+          7. Entered purity shows as amber badge with correct value
+          8. Valuation purity shows as green badge with "22K"
+          9. Weight displays with 3 decimal precision
+          10. Amount total displays with 2 decimal precision
+          11. Empty state message appears when no data
+          12. Loading spinner shows during data fetch
+          13. Excel export button works and downloads file
+          14. Excel file contains filtered data
+
+metadata:
+  created_by: "main_agent"
+  version: "4.0"
+  test_sequence: 3
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "MODULE 6/10 - Test Purchase History Report backend endpoint"
+    - "MODULE 6/10 - Test finalized-only filtering"
+    - "MODULE 6/10 - Test date range and vendor filtering"
+    - "MODULE 6/10 - Test search functionality"
+    - "MODULE 6/10 - Test entered vs valuation purity display"
+    - "MODULE 6/10 - Test Excel export with filters"
+    - "MODULE 6/10 - Test Purchase History UI tab"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      MODULE 6/10 - PURCHASE HISTORY REPORT IMPLEMENTATION COMPLETE
+      
+      BACKEND IMPLEMENTATION:
+      
+      1. ✅ GET /api/reports/purchase-history endpoint created
+         - Filters: date_from, date_to, vendor_id, search
+         - Returns ONLY finalized purchases (status = "finalized")
+         - Fetches vendor name and phone from parties collection
+         - Dual purity display:
+           * entered_purity: As claimed by vendor (e.g., 999, 995, 916)
+           * valuation_purity: Converted to karats "22K" (from 916)
+         - Full-text search across vendor name, phone, description
+         - Returns summary totals: total_amount, total_weight, total_purchases
+         - Proper precision: 3 decimals for weight, 2 decimals for money
+      
+      2. ✅ GET /api/reports/purchase-history-export endpoint created
+         - Excel export with professional formatting
+         - Includes summary section and data table
+         - Respects all applied filters
+         - Timestamp in filename for versioning
+         - Columns: Vendor Name, Phone, Date, Weight (g), Entered Purity, Valuation Purity, Amount Total (OMR)
+      
+      FRONTEND IMPLEMENTATION:
+      
+      1. ✅ Added "Purchase History" tab to Reports page
+         - Updated TabsList grid from 7 to 8 columns
+         - Positioned between Sales History and Parties tabs
+         - Integrated with global filters
+      
+      2. ✅ Search functionality added
+         - Search bar with icon
+         - Searches vendor name, phone, and description
+         - Load Report button to apply filters
+      
+      3. ✅ Summary cards display:
+         - Total Purchases (count)
+         - Total Weight (grams with 3 decimals)
+         - Total Amount (OMR with 2 decimals)
+      
+      4. ✅ Purchase History table with columns:
+         - Vendor Name (fetched from parties)
+         - Phone number
+         - Date
+         - Weight in grams (3 decimals)
+         - Entered Purity (amber badge - as claimed)
+         - Valuation Purity (green badge - always "22K")
+         - Amount Total (2 decimals)
+      
+      5. ✅ Excel export integration
+         - Export button in global filters
+         - Downloads with applied filters
+      
+      CRITICAL BUSINESS RULES IMPLEMENTED:
+      - ✅ Only shows finalized purchases (draft purchases excluded)
+      - ✅ Vendor information fetched from parties collection
+      - ✅ Dual purity tracking for transparency:
+         * Entered purity: What vendor claimed
+         * Valuation purity: What we use for accounting (22K/916)
+      - ✅ Proper precision throughout (3 decimals weight, 2 decimals money)
+      - ✅ Full filtering support (date range, vendor, search)
+      
+      READY FOR COMPREHENSIVE TESTING
+      
+      Backend needs testing:
+      1. Verify only finalized purchases returned
+      2. Test date range filtering
+      3. Test vendor filtering (specific and "all")
+      4. Test search functionality (vendor name, phone, description)
+      5. Test vendor lookup from parties collection
+      6. Test entered purity vs valuation purity display
+      7. Test weight calculation (3 decimals)
+      8. Test summary totals calculation
+      9. Test Excel export with filters
+      10. Test purity conversion (916 → "22K")
+      
+      Frontend needs testing after backend validation:
+      1. Verify tab appears and loads correctly
+      2. Test global filters integration
+      3. Test search bar functionality
+      4. Test summary cards display
+      5. Test table display with all columns
+      6. Test purity badge colors (amber for entered, green for valuation)
+      7. Test empty state message
+      8. Test Excel export button
+      9. Verify "22K" always displayed in valuation purity column
+      10. Verify entered purity shows actual vendor claimed values
+
