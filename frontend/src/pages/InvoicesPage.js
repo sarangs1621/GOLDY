@@ -38,7 +38,7 @@ export default function InvoicesPage() {
   const loadInvoices = async () => {
     try {
       const response = await axios.get(`${API}/invoices`);
-      setInvoices(response.data);
+      setInvoices(response.data.items || []);
     } catch (error) {
       toast.error('Failed to load invoices');
     }

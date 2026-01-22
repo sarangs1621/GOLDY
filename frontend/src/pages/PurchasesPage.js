@@ -57,7 +57,7 @@ export default function PurchasesPage() {
       if (endDate) params.append('end_date', endDate);
       
       const response = await axios.get(`${API}/purchases?${params.toString()}`);
-      setPurchases(response.data);
+      setPurchases(response.data.items || []);
     } catch (error) {
       toast.error('Failed to load purchases');
     }
