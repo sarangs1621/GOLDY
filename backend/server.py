@@ -952,12 +952,27 @@ async def get_inventory(
 # ============================================================================
 
 @api_router.get("/parties", response_model=List[Party])
-async def get_parties(party_type: Optional[str] = None, current_user: User = Depends(get_current_user)):
+async def get_parties(
+    party_type: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 50,
+    current_user: User = Depends(get_current_user)
+):
+    """Get parties with pagination support"""
     query = {"is_deleted": False}
     if party_type:
         query['party_type'] = party_type
-    parties = await db.parties.find(query, {"_id": 0}).to_list(1000)
-    return parties
+    
+    # Calculate skip value
+    skip = (page - 1) * per_page
+    
+    # Get total count for pagination
+    total_count = await db.parties.count_documents(query)
+    
+    # Get paginated results
+    parties = await db.parties.find(query, {"_id": 0}).skip(skip).limit(per_page).to_list(per_page)
+    
+    return create_pagination_response(parties, total_count, page, per_page)
 
 @api_router.post("/parties", response_model=Party)
 async def create_party(party_data: dict, current_user: User = Depends(get_current_user)):
