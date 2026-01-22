@@ -612,10 +612,20 @@ export default function PartiesPage() {
 
               {/* Gold Ledger Table */}
               <div>
-                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-                  Gold Ledger ({filteredGoldEntries.length} entries)
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                    Gold Ledger ({filteredGoldEntries.length} entries)
+                  </h3>
+                  <Button 
+                    onClick={handleOpenGoldDeposit}
+                    className="bg-amber-600 hover:bg-amber-700"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Gold Deposit
+                  </Button>
+                </div>
                 <Card>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
