@@ -1099,6 +1099,135 @@ export default function ReportsPageEnhanced() {
         </TabsContent>
 
 
+        {/* PURCHASE HISTORY TAB - Module 6/10 */}
+        <TabsContent value="purchase-history" className="space-y-6">
+          <GlobalFilters showPartyFilter={true} showSorting={false} exportType="purchase-history" />
+
+          {/* Search Bar */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Label>Search</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search by vendor name, phone, or description..."
+                      value={purchaseSearchQuery}
+                      onChange={(e) => setPurchaseSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={loadPurchaseHistoryReport}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Load Report
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {loading && (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          )}
+
+          {purchaseHistoryData && !loading && (
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Purchases</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{purchaseHistoryData.summary.total_purchases}</div>
+                    <p className="text-xs text-gray-500 mt-1">Finalized only</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Weight</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{purchaseHistoryData.summary.total_weight?.toFixed(3)} g</div>
+                    <p className="text-xs text-gray-500 mt-1">Combined gold weight</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Total Amount</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600">{purchaseHistoryData.summary.total_amount?.toFixed(2)} OMR</div>
+                    <p className="text-xs text-gray-500 mt-1">Grand total</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Purchase History Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Purchase History ({purchaseHistoryData.purchase_records.length})</CardTitle>
+                  <p className="text-sm text-gray-500">Showing finalized purchases only</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Vendor Name</TableHead>
+                          <TableHead>Phone</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="text-right">Weight (g)</TableHead>
+                          <TableHead className="text-center">Entered Purity</TableHead>
+                          <TableHead className="text-center">Valuation Purity</TableHead>
+                          <TableHead className="text-right">Amount Total (OMR)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {purchaseHistoryData.purchase_records.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                              No purchase history found. Only finalized purchases are displayed.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          purchaseHistoryData.purchase_records.map((record, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{record.vendor_name}</TableCell>
+                              <TableCell>{record.vendor_phone || '-'}</TableCell>
+                              <TableCell>{record.date}</TableCell>
+                              <TableCell className="text-right font-mono">{record.weight_grams?.toFixed(3)}</TableCell>
+                              <TableCell className="text-center">
+                                <span className="px-2 py-1 rounded text-xs bg-amber-100 text-amber-800">
+                                  {record.entered_purity}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800 font-semibold">
+                                  {record.valuation_purity}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right font-bold">{record.amount_total?.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+
+
         {/* PARTIES TAB */}
         <TabsContent value="parties" className="space-y-6">
           <GlobalFilters showPartyFilter={false} showSorting={true} exportType="parties" />
