@@ -40,7 +40,7 @@ export default function FinancePage() {
         axios.get(`${API}/transactions`)
       ]);
       setAccounts(accountsRes.data);
-      setTransactions(transactionsRes.data);
+      setTransactions(transactionsRes.data.items || []);
     } catch (error) {
       toast.error('Failed to load data');
     }
