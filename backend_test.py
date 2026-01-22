@@ -592,7 +592,7 @@ class AuditLogsFilterTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://audit-filter-tests.preview.emergentagent.com"
+    BASE_URL = "https://errorfix-perm.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     
