@@ -3542,7 +3542,7 @@ agent_communication:
       - Backend: RUNNING on port 8001
       - Frontend: RUNNING on port 3000
       - MongoDB: RUNNING
-      - Application accessible at: https://jewel-billing-5.preview.emergentagent.com
+      - Application accessible at: https://report-formats.preview.emergentagent.com
       - Admin credentials: admin/admin123
       
       NOW EXECUTING FOCUSED, PRIORITIZED TESTING APPROACH:
@@ -4050,7 +4050,7 @@ agent_communication:
       - ✅ Frontend services running successfully (localhost:3000)
       - ✅ MongoDB running and accessible
       - ✅ Frontend dependencies installed successfully (yarn install completed)
-      - ✅ Backend URL configured: https://jewel-billing-5.preview.emergentagent.com
+      - ✅ Backend URL configured: https://report-formats.preview.emergentagent.com
       
       Testing Plan - Comprehensive Frontend UI Testing:
       
