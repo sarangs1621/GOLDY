@@ -1185,7 +1185,7 @@ class GoldShopTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://report-formats.preview.emergentagent.com"
+    BASE_URL = "https://closing-calc-fix.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     
