@@ -24,7 +24,8 @@ export default function JobCardsPage() {
     customer_id: '',
     customer_name: '',
     walk_in_name: '',
-    walk_in_phone: ''
+    walk_in_phone: '',
+    discount_amount: 0  // MODULE 7: Discount amount
   });
   const [formData, setFormData] = useState({
     card_type: 'individual',
