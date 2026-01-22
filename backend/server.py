@@ -1398,27 +1398,45 @@ async def convert_jobcard_to_invoice(jobcard_id: str, invoice_data: dict, curren
     vat_percent = 5.0
     invoice_items = []
     subtotal = 0
-    vat_total = 0
     
+    # First pass: Create invoice items and calculate subtotal
     for item in jobcard.get('items', []):
         metal_rate = 20.0
         weight = item.get('weight_out') or item.get('weight_in') or 0
         weight = float(weight) if weight else 0.0
-        gold_value = weight * metal_rate
+        gold_value = round(weight * metal_rate, 3)
         
         # Use making charge from job card if provided, otherwise use default
         if item.get('making_charge_value') is not None:
             if item.get('making_charge_type') == 'per_gram':
-                making_value = float(item.get('making_charge_value', 0)) * weight
+                making_value = round(float(item.get('making_charge_value', 0)) * weight, 3)
             else:  # flat
-                making_value = float(item.get('making_charge_value', 0))
+                making_value = round(float(item.get('making_charge_value', 0)), 3)
         else:
             making_value = 5.0  # Default
         
+        # Use VAT from job card if provided, otherwise use default
+        item_vat_percent = item.get('vat_percent') or vat_percent
+        
+        # Store item temporarily (VAT will be calculated after discount)
+        invoice_items.append({
+            'category': item.get('category', ''),
+            'description': item.get('description', ''),
+            'qty': item.get('qty', 1),
+            'weight': weight,
+            'purity': item.get('purity', 916),
+            'metal_rate': metal_rate,
+            'gold_value': gold_value,
+            'making_value': making_value,
+            'vat_percent': item_vat_percent,
+        })
+        
         subtotal += gold_value + making_value
     
+    subtotal = round(subtotal, 3)
+    
     # MODULE 7: Get discount amount from invoice_data (default to 0)
-    discount_amount = float(invoice_data.get('discount_amount', 0))
+    discount_amount = round(float(invoice_data.get('discount_amount', 0)), 3)
     
     # Validate discount
     if discount_amount < 0:
@@ -1426,65 +1444,43 @@ async def convert_jobcard_to_invoice(jobcard_id: str, invoice_data: dict, curren
     if discount_amount > subtotal:
         raise HTTPException(status_code=400, detail=f"Discount amount ({discount_amount:.3f}) cannot exceed subtotal ({subtotal:.3f})")
     
-    # MODULE 7: Apply discount before VAT calculation
-    # taxable = subtotal - discount
+    # MODULE 7: Calculate taxable amount = subtotal - discount
     taxable = round(subtotal - discount_amount, 3)
     
-    # Calculate VAT and line items with new formula
-    for i, item in enumerate(jobcard.get('items', [])):
-        invoice_item = invoice_items[i] if i < len(invoice_items) else None
-        if invoice_item:
-            # VAT calculated on gold_value + making_value (no discount at item level)
-            item_vat_percent = item.get('vat_percent') or vat_percent
-            # But we need to recalculate considering the discount applies before VAT
-            # For now, keep item-level VAT calculation simple (on item subtotal without discount)
-            item_subtotal = invoice_item.gold_value + invoice_item.making_value
-            vat_amount = round(item_subtotal * item_vat_percent / 100, 3)
-            line_total = round(item_subtotal + vat_amount, 3)
-            
-            invoice_items[i].vat_percent = item_vat_percent
-            invoice_items[i].vat_amount = vat_amount
-            invoice_items[i].line_total = line_total
-            vat_total += vat_amount
-        else:
-            # Create invoice item
-            weight = item.get('weight_out') or item.get('weight_in') or 0
-            weight = float(weight) if weight else 0.0
-            metal_rate = 20.0
-            gold_value = weight * metal_rate
-            
-            if item.get('making_charge_value') is not None:
-                if item.get('making_charge_type') == 'per_gram':
-                    making_value = float(item.get('making_charge_value', 0)) * weight
-                else:
-                    making_value = float(item.get('making_charge_value', 0))
-            else:
-                making_value = 5.0
-            
-            item_vat_percent = item.get('vat_percent') or vat_percent
-            item_subtotal = gold_value + making_value
-            vat_amount = round(item_subtotal * item_vat_percent / 100, 3)
-            line_total = round(item_subtotal + vat_amount, 3)
-            
-            invoice_items.append(InvoiceItem(
-                category=item.get('category', ''),
-                description=item.get('description', ''),
-                qty=item.get('qty', 1),
-                weight=weight,
-                purity=item.get('purity', 916),
-                metal_rate=metal_rate,
-                gold_value=gold_value,
-                making_value=making_value,
-                vat_percent=item_vat_percent,
-                vat_amount=vat_amount,
-                line_total=line_total
-            ))
-            vat_total += vat_amount
-    
-    # MODULE 7: Recalculate VAT on taxable amount (subtotal - discount)
-    # VAT should be calculated on taxable amount, not on full subtotal
+    # MODULE 7: Calculate VAT on taxable amount (after discount)
     vat_total = round(taxable * vat_percent / 100, 3)
+    
+    # MODULE 7: Calculate grand total = taxable + VAT
     grand_total = round(taxable + vat_total, 3)
+    
+    # Second pass: Finalize invoice items with proportional VAT distribution
+    # VAT is distributed proportionally across items based on their subtotal contribution
+    final_invoice_items = []
+    for item_data in invoice_items:
+        item_subtotal = item_data['gold_value'] + item_data['making_value']
+        # Proportional VAT = (item_subtotal / total_subtotal) * total_VAT
+        if subtotal > 0:
+            item_vat_amount = round((item_subtotal / subtotal) * vat_total, 3)
+        else:
+            item_vat_amount = 0.0
+        # Line total includes proportional share of VAT
+        item_line_total = round(item_subtotal + item_vat_amount, 3)
+        
+        final_invoice_items.append(InvoiceItem(
+            category=item_data['category'],
+            description=item_data['description'],
+            qty=item_data['qty'],
+            weight=item_data['weight'],
+            purity=item_data['purity'],
+            metal_rate=item_data['metal_rate'],
+            gold_value=item_data['gold_value'],
+            making_value=item_data['making_value'],
+            vat_percent=item_data['vat_percent'],
+            vat_amount=item_vat_amount,
+            line_total=item_line_total
+        ))
+    
+    invoice_items = final_invoice_items
     
     # Create invoice with customer type specific fields
     invoice_dict = {
