@@ -232,7 +232,7 @@ export default function PartiesPage() {
       
       // Reload gold entries and summary
       const goldResponse = await axios.get(`${API}/gold-ledger?party_id=${ledgerData.party.id}`);
-      setGoldEntries(goldResponse.data);
+      setGoldEntries(goldResponse.data.items || []);
       
       const summaryResponse = await axios.get(`${API}/parties/${ledgerData.party.id}/summary`);
       setLedgerData(summaryResponse.data);
