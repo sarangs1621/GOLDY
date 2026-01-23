@@ -37,6 +37,17 @@ export default function JobCardsPage() {
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   
+  // Confirmation dialog states
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    type: 'delete', // 'delete', 'status_change'
+    title: '',
+    description: '',
+    impact: null,
+    action: null,
+    loading: false
+  });
+  
   const [formData, setFormData] = useState({
     card_type: 'individual',
     customer_type: 'saved',  // 'saved' or 'walk_in'
