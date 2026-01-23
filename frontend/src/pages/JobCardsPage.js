@@ -67,6 +67,7 @@ export default function JobCardsPage() {
 
   useEffect(() => {
     loadData();
+    loadTemplates();
   }, []);
 
   const loadData = async () => {
@@ -81,6 +82,15 @@ export default function JobCardsPage() {
       setInventoryHeaders(headersRes.data);
     } catch (error) {
       toast.error('Failed to load data');
+    }
+  };
+
+  const loadTemplates = async () => {
+    try {
+      const response = await axios.get(`${API}/jobcard-templates`);
+      setTemplates(response.data.items || []);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
     }
   };
 
