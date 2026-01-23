@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { Package, CheckCircle, Lock, Edit, ShoppingCart, Calendar } from 'lucide-react';
+import { extractErrorMessage } from '../utils/errorHandler';
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState([]);
