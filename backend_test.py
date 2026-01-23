@@ -15,7 +15,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://party-details-debug.preview.emergentagent.com/api"
+BASE_URL = "https://invoice-access-3.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

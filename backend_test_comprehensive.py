@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import time
 
 # Configuration
-BASE_URL = "https://party-details-debug.preview.emergentagent.com/api"
+BASE_URL = "https://invoice-access-3.preview.emergentagent.com/api"
 
 # Test credentials from review request
 TEST_CREDENTIALS = [
