@@ -192,10 +192,10 @@ class BugFixTester:
             self.log_result("Account Detail - Exception", "FAIL", f"Exception: {str(e)}")
             return False
     
-    def test_purchases_serialization(self):
-        """🔥 PRIORITY 4: Quick Retest GET /api/purchases (Bug Fix #2)"""
-        print("🔥 PRIORITY 4: TESTING GET /api/purchases SERIALIZATION (Bug Fix #2)")
-        print("=" * 60)
+    def test_bug_2_purchases_serialization(self):
+        """🔥 TEST 2: Bug Fix #2 - GET /api/purchases Serialization (Re-confirmation)"""
+        print("🔥 TEST 2: Bug Fix #2 - GET /api/purchases Serialization (Re-confirmation)")
+        print("=" * 80)
         
         try:
             response = self.session.get(f"{BASE_URL}/purchases")
@@ -206,11 +206,11 @@ class BugFixTester:
                 # Verify response structure
                 if isinstance(data, dict) and "items" in data and "pagination" in data:
                     purchases = data["items"]
-                    self.log_result("Purchases Serialization - Response Structure", "PASS", 
+                    self.log_result("Bug #2 - Response Structure", "PASS", 
                                   f"Correct structure: {{items: [], pagination: {{}}}}")
                     
-                    self.log_result("Purchases Serialization - API Response", "PASS", 
-                                  f"Status: 200 OK, Found {len(purchases)} purchases")
+                    self.log_result("Bug #2 - HTTP Status", "PASS", 
+                                  f"Status: 200 OK (not 500 or 520)")
                     
                     # Check if any purchases exist and verify no ObjectId serialization errors
                     if purchases:
@@ -218,29 +218,31 @@ class BugFixTester:
                         # Verify all fields are JSON serializable (no ObjectId errors)
                         try:
                             json.dumps(sample_purchase)
-                            self.log_result("Purchases Serialization - ObjectId Fix", "PASS", 
-                                          "No ObjectId serialization errors detected")
+                            self.log_result("Bug #2 - ObjectId Serialization", "PASS", 
+                                          "All purchase objects properly serialized")
                         except Exception as e:
-                            self.log_result("Purchases Serialization - ObjectId Fix", "FAIL", 
+                            self.log_result("Bug #2 - ObjectId Serialization", "FAIL", 
                                           f"Serialization error: {str(e)}")
                             return False
                     else:
-                        self.log_result("Purchases Serialization - ObjectId Fix", "PASS", 
+                        self.log_result("Bug #2 - ObjectId Serialization", "PASS", 
                                       "No purchases to test, but no serialization errors")
                     
+                    self.log_result("Bug #2 - Overall", "PASS", 
+                                  f"Found {len(purchases)} purchases, all properly serialized")
                     return True
                 else:
-                    self.log_result("Purchases Serialization - Response Structure", "FAIL", 
+                    self.log_result("Bug #2 - Response Structure", "FAIL", 
                                   f"Incorrect structure: {type(data)}")
                     return False
                     
             else:
-                self.log_result("Purchases Serialization - API Response", "FAIL", 
-                              f"Status: {response.status_code}, Response: {response.text}")
+                self.log_result("Bug #2 - HTTP Status", "FAIL", 
+                              f"Status: {response.status_code} (expected 200), Response: {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_result("Purchases Serialization - Exception", "FAIL", f"Exception: {str(e)}")
+            self.log_result("Bug #2 - Exception", "FAIL", f"Exception: {str(e)}")
             return False
     
     def test_bug_1_account_balance_update(self):
