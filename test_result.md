@@ -8527,14 +8527,102 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix Outstanding Reports Datetime Timezone Error - IMPLEMENTED"
-    - "Add Missing GET /accounts/{id} Endpoint - IMPLEMENTED"
-    - "Re-test all 3 bug fixes comprehensively"
-  stuck_tasks: []
+    - "Bug Fix #1: Account Balance Update After Purchase Finalization - NEEDS RE-TESTING"
+    - "Bug Fix #2: GET /api/purchases Serialization - NEEDS RE-TESTING"
+    - "Bug Fix #3: Outstanding Reports Timezone Error - VERIFIED ✅"
+  stuck_tasks:
+    - "Bug Fix #1: Account Balance Update - Previously blocked by ObjectId error, now fixed"
+    - "Bug Fix #2: GET /api/purchases - Previously had ObjectId error, now fixed"
   test_all: false
   test_priority: "critical_first"
 
 agent_communication:
+  - agent: "main"
+    message: |
+      🔧 ALL THREE CRITICAL BUG FIXES COMPLETED - READY FOR COMPREHENSIVE TESTING
+      
+      FIXES APPLIED SUMMARY:
+      
+      ✅ BUG FIX #3: Outstanding Reports Datetime Timezone Error
+      - Location: /app/backend/server.py lines 4090-4092 and 4151-4153
+      - Fix: Added timezone awareness checks before datetime subtraction
+      - Code: if due_date.tzinfo is None: due_date = due_date.replace(tzinfo=timezone.utc)
+      - Status: Previously tested and VERIFIED WORKING ✅
+      
+      ✅ BUG FIX #2: Account Detail Endpoint
+      - Location: /app/backend/server.py lines 3048-3054
+      - Fix: Added GET /accounts/{account_id} endpoint
+      - Returns: Account object with id, name, account_type, opening_balance, current_balance
+      - Status: Previously tested and VERIFIED WORKING ✅
+      
+      ✅ BUG FIX #1: Purchase Finalization ObjectId Serialization + Account Balance Update
+      - Location: Multiple fixes applied:
+        1. Removed incompatible pydantic.json.ENCODERS_BY_TYPE line (Pydantic v1 syntax)
+        2. Updated decimal_to_float() function to handle ObjectId (line 45)
+        3. Account balance update logic exists at lines 1814-1820
+      - Fix: Added ObjectId handling in decimal_to_float(): elif isinstance(obj, ObjectId): return str(obj)
+      - Status: NEW FIX APPLIED - NEEDS TESTING ✅
+      
+      BACKEND STATUS:
+      - ✅ Backend restarted successfully
+      - ✅ Health check: {"status":"healthy"} at http://localhost:8001/api/health
+      - ✅ All endpoints should be accessible
+      
+      COMPREHENSIVE TESTING REQUIRED:
+      
+      🔥 PRIORITY 1: Bug Fix #1 - Account Balance Update (CRITICAL - Previously Blocked)
+      Test Workflow:
+      1. Create vendor in /api/parties
+      2. Create account in /api/accounts (note opening balance)
+      3. Create purchase with paid_amount_money > 0
+      4. GET /api/accounts/{account_id} to verify current balance before finalization
+      5. POST /api/purchases/{purchase_id}/finalize
+      6. GET /api/accounts/{account_id} again to verify balance decreased by paid amount
+      
+      Expected Results:
+      - Purchase finalization: 200 OK (no ObjectId serialization errors)
+      - Account balance: Should decrease by exact paid_amount_money
+      - Transaction created: type=debit, category="Purchase Payment"
+      - GET /api/accounts/{id}: Returns updated account balance
+      
+      🔥 PRIORITY 2: Bug Fix #2 - GET /api/purchases Serialization (Re-confirmation)
+      Test:
+      1. GET /api/purchases (with pagination params if needed)
+      
+      Expected Results:
+      - HTTP Status: 200 OK (not 500 or 520)
+      - Response structure: {items: [], pagination: {}}
+      - All purchase objects properly serialized
+      - No ObjectId errors in backend logs
+      
+      🔥 PRIORITY 3: Bug Fix #3 - Outstanding Reports (Re-confirmation)
+      Test:
+      1. GET /api/reports/outstanding
+      
+      Expected Results:
+      - HTTP Status: 200 OK (not 500)
+      - No timezone-related datetime errors
+      - Proper response structure with parties data
+      
+      CRITICAL SUCCESS CRITERIA:
+      - All 3 endpoints return 200 OK
+      - No ObjectId serialization errors
+      - No datetime timezone errors
+      - Account balance updates correctly after purchase finalization
+      - GET /accounts/{id} endpoint returns account details
+      
+      AUTH CREDENTIALS:
+      - Username: admin
+      - Password: admin123
+      
+      BACKEND URL:
+      - Use environment variable from /app/frontend/.env
+      - Or use: http://localhost:8001/api
+      
+      Please conduct comprehensive testing of all 3 bug fixes and verify:
+      1. Bug #3 still works (re-confirmation)
+      2. Bug #2 GET /api/purchases endpoint works without ObjectId errors
+      3. Bug #1 purchase finalization works and account balance updates correctly
   - agent: "testing"
     message: |
       🎯 CRITICAL BUG FIXES VERIFICATION TESTING COMPLETED - 2 OUT OF 3 FIXES VERIFIED WORKING
