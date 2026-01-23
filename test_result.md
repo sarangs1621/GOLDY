@@ -1052,6 +1052,29 @@ test_plan:
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: |
+      INVOICE FINALIZATION AND VIEW TESTING - PREPARATION
+      
+      Test Objective: Verify that finalized invoices remain viewable and display complete, accurate details
+      
+      Testing Steps to Execute:
+      1. Create a new invoice with at least 2 items (with weight, rate, making charges, VAT/GST)
+      2. Assign a customer/party
+      3. Save the invoice as Draft and confirm "View Invoice" works in draft state
+      4. Finalize the invoice
+      5. Navigate to Invoices → Invoice List
+      6. Click View Invoice on the finalized invoice
+      
+      Expected Results:
+      - Invoice opens successfully (no errors or blank page)
+      - All details visible: item-wise calculations, subtotal, tax, grand total, payment details
+      - Customer/party information displayed
+      - Invoice number, date, and status = Finalized
+      - Editing actions are disabled (read-only view)
+      - Print/Download options work correctly
+      
+      Services restarted successfully. Ready to proceed with comprehensive invoice view testing.
   - agent: "testing"
     message: |
       🎉 PARTY LEDGER FUNCTIONALITY TESTING COMPLETED - MISSION ACCOMPLISHED!
