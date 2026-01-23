@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend API Testing Suite
-Tests Party Ledger endpoints and pagination structure
+Comprehensive Backend API Testing Suite for Party Ledger Functionality
+Tests the specific issues reported by user:
+1. "View Ledger in Parties not working" 
+2. "Failed to update parties"
+3. "Failed to load party details"
+
+Focus: Verify backend API endpoints are working correctly with proper response structures
 """
 
 import requests
