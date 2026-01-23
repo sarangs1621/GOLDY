@@ -280,7 +280,7 @@ class BugFixTester:
             account_after_create = self.session.get(f"{BASE_URL}/accounts/{account_id}").json()
             balance_after_create = account_after_create["current_balance"]
             
-            if balance_after_create != 10000.00:
+            if balance_after_create != initial_balance:
                 self.log_result("Bug #1 - Balance After Create", "FAIL", 
                               f"Balance changed unexpectedly: {balance_after_create}")
                 return False
