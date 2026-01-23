@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://test-dummy-data.preview.emergentagent.com"
+    BASE_URL = "https://ledger-view-issue.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     
