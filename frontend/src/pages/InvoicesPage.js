@@ -33,6 +33,13 @@ export default function InvoicesPage() {
     purity_entered: '916'
   });
 
+  // Confirmation dialog states
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [confirmInvoice, setConfirmInvoice] = useState(null);
+  const [impactData, setImpactData] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
   useEffect(() => {
     loadInvoices();
     loadAccounts();
