@@ -1046,35 +1046,146 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Party Ledger Endpoints - COMPLETED AND VERIFIED"
+    - "Invoice Payment to Account Integration - FIX IMPLEMENTED - NEEDS TESTING"
   stuck_tasks: []
   test_all: false
-  test_priority: "high_first"
+  test_priority: "critical_first"
 
 agent_communication:
   - agent: "main"
     message: |
-      INVOICE FINALIZATION AND VIEW TESTING - PREPARATION
+      🔧 CRITICAL BUG FIX COMPLETED - Invoice Payment to Account Integration
       
-      Test Objective: Verify that finalized invoices remain viewable and display complete, accurate details
+      ISSUE IDENTIFIED:
+      When invoice payments were added via /api/invoices/{invoice_id}/add-payment:
+      - Transaction records were created ✅
+      - Invoice paid_amount was updated ✅
+      - Account current_balance was NOT updated ❌ (CRITICAL BUG)
       
-      Testing Steps to Execute:
-      1. Create a new invoice with at least 2 items (with weight, rate, making charges, VAT/GST)
-      2. Assign a customer/party
-      3. Save the invoice as Draft and confirm "View Invoice" works in draft state
-      4. Finalize the invoice
-      5. Navigate to Invoices → Invoice List
-      6. Click View Invoice on the finalized invoice
+      This caused Finance → Accounts to show incorrect balances, breaking accounting reconciliation.
       
-      Expected Results:
-      - Invoice opens successfully (no errors or blank page)
-      - All details visible: item-wise calculations, subtotal, tax, grand total, payment details
-      - Customer/party information displayed
-      - Invoice number, date, and status = Finalized
-      - Editing actions are disabled (read-only view)
-      - Print/Download options work correctly
+      ROOT CAUSE:
+      The add_payment_to_invoice function was missing the account balance update logic that exists
+      in the standalone transaction creation endpoint.
       
-      Services restarted successfully. Ready to proceed with comprehensive invoice view testing.
+      FIX APPLIED:
+      Added account balance update to BOTH payment processing paths:
+      
+      1. GOLD_EXCHANGE Payment Mode (line ~2686):
+         ```python
+         # CRITICAL: Update account balance when payment is received
+         delta = transaction.amount if transaction.transaction_type == "credit" else -transaction.amount
+         await db.accounts.update_one({"id": account_id}, {"$inc": {"current_balance": delta}})
+         ```
+      
+      2. Standard Payment Modes (line ~2832):
+         ```python
+         # CRITICAL: Update account balance when payment is received
+         delta = transaction.amount if transaction.transaction_type == "credit" else -transaction.amount
+         await db.accounts.update_one({"id": payment_data['account_id']}, {"$inc": {"current_balance": delta}})
+         ```
+      
+      TESTING REQUIRED:
+      Please test the following comprehensive workflow:
+      
+      📋 PRE-CONDITIONS:
+      1. At least one Cash account exists in Finance → Accounts
+      2. At least one Bank account exists in Finance → Accounts
+      3. Note the opening balance of both accounts
+      
+      🧪 TEST WORKFLOW:
+      
+      STEP 1: Create Invoice with Items
+      - Navigate to Invoices → Create Invoice
+      - Add at least 2 items with:
+        * Item description (e.g., "Gold Ring 22K")
+        * Weight (e.g., 15.5g)
+        * Category (e.g., Ring)
+        * Purity (e.g., 916)
+        * Rate per gram (e.g., 50 OMR/g)
+        * Making charges
+      - Select a customer (saved or walk-in)
+      - Save as Draft
+      - Note the Grand Total (e.g., 1,200.50 OMR)
+      
+      STEP 2: Note Current Account Balances
+      - Navigate to Finance → Accounts
+      - Open the Cash account you'll use for payment
+      - Note current_balance (e.g., 5,000.00 OMR)
+      - Keep this tab open or screenshot for comparison
+      
+      STEP 3: Add Payment to Invoice
+      - Return to Invoices page
+      - Click "Add Payment" on the draft invoice
+      - Enter payment details:
+        * Payment Amount: 500.00 OMR (partial payment)
+        * Payment Mode: Cash
+        * Select Account: [The Cash account from Step 2]
+        * Notes: "Test payment for invoice payment integration"
+      - Submit payment
+      - Verify success message appears
+      
+      STEP 4: Verify Invoice Updated
+      - View the invoice details
+      - ✅ Verify Paid Amount = 500.00 OMR
+      - ✅ Verify Balance Due = 700.50 OMR (1200.50 - 500.00)
+      - ✅ Verify Payment Status = "partial"
+      
+      STEP 5: Verify Account Balance Updated (CRITICAL TEST)
+      - Navigate to Finance → Accounts
+      - Open the Cash account used for payment
+      - ✅ Verify current_balance = 5,500.00 OMR (5,000.00 + 500.00)
+      - ✅ Balance should have increased by EXACTLY 500.00 OMR
+      
+      STEP 6: Verify Transaction Created
+      - In the same account view, check Transactions list
+      - ✅ Find new transaction entry with:
+        * Date: Today's date
+        * Type: "credit" or "Receipt" (money coming in)
+        * Category: "Invoice Payment"
+        * Reference: Invoice number (e.g., INV-2026-0001)
+        * Amount: 500.00 OMR
+        * Party: Customer name
+        * Notes: Should reference invoice number
+      
+      STEP 7: Test Full Payment
+      - Add another payment to the same invoice
+      - Payment Amount: 700.50 OMR (remaining balance)
+      - Same Cash account
+      - ✅ Verify account balance increases to 6,200.50 OMR (5,500.00 + 700.50)
+      - ✅ Verify invoice Payment Status = "paid"
+      - ✅ Verify Balance Due = 0.00 OMR
+      
+      STEP 8: Test Bank Account Payment
+      - Create a new invoice (Grand Total: 800.00 OMR)
+      - Add payment:
+        * Amount: 800.00 OMR
+        * Mode: Bank Transfer
+        * Account: [Select Bank account]
+      - ✅ Verify Bank account balance increases by 800.00 OMR
+      - ✅ Verify transaction created with correct Bank account reference
+      
+      🎯 EXPECTED RESULTS SUMMARY:
+      - ✅ Account balances increase by EXACT payment amounts
+      - ✅ Transaction entries created with correct details:
+        * Type = credit (for payments received)
+        * Category = "Invoice Payment"
+        * Reference to invoice number
+        * Linked to correct account
+      - ✅ Invoice shows updated paid_amount and balance_due
+      - ✅ Both Cash and Bank accounts work correctly
+      - ✅ Both partial and full payments work correctly
+      
+      ❌ FAIL CONDITIONS:
+      - Account balance doesn't change after payment
+      - Balance increases by wrong amount
+      - Transaction entry missing or incorrect
+      - Invoice shows payment but account doesn't reflect it
+      - Wrong account is updated
+      
+      BACKEND STATUS: ✅ Running on port 8001
+      FIX STATUS: ✅ Code updated and deployed
+      TESTING STATUS: ⏳ Awaiting comprehensive testing
   - agent: "testing"
     message: |
       🎉 PARTY LEDGER FUNCTIONALITY TESTING COMPLETED - MISSION ACCOMPLISHED!
