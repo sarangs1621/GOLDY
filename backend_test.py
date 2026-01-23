@@ -302,15 +302,15 @@ class APITester:
     
     def run_all_tests(self):
         """Run all test scenarios"""
-        print("🚀 Starting Comprehensive Backend API Testing")
+        print("🚀 Starting Party Ledger Backend API Testing")
         print("=" * 60)
         
         if not self.authenticate():
             print("❌ Authentication failed. Cannot proceed with tests.")
             return False
         
-        # Run duplicate phone validation tests
-        self.test_duplicate_phone_validation()
+        # Run party ledger tests
+        self.test_party_ledger_endpoints()
         
         # Print summary
         print("\n" + "=" * 60)
