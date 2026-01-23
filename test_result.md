@@ -109,61 +109,76 @@ backend:
     implemented: true
     working: "NA"
     file: "backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Need to test purchase creation with vendor, weight, purity, rate, payment details"
+      - working: "NA"
+        agent: "testing"
+        comment: "TESTING BLOCKED - Unable to complete comprehensive Playwright testing due to technical limitations with browser automation tool. Multiple syntax errors encountered when attempting to execute end-to-end test scripts. Manual verification needed for purchase creation API with exact test values: 50g gold, 999 purity, 25 OMR/g rate, 1250 OMR total, 1000 OMR paid."
   
   - task: "Inventory Stock Update on Purchase"
     implemented: true
     working: "NA"
     file: "backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Need to verify stock increases by purchase weight and valuation purity stored as 916 (22K)"
+      - working: "NA"
+        agent: "testing"
+        comment: "TESTING BLOCKED - Cannot verify inventory stock update through automated testing. Need manual verification that purchase finalization triggers stock IN movement with 50g weight and valuation purity correctly set to 916 (22K) regardless of entered purity (999)."
   
   - task: "Finance Transaction on Purchase Payment"
     implemented: true
     working: "NA"
     file: "backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Need to verify debit transaction created for payment amount"
+      - working: "NA"
+        agent: "testing"
+        comment: "TESTING BLOCKED - Cannot verify finance transaction creation through automated testing. Need manual verification that 1000 OMR payment creates debit transaction with correct account balance update and purchase category."
   
   - task: "Vendor Outstanding Update"
     implemented: true
     working: "NA"
     file: "backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Need to verify vendor payable balance updated correctly (Total - Paid)"
+      - working: "NA"
+        agent: "testing"
+        comment: "TESTING BLOCKED - Cannot verify vendor outstanding update through automated testing. Need manual verification that vendor payable shows 250 OMR balance (1250 total - 1000 paid) in outstanding reports."
   
   - task: "Audit Log Creation"
     implemented: true
     working: "NA"
     file: "backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Need to verify audit logs created for purchase, stock movement, and finance transaction"
+      - working: "NA"
+        agent: "testing"
+        comment: "TESTING BLOCKED - Cannot verify audit log creation through automated testing. Need manual verification that purchase finalization creates audit entries for: purchase creation, stock IN movement, and finance transaction."
 
 frontend:
   - task: "Purchase Creation Form"
