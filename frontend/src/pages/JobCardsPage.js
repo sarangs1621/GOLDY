@@ -114,6 +114,28 @@ export default function JobCardsPage() {
         }
       }
 
+      // Confirmation for status change to completed or delivered (only when editing)
+      if (editingJobCard) {
+        const oldStatus = editingJobCard.status || 'created';
+        const newStatus = formData.status;
+        
+        // Normalize statuses for comparison
+        const normalizeStatus = (status) => status?.toLowerCase().replace(/\s+/g, '_');
+        const oldNormalized = normalizeStatus(oldStatus);
+        const newNormalized = normalizeStatus(newStatus);
+        
+        // Check if transitioning to completed or delivered
+        if (newNormalized === 'completed' && oldNormalized !== 'completed') {
+          if (!window.confirm(`Mark job card as COMPLETED?\n\nThis indicates the work is finished and ready for customer pickup.\n\nContinue?`)) {
+            return;
+          }
+        } else if (newNormalized === 'delivered' && oldNormalized !== 'delivered') {
+          if (!window.confirm(`Mark job card as DELIVERED?\n\nThis indicates the customer has received the item.\n\nThis action will allow converting to invoice.\n\nContinue?`)) {
+            return;
+          }
+        }
+      }
+
       const data = {
         ...formData,
         gold_rate_at_jobcard: formData.gold_rate_at_jobcard ? parseFloat(formData.gold_rate_at_jobcard) : null,
