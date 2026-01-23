@@ -73,329 +73,513 @@ class InvoiceFinalizationTester:
             self.log_test("Authentication", False, f"Exception: {str(e)}")
             return False
     
-    def test_party_crud_operations(self):
-        """Test Party CRUD operations to verify 'Failed to update parties' and 'Failed to load party details' issues"""
-        print("🔧 Testing Party CRUD Operations...")
+    def get_or_create_test_customer(self):
+        """Get existing customer or create one for testing"""
+        print("👤 Setting up test customer...")
         
-        # Test 1: GET /api/parties - List all parties
-        print("\n1️⃣ TESTING GET /api/parties - List all parties")
-        response = self.session.get(f"{BASE_URL}/parties?page=1&per_page=50")
+        # First, try to get existing customers
+        response = self.session.get(f"{BASE_URL}/parties?party_type=customer&page=1&per_page=10")
         
         if response.status_code == 200:
             parties_data = response.json()
+            customers = parties_data.get("items", [])
+            
+            if customers:
+                # Use first existing customer
+                self.test_customer_id = customers[0]["id"]
+                customer_name = customers[0]["name"]
+                self.log_test("Get existing customer", True, f"Using customer: {customer_name} (ID: {self.test_customer_id})")
+                return True
+        
+        # If no customers exist, create one
+        customer_data = {
+            "name": "Ahmed Al-Rashid",
+            "phone": "+968 9876 5432",
+            "party_type": "customer",
+            "address": "Muscat, Sultanate of Oman",
+            "notes": "Test customer for invoice finalization testing"
+        }
+        
+        create_response = self.session.post(f"{BASE_URL}/parties", json=customer_data)
+        
+        if create_response.status_code in [200, 201]:
+            created_customer = create_response.json()
+            self.test_customer_id = created_customer.get("id")
+            self.log_test("Create test customer", True, f"Created customer: {customer_data['name']} (ID: {self.test_customer_id})")
+            return True
+        else:
+            self.log_test("Create test customer", False, f"Status: {create_response.status_code}", create_response.text)
+            return False
+    
+    def test_step_1_create_draft_invoice(self):
+        """Step 1: Create New Invoice (Draft) with 2+ items"""
+        print("\n📝 STEP 1: Create New Invoice (Draft) with 2+ items")
+        
+        if not self.test_customer_id:
+            self.log_test("Step 1 - Create Draft Invoice", False, "No test customer available")
+            return False
+        
+        # Calculate totals for realistic invoice
+        item1_weight = 15.500
+        item1_rate = 25.50
+        item1_making = 50.00
+        item1_vat_percent = 5.0
+        item1_gold_value = item1_weight * item1_rate
+        item1_vat_amount = (item1_gold_value + item1_making) * (item1_vat_percent / 100)
+        item1_total = item1_gold_value + item1_making + item1_vat_amount
+        
+        item2_weight = 20.250
+        item2_rate = 30.00
+        item2_making = 75.00
+        item2_vat_percent = 5.0
+        item2_gold_value = item2_weight * item2_rate
+        item2_vat_amount = (item2_gold_value + item2_making) * (item2_vat_percent / 100)
+        item2_total = item2_gold_value + item2_making + item2_vat_amount
+        
+        subtotal = item1_gold_value + item1_making + item2_gold_value + item2_making
+        vat_total = item1_vat_amount + item2_vat_amount
+        grand_total = subtotal + vat_total
+        
+        invoice_data = {
+            "customer_type": "saved",
+            "customer_id": self.test_customer_id,
+            "customer_name": "Ahmed Al-Rashid",
+            "date": datetime.now().isoformat(),
+            "invoice_type": "sale",
+            "status": "draft",
+            "items": [
+                {
+                    "description": "Gold Ring 22K",
+                    "qty": 1,
+                    "weight": item1_weight,
+                    "purity": 916,
+                    "metal_rate": item1_rate,
+                    "gold_value": round(item1_gold_value, 2),
+                    "making_value": item1_making,
+                    "vat_percent": item1_vat_percent,
+                    "vat_amount": round(item1_vat_amount, 2),
+                    "line_total": round(item1_total, 2)
+                },
+                {
+                    "description": "Gold Chain 18K",
+                    "qty": 1,
+                    "weight": item2_weight,
+                    "purity": 750,
+                    "metal_rate": item2_rate,
+                    "gold_value": round(item2_gold_value, 2),
+                    "making_value": item2_making,
+                    "vat_percent": item2_vat_percent,
+                    "vat_amount": round(item2_vat_amount, 2),
+                    "line_total": round(item2_total, 2)
+                }
+            ],
+            "subtotal": round(subtotal, 2),
+            "vat_total": round(vat_total, 2),
+            "grand_total": round(grand_total, 2),
+            "paid_amount": 0.0,
+            "balance_due": round(grand_total, 2),
+            "notes": "Test invoice for finalization testing"
+        }
+        
+        response = self.session.post(f"{BASE_URL}/invoices", json=invoice_data)
+        
+        if response.status_code in [200, 201]:
+            created_invoice = response.json()
+            self.test_invoice_id = created_invoice.get("id")
+            
+            # Verify invoice creation
+            if (self.test_invoice_id and 
+                created_invoice.get("status") == "draft" and
+                len(created_invoice.get("items", [])) == 2):
+                
+                self.log_test("Step 1 - Create Draft Invoice", True, 
+                            f"Created invoice ID: {self.test_invoice_id}, Status: draft, Items: 2, Grand Total: {created_invoice.get('grand_total')} OMR")
+                return True
+            else:
+                self.log_test("Step 1 - Create Draft Invoice", False, 
+                            f"Invoice creation incomplete. ID: {self.test_invoice_id}, Status: {created_invoice.get('status')}, Items: {len(created_invoice.get('items', []))}")
+                return False
+        else:
+            self.log_test("Step 1 - Create Draft Invoice", False, 
+                        f"Status: {response.status_code}", response.text)
+            return False
+    
+    def test_step_2_view_draft_invoice(self):
+        """Step 2: View Draft Invoice"""
+        print("\n👁️ STEP 2: View Draft Invoice")
+        
+        if not self.test_invoice_id:
+            self.log_test("Step 2 - View Draft Invoice", False, "No test invoice available")
+            return False
+        
+        response = self.session.get(f"{BASE_URL}/invoices/{self.test_invoice_id}")
+        
+        if response.status_code == 200:
+            invoice_data = response.json()
+            
+            # Verify all required fields are present
+            required_fields = ["id", "invoice_number", "date", "customer_name", "items", 
+                             "subtotal", "vat_total", "grand_total", "status"]
+            missing_fields = [field for field in required_fields if field not in invoice_data]
+            
+            if not missing_fields:
+                items = invoice_data.get("items", [])
+                status = invoice_data.get("status")
+                
+                # Verify items have proper structure
+                items_valid = True
+                for item in items:
+                    item_fields = ["description", "weight", "metal_rate", "making_value", "vat_amount", "line_total"]
+                    if not all(field in item for field in item_fields):
+                        items_valid = False
+                        break
+                
+                if items_valid and status == "draft" and len(items) == 2:
+                    # Check numeric precision
+                    weight_precision_ok = all(
+                        len(str(item.get("weight", 0)).split(".")[-1]) <= 3 
+                        for item in items
+                    )
+                    money_precision_ok = all(
+                        len(str(invoice_data.get(field, 0)).split(".")[-1]) <= 2 
+                        for field in ["subtotal", "vat_total", "grand_total"]
+                    )
+                    
+                    if weight_precision_ok and money_precision_ok:
+                        self.log_test("Step 2 - View Draft Invoice", True, 
+                                    f"All fields present, Status: {status}, Items: {len(items)}, Precision: Weight ≤3 decimals, Money ≤2 decimals")
+                        return True
+                    else:
+                        self.log_test("Step 2 - View Draft Invoice", False, 
+                                    f"Precision issues - Weight precision OK: {weight_precision_ok}, Money precision OK: {money_precision_ok}")
+                        return False
+                else:
+                    self.log_test("Step 2 - View Draft Invoice", False, 
+                                f"Items validation failed or wrong status. Items valid: {items_valid}, Status: {status}, Item count: {len(items)}")
+                    return False
+            else:
+                self.log_test("Step 2 - View Draft Invoice", False, 
+                            f"Missing required fields: {missing_fields}")
+                return False
+        else:
+            self.log_test("Step 2 - View Draft Invoice", False, 
+                        f"Status: {response.status_code}", response.text)
+            return False
+    
+    def test_step_3_finalize_invoice(self):
+        """Step 3: Finalize the Invoice"""
+        print("\n🔒 STEP 3: Finalize the Invoice")
+        
+        if not self.test_invoice_id:
+            self.log_test("Step 3 - Finalize Invoice", False, "No test invoice available")
+            return False
+        
+        response = self.session.patch(f"{BASE_URL}/invoices/{self.test_invoice_id}/finalize")
+        
+        if response.status_code == 200:
+            finalized_invoice = response.json()
+            
+            # Verify finalization
+            status = finalized_invoice.get("status")
+            finalized_at = finalized_invoice.get("finalized_at")
+            locked = finalized_invoice.get("locked")
+            
+            if status == "finalized" and finalized_at and locked:
+                self.log_test("Step 3 - Finalize Invoice", True, 
+                            f"Invoice finalized successfully. Status: {status}, Locked: {locked}, Finalized at: {finalized_at}")
+                return True
+            else:
+                self.log_test("Step 3 - Finalize Invoice", False, 
+                            f"Finalization incomplete. Status: {status}, Locked: {locked}, Finalized at: {finalized_at}")
+                return False
+        else:
+            self.log_test("Step 3 - Finalize Invoice", False, 
+                        f"Status: {response.status_code}", response.text)
+            return False
+    
+    def test_step_4_view_finalized_invoice(self):
+        """Step 4: View Finalized Invoice - CRITICAL TEST"""
+        print("\n🔍 STEP 4: View Finalized Invoice - CRITICAL TEST")
+        
+        if not self.test_invoice_id:
+            self.log_test("Step 4 - View Finalized Invoice", False, "No test invoice available")
+            return False
+        
+        response = self.session.get(f"{BASE_URL}/invoices/{self.test_invoice_id}")
+        
+        if response.status_code == 200:
+            invoice_data = response.json()
+            
+            # Comprehensive verification of finalized invoice
+            verification_results = []
+            
+            # 1. Basic structure
+            required_fields = ["id", "invoice_number", "date", "customer_name", "items", 
+                             "subtotal", "vat_total", "grand_total", "status", "finalized_at", "locked"]
+            missing_fields = [field for field in required_fields if field not in invoice_data]
+            verification_results.append(("Basic structure", len(missing_fields) == 0, f"Missing: {missing_fields}" if missing_fields else "All fields present"))
+            
+            # 2. Status verification
+            status = invoice_data.get("status")
+            locked = invoice_data.get("locked")
+            finalized_at = invoice_data.get("finalized_at")
+            verification_results.append(("Status verification", status == "finalized" and locked and finalized_at, 
+                                       f"Status: {status}, Locked: {locked}, Finalized: {bool(finalized_at)}"))
+            
+            # 3. Customer information
+            customer_info_complete = all(invoice_data.get(field) for field in ["customer_name", "customer_id"])
+            verification_results.append(("Customer information", customer_info_complete, 
+                                       f"Customer: {invoice_data.get('customer_name')}, ID: {invoice_data.get('customer_id')}"))
+            
+            # 4. Items verification
+            items = invoice_data.get("items", [])
+            items_complete = len(items) >= 2
+            if items_complete:
+                for i, item in enumerate(items):
+                    item_fields = ["description", "weight", "purity", "metal_rate", "making_value", "vat_percent", "vat_amount", "line_total"]
+                    item_complete = all(field in item for field in item_fields)
+                    verification_results.append((f"Item {i+1} structure", item_complete, 
+                                               f"Description: {item.get('description')}, Weight: {item.get('weight')}g"))
+            
+            # 5. Calculations verification
+            subtotal = invoice_data.get("subtotal", 0)
+            vat_total = invoice_data.get("vat_total", 0)
+            grand_total = invoice_data.get("grand_total", 0)
+            
+            # Verify calculations are reasonable (basic sanity check)
+            calculations_reasonable = (subtotal > 0 and vat_total >= 0 and grand_total > subtotal)
+            verification_results.append(("Calculations", calculations_reasonable, 
+                                       f"Subtotal: {subtotal}, VAT: {vat_total}, Grand Total: {grand_total}"))
+            
+            # 6. Precision verification
+            weight_precision_ok = all(
+                len(str(item.get("weight", 0)).split(".")[-1]) <= 3 
+                for item in items
+            )
+            money_precision_ok = all(
+                len(str(invoice_data.get(field, 0)).split(".")[-1]) <= 2 
+                for field in ["subtotal", "vat_total", "grand_total"]
+            )
+            verification_results.append(("Numeric precision", weight_precision_ok and money_precision_ok, 
+                                       f"Weight ≤3 decimals: {weight_precision_ok}, Money ≤2 decimals: {money_precision_ok}"))
+            
+            # 7. Payment details
+            balance_due = invoice_data.get("balance_due", 0)
+            paid_amount = invoice_data.get("paid_amount", 0)
+            payment_details_present = "balance_due" in invoice_data and "paid_amount" in invoice_data
+            verification_results.append(("Payment details", payment_details_present, 
+                                       f"Paid: {paid_amount}, Balance: {balance_due}"))
+            
+            # Summary
+            all_passed = all(result[1] for result in verification_results)
+            passed_count = sum(1 for result in verification_results if result[1])
+            total_count = len(verification_results)
+            
+            details = f"Verification: {passed_count}/{total_count} checks passed"
+            for check_name, passed, detail in verification_results:
+                if not passed:
+                    details += f"\n   ❌ {check_name}: {detail}"
+                else:
+                    details += f"\n   ✅ {check_name}: {detail}"
+            
+            self.log_test("Step 4 - View Finalized Invoice (COMPREHENSIVE)", all_passed, details)
+            return all_passed
+        else:
+            self.log_test("Step 4 - View Finalized Invoice", False, 
+                        f"Status: {response.status_code}", response.text)
+            return False
+    
+    def test_step_5_invoice_list_view(self):
+        """Step 5: Test Invoice List View"""
+        print("\n📋 STEP 5: Test Invoice List View")
+        
+        response = self.session.get(f"{BASE_URL}/invoices?page=1&per_page=50")
+        
+        if response.status_code == 200:
+            invoices_data = response.json()
             
             # Verify pagination structure
-            if "items" in parties_data and "pagination" in parties_data:
-                items = parties_data.get("items", [])
-                pagination = parties_data.get("pagination", {})
+            if "items" in invoices_data and "pagination" in invoices_data:
+                items = invoices_data.get("items", [])
                 
-                # Verify pagination fields
-                pagination_fields = ["total_count", "page", "per_page", "total_pages", "has_next", "has_prev"]
-                pagination_missing = [field for field in pagination_fields if field not in pagination]
+                # Look for our finalized invoice
+                test_invoice_found = False
+                if self.test_invoice_id:
+                    test_invoice_found = any(inv.get("id") == self.test_invoice_id for inv in items)
                 
-                if not pagination_missing:
-                    self.log_test("GET /api/parties - Pagination structure", True, 
-                                f"Found {len(items)} parties with correct pagination structure")
+                if test_invoice_found:
+                    found_invoice = next(inv for inv in items if inv.get("id") == self.test_invoice_id)
                     
-                    # Store first party for later tests if available
-                    self.existing_party_id = items[0]["id"] if items else None
+                    # Verify list preview data
+                    preview_fields = ["invoice_number", "date", "customer_name", "grand_total", "status"]
+                    preview_complete = all(field in found_invoice for field in preview_fields)
                     
-                    # Verify party fields if parties exist
-                    if items:
-                        first_party = items[0]
-                        required_fields = ["id", "name", "phone", "party_type", "created_at"]
-                        missing_fields = [field for field in required_fields if field not in first_party]
-                        
-                        if not missing_fields:
-                            self.log_test("GET /api/parties - Party fields structure", True, 
-                                        f"All required fields present in party objects")
-                        else:
-                            self.log_test("GET /api/parties - Party fields structure", False, 
-                                        f"Missing fields: {missing_fields}")
-                else:
-                    self.log_test("GET /api/parties - Pagination structure", False, 
-                                f"Missing pagination fields: {pagination_missing}")
-            else:
-                self.log_test("GET /api/parties - Response structure", False, 
-                            "Missing 'items' or 'pagination' in response", parties_data)
-        else:
-            self.log_test("GET /api/parties", False, 
-                        f"Status: {response.status_code}", response.text)
-            return
-        
-        # Test 2: Create new party
-        print("\n2️⃣ TESTING POST /api/parties - Create new party")
-        test_party_data = {
-            "name": "Test Party API Check",
-            "phone": "+968 9999 5555",
-            "party_type": "customer",
-            "address": "Test Address for API Verification",
-            "notes": "Created for party ledger testing"
-        }
-        
-        create_response = self.session.post(f"{BASE_URL}/parties", json=test_party_data)
-        
-        if create_response.status_code in [200, 201]:
-            created_party = create_response.json()
-            self.test_party_id = created_party.get("id")
-            
-            # Verify created party structure
-            if self.test_party_id and created_party.get("name") == test_party_data["name"]:
-                self.log_test("POST /api/parties - Create party", True, 
-                            f"Created party with ID: {self.test_party_id}")
-            else:
-                self.log_test("POST /api/parties - Create party", False, 
-                            "Created party missing ID or incorrect data", created_party)
-                return
-        else:
-            self.log_test("POST /api/parties - Create party", False, 
-                        f"Status: {create_response.status_code}", create_response.text)
-            return
-        
-        # Test 3: GET /api/parties/{party_id} - Get single party details
-        print(f"\n3️⃣ TESTING GET /api/parties/{self.test_party_id} - Get party details")
-        response = self.session.get(f"{BASE_URL}/parties/{self.test_party_id}")
-        
-        if response.status_code == 200:
-            party_details = response.json()
-            
-            # Verify party details structure
-            required_fields = ["id", "name", "phone", "party_type", "address", "notes", "created_at"]
-            missing_fields = [field for field in required_fields if field not in party_details]
-            
-            if not missing_fields:
-                self.log_test("GET /api/parties/{id} - Party details", True, 
-                            f"All required fields present. Party: {party_details.get('name')}")
-            else:
-                self.log_test("GET /api/parties/{id} - Party details", False, 
-                            f"Missing fields: {missing_fields}")
-        else:
-            self.log_test("GET /api/parties/{id} - Party details", False, 
-                        f"Status: {response.status_code}", response.text)
-        
-        # Test 4: PATCH /api/parties/{party_id} - Update party
-        print(f"\n4️⃣ TESTING PATCH /api/parties/{self.test_party_id} - Update party")
-        update_data = {
-            "name": "Updated Test Party",
-            "notes": "Updated for testing party update functionality"
-        }
-        
-        update_response = self.session.patch(f"{BASE_URL}/parties/{self.test_party_id}", json=update_data)
-        
-        if update_response.status_code == 200:
-            updated_party = update_response.json()
-            
-            # Verify update was applied
-            if updated_party.get("name") == update_data["name"]:
-                self.log_test("PATCH /api/parties/{id} - Update party", True, 
-                            f"Party updated successfully. New name: {updated_party.get('name')}")
-            else:
-                self.log_test("PATCH /api/parties/{id} - Update party", False, 
-                            f"Update not applied correctly. Expected: {update_data['name']}, Got: {updated_party.get('name')}")
-        else:
-            self.log_test("PATCH /api/parties/{id} - Update party", False, 
-                        f"Status: {update_response.status_code}", update_response.text)
-    
-    def test_party_ledger_endpoints(self):
-        """Test Party Ledger endpoints to verify 'View Ledger in Parties not working' issue"""
-        print("📋 Testing Party Ledger Endpoints...")
-        
-        if not hasattr(self, 'test_party_id') or not self.test_party_id:
-            self.log_test("Party Ledger Tests", False, "No test party available for ledger testing")
-            return
-        
-        # Test 1: GET /api/parties/{party_id}/summary - Party Summary
-        print(f"\n1️⃣ TESTING GET /api/parties/{self.test_party_id}/summary - Party Summary")
-        response = self.session.get(f"{BASE_URL}/parties/{self.test_party_id}/summary")
-        
-        if response.status_code == 200:
-            summary_data = response.json()
-            
-            # Verify response structure
-            required_sections = ["party", "gold", "money"]
-            missing_sections = [section for section in required_sections if section not in summary_data]
-            
-            if not missing_sections:
-                # Verify party section
-                party_section = summary_data.get("party", {})
-                party_fields = ["id", "name", "phone", "address", "party_type", "notes", "created_at"]
-                party_missing = [field for field in party_fields if field not in party_section]
-                
-                # Verify gold section
-                gold_section = summary_data.get("gold", {})
-                gold_fields = ["gold_due_from_party", "gold_due_to_party", "net_gold_balance", "total_entries"]
-                gold_missing = [field for field in gold_fields if field not in gold_section]
-                
-                # Verify money section
-                money_section = summary_data.get("money", {})
-                money_fields = ["money_due_from_party", "money_due_to_party", "net_money_balance", "total_invoices", "total_transactions"]
-                money_missing = [field for field in money_fields if field not in money_section]
-                
-                if not party_missing and not gold_missing and not money_missing:
-                    self.log_test("GET /api/parties/{id}/summary - Complete structure", True, 
-                                f"All sections and fields present. Gold: {gold_section.get('net_gold_balance')}g, Money: {money_section.get('net_money_balance')} OMR")
-                else:
-                    missing_details = []
-                    if party_missing:
-                        missing_details.append(f"Party: {party_missing}")
-                    if gold_missing:
-                        missing_details.append(f"Gold: {gold_missing}")
-                    if money_missing:
-                        missing_details.append(f"Money: {money_missing}")
-                    
-                    self.log_test("GET /api/parties/{id}/summary - Complete structure", False, 
-                                f"Missing fields - {', '.join(missing_details)}")
-            else:
-                self.log_test("GET /api/parties/{id}/summary - Response structure", False, 
-                            f"Missing sections: {missing_sections}", summary_data)
-        else:
-            self.log_test("GET /api/parties/{id}/summary", False, 
-                        f"Status: {response.status_code}", response.text)
-        
-        # Test 2: GET /api/gold-ledger?party_id={party_id} - Gold Ledger (CRITICAL - This was the main fix)
-        print(f"\n2️⃣ TESTING GET /api/gold-ledger?party_id={self.test_party_id} - Gold Ledger (CRITICAL FIX)")
-        response = self.session.get(f"{BASE_URL}/gold-ledger?party_id={self.test_party_id}")
-        
-        if response.status_code == 200:
-            gold_ledger_data = response.json()
-            
-            # CRITICAL: Verify pagination structure {items: [], pagination: {}}
-            if "items" in gold_ledger_data and "pagination" in gold_ledger_data:
-                items = gold_ledger_data.get("items", [])
-                pagination = gold_ledger_data.get("pagination", {})
-                
-                # Verify pagination fields
-                pagination_fields = ["total_count", "page", "per_page", "total_pages", "has_next", "has_prev"]
-                pagination_missing = [field for field in pagination_fields if field not in pagination]
-                
-                if not pagination_missing:
-                    # Verify items is an array (not an object)
-                    if isinstance(items, list):
-                        self.log_test("GET /api/gold-ledger - PAGINATION STRUCTURE (CRITICAL FIX)", True, 
-                                    f"✅ CORRECT: Returns {{items: [], pagination: {{}}}} structure with {len(items)} entries")
-                        
-                        # Test different page sizes
-                        for per_page in [25, 50, 100]:
-                            page_response = self.session.get(f"{BASE_URL}/gold-ledger?party_id={self.test_party_id}&page=1&per_page={per_page}")
-                            if page_response.status_code == 200:
-                                page_data = page_response.json()
-                                if page_data.get("pagination", {}).get("per_page") == per_page:
-                                    self.log_test(f"Gold ledger pagination per_page={per_page}", True, 
-                                                f"Correct per_page value: {per_page}")
-                                else:
-                                    self.log_test(f"Gold ledger pagination per_page={per_page}", False, 
-                                                f"Expected {per_page}, got {page_data.get('pagination', {}).get('per_page')}")
+                    if preview_complete and found_invoice.get("status") == "finalized":
+                        self.log_test("Step 5 - Invoice List View", True, 
+                                    f"Finalized invoice found in list. Invoice: {found_invoice.get('invoice_number')}, "
+                                    f"Customer: {found_invoice.get('customer_name')}, Total: {found_invoice.get('grand_total')}")
+                        return True
                     else:
-                        self.log_test("GET /api/gold-ledger - PAGINATION STRUCTURE (CRITICAL FIX)", False, 
-                                    f"❌ INCORRECT: items is not an array, it's {type(items)}")
+                        self.log_test("Step 5 - Invoice List View", False, 
+                                    f"Preview data incomplete or wrong status. Complete: {preview_complete}, Status: {found_invoice.get('status')}")
+                        return False
                 else:
-                    self.log_test("GET /api/gold-ledger - PAGINATION STRUCTURE (CRITICAL FIX)", False, 
-                                f"❌ Missing pagination fields: {pagination_missing}")
+                    self.log_test("Step 5 - Invoice List View", False, 
+                                f"Test invoice not found in list of {len(items)} invoices")
+                    return False
             else:
-                self.log_test("GET /api/gold-ledger - PAGINATION STRUCTURE (CRITICAL FIX)", False, 
-                            f"❌ INCORRECT: Missing 'items' or 'pagination' fields. This was the main issue!", gold_ledger_data)
+                self.log_test("Step 5 - Invoice List View", False, 
+                            "Invalid response structure - missing items or pagination")
+                return False
         else:
-            self.log_test("GET /api/gold-ledger", False, 
+            self.log_test("Step 5 - Invoice List View", False, 
                         f"Status: {response.status_code}", response.text)
-        
-        # Test 3: GET /api/parties/{party_id}/ledger - Money Ledger
-        print(f"\n3️⃣ TESTING GET /api/parties/{self.test_party_id}/ledger - Money Ledger")
-        response = self.session.get(f"{BASE_URL}/parties/{self.test_party_id}/ledger")
-        
-        if response.status_code == 200:
-            ledger_data = response.json()
-            
-            # Verify response structure
-            required_fields = ["invoices", "transactions", "outstanding"]
-            missing_fields = [field for field in required_fields if field not in ledger_data]
-            
-            if not missing_fields:
-                invoices = ledger_data.get("invoices", [])
-                transactions = ledger_data.get("transactions", [])
-                outstanding = ledger_data.get("outstanding", 0)
-                
-                # Verify invoices and transactions are arrays
-                if isinstance(invoices, list) and isinstance(transactions, list):
-                    self.log_test("GET /api/parties/{id}/ledger - Money Ledger structure", True, 
-                                f"Complete structure: {len(invoices)} invoices, {len(transactions)} transactions, outstanding: {outstanding} OMR")
-                else:
-                    self.log_test("GET /api/parties/{id}/ledger - Money Ledger structure", False, 
-                                f"Invoices or transactions not arrays. Invoices: {type(invoices)}, Transactions: {type(transactions)}")
-            else:
-                self.log_test("GET /api/parties/{id}/ledger - Money Ledger structure", False, 
-                            f"Missing fields: {missing_fields}", ledger_data)
-        else:
-            self.log_test("GET /api/parties/{id}/ledger", False, 
-                        f"Status: {response.status_code}", response.text)
+            return False
     
-    def test_with_actual_data(self):
-        """Test with actual ledger entries to verify data flow"""
-        print("📊 Testing with Actual Data - Create ledger entries and verify")
+    def test_step_6_attempt_edit_finalized(self):
+        """Step 6: Attempt to Edit Finalized Invoice (Should Fail)"""
+        print("\n🚫 STEP 6: Attempt to Edit Finalized Invoice (Should Fail)")
         
-        if not hasattr(self, 'test_party_id') or not self.test_party_id:
-            self.log_test("Data Flow Tests", False, "No test party available for data testing")
-            return
+        if not self.test_invoice_id:
+            self.log_test("Step 6 - Edit Finalized Invoice", False, "No test invoice available")
+            return False
         
-        # Test 1: Create gold ledger IN entry
-        print(f"\n1️⃣ CREATING GOLD LEDGER IN ENTRY for party {self.test_party_id}")
-        gold_entry_data = {
-            "party_id": self.test_party_id,
-            "type": "IN",
-            "weight_grams": 25.500,
-            "purity_entered": 916,
-            "purpose": "job_work",
-            "notes": "Test gold deposit for ledger verification"
+        # Attempt to update the finalized invoice
+        update_data = {
+            "notes": "This should not be allowed - invoice is finalized"
         }
         
-        create_response = self.session.post(f"{BASE_URL}/gold-ledger", json=gold_entry_data)
+        response = self.session.patch(f"{BASE_URL}/invoices/{self.test_invoice_id}", json=update_data)
         
-        if create_response.status_code in [200, 201]:
-            created_entry = create_response.json()
-            self.test_gold_entry_id = created_entry.get("id")
+        # This should fail with 400 or 403 error
+        if response.status_code in [400, 403]:
+            error_message = response.text or response.json().get("detail", "")
             
-            self.log_test("Create gold ledger IN entry", True, 
-                        f"Created entry ID: {self.test_gold_entry_id}, Weight: {created_entry.get('weight_grams')}g")
+            # Check if error message indicates invoice is locked/finalized
+            locked_keywords = ["finalized", "locked", "cannot", "edit", "modify"]
+            error_indicates_locked = any(keyword.lower() in error_message.lower() for keyword in locked_keywords)
             
-            # Test 2: Verify gold ledger shows the entry
-            print(f"\n2️⃣ VERIFYING GOLD LEDGER SHOWS THE ENTRY")
-            response = self.session.get(f"{BASE_URL}/gold-ledger?party_id={self.test_party_id}")
-            
-            if response.status_code == 200:
-                data = response.json()
-                items = data.get("items", [])
-                
-                # Look for our test entry
-                test_entry_found = any(item.get("id") == self.test_gold_entry_id for item in items)
-                
-                if test_entry_found and len(items) >= 1:
-                    found_entry = next(item for item in items if item.get("id") == self.test_gold_entry_id)
-                    self.log_test("Gold ledger shows created entry", True, 
-                                f"Entry found: {found_entry.get('type')} {found_entry.get('weight_grams')}g")
-                else:
-                    self.log_test("Gold ledger shows created entry", False, 
-                                f"Entry not found in {len(items)} items")
-            
-            # Test 3: Verify party summary reflects the gold entry
-            print(f"\n3️⃣ VERIFYING PARTY SUMMARY REFLECTS GOLD ENTRY")
-            summary_response = self.session.get(f"{BASE_URL}/parties/{self.test_party_id}/summary")
-            
-            if summary_response.status_code == 200:
-                summary_data = summary_response.json()
-                gold_section = summary_data.get("gold", {})
-                
-                expected_gold_due = 25.500
-                actual_gold_due = gold_section.get("gold_due_from_party", 0)
-                total_entries = gold_section.get("total_entries", 0)
-                
-                if total_entries >= 1 and abs(actual_gold_due - expected_gold_due) < 0.001:
-                    self.log_test("Party summary reflects gold entry", True, 
-                                f"Gold due from party: {actual_gold_due}g, Total entries: {total_entries}")
-                else:
-                    self.log_test("Party summary reflects gold entry", False, 
-                                f"Expected gold_due_from_party: {expected_gold_due}g, got: {actual_gold_due}g, entries: {total_entries}")
+            if error_indicates_locked:
+                self.log_test("Step 6 - Edit Finalized Invoice (Should Fail)", True, 
+                            f"Correctly rejected edit attempt. Status: {response.status_code}, Message: {error_message}")
+                return True
+            else:
+                self.log_test("Step 6 - Edit Finalized Invoice (Should Fail)", False, 
+                            f"Rejected but unclear error message. Status: {response.status_code}, Message: {error_message}")
+                return False
+        elif response.status_code == 200:
+            self.log_test("Step 6 - Edit Finalized Invoice (Should Fail)", False, 
+                        "CRITICAL: Edit was allowed on finalized invoice - this should not happen!")
+            return False
         else:
-            self.log_test("Create gold ledger IN entry", False, 
-                        f"Status: {create_response.status_code}", create_response.text)
+            self.log_test("Step 6 - Edit Finalized Invoice (Should Fail)", False, 
+                        f"Unexpected status code: {response.status_code}", response.text)
+            return False
+    
+    def test_step_7_edge_cases(self):
+        """Step 7: Test Edge Cases"""
+        print("\n🧪 STEP 7: Test Edge Cases")
+        
+        edge_case_results = []
+        
+        # Edge Case 1: Test with multiple items (already done, but verify calculations)
+        if self.test_invoice_id:
+            response = self.session.get(f"{BASE_URL}/invoices/{self.test_invoice_id}")
+            if response.status_code == 200:
+                invoice_data = response.json()
+                items = invoice_data.get("items", [])
+                
+                if len(items) >= 2:
+                    # Verify each item has different VAT percentages or rates
+                    different_rates = len(set(item.get("metal_rate", 0) for item in items)) > 1
+                    edge_case_results.append(("Multiple items with different rates", different_rates, 
+                                            f"Items have different rates: {different_rates}"))
+                    
+                    # Verify calculations for each item
+                    calculations_correct = True
+                    for item in items:
+                        weight = item.get("weight", 0)
+                        rate = item.get("metal_rate", 0)
+                        making = item.get("making_value", 0)
+                        vat_percent = item.get("vat_percent", 0)
+                        
+                        expected_gold_value = weight * rate
+                        expected_vat = (expected_gold_value + making) * (vat_percent / 100)
+                        expected_total = expected_gold_value + making + expected_vat
+                        
+                        actual_gold_value = item.get("gold_value", 0)
+                        actual_vat = item.get("vat_amount", 0)
+                        actual_total = item.get("line_total", 0)
+                        
+                        # Allow small rounding differences
+                        if (abs(actual_gold_value - expected_gold_value) > 0.01 or
+                            abs(actual_vat - expected_vat) > 0.01 or
+                            abs(actual_total - expected_total) > 0.01):
+                            calculations_correct = False
+                            break
+                    
+                    edge_case_results.append(("Item-wise calculations accuracy", calculations_correct, 
+                                            f"All item calculations are accurate: {calculations_correct}"))
+        
+        # Edge Case 2: Test invoice with rounding
+        if self.test_invoice_id:
+            response = self.session.get(f"{BASE_URL}/invoices/{self.test_invoice_id}")
+            if response.status_code == 200:
+                invoice_data = response.json()
+                grand_total = invoice_data.get("grand_total", 0)
+                
+                # Check if there's a rounded field
+                grand_total_rounded = invoice_data.get("grand_total_rounded")
+                if grand_total_rounded is not None:
+                    rounding_reasonable = abs(grand_total_rounded - grand_total) <= 1.0
+                    edge_case_results.append(("Grand total rounding", rounding_reasonable, 
+                                            f"Original: {grand_total}, Rounded: {grand_total_rounded}"))
+                else:
+                    edge_case_results.append(("Grand total rounding field", True, 
+                                            "No rounding field present (acceptable)"))
+        
+        # Edge Case 3: Test payment details display
+        if self.test_invoice_id:
+            response = self.session.get(f"{BASE_URL}/invoices/{self.test_invoice_id}")
+            if response.status_code == 200:
+                invoice_data = response.json()
+                
+                paid_amount = invoice_data.get("paid_amount", 0)
+                balance_due = invoice_data.get("balance_due", 0)
+                grand_total = invoice_data.get("grand_total", 0)
+                
+                # Verify payment calculation
+                payment_calculation_correct = abs((paid_amount + balance_due) - grand_total) < 0.01
+                edge_case_results.append(("Payment calculation", payment_calculation_correct, 
+                                        f"Paid: {paid_amount}, Balance: {balance_due}, Total: {grand_total}"))
+                
+                # Determine payment status
+                if paid_amount == 0:
+                    payment_status = "unpaid"
+                elif balance_due <= 0:
+                    payment_status = "paid"
+                else:
+                    payment_status = "partial"
+                
+                actual_payment_status = invoice_data.get("payment_status", "")
+                payment_status_correct = actual_payment_status == payment_status
+                edge_case_results.append(("Payment status accuracy", payment_status_correct, 
+                                        f"Expected: {payment_status}, Actual: {actual_payment_status}"))
+        
+        # Summary of edge cases
+        all_edge_cases_passed = all(result[1] for result in edge_case_results)
+        passed_edge_cases = sum(1 for result in edge_case_results if result[1])
+        total_edge_cases = len(edge_case_results)
+        
+        details = f"Edge cases: {passed_edge_cases}/{total_edge_cases} passed"
+        for case_name, passed, detail in edge_case_results:
+            if not passed:
+                details += f"\n   ❌ {case_name}: {detail}"
+            else:
+                details += f"\n   ✅ {case_name}: {detail}"
+        
+        self.log_test("Step 7 - Edge Cases", all_edge_cases_passed, details)
+        return all_edge_cases_passed
     
     def cleanup_test_data(self):
         """Clean up test data created during testing"""
