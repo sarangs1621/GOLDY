@@ -125,8 +125,8 @@ class GoldShopERPTester:
         print("📈 Testing Stock Movements...")
         
         try:
-            # Test GET /api/stock-movements
-            response = self.session.get(f"{BASE_URL}/stock-movements")
+            # Test GET /api/inventory/movements
+            response = self.session.get(f"{BASE_URL}/inventory/movements")
             
             if response.status_code == 200:
                 data = response.json()
