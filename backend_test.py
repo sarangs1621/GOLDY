@@ -23,7 +23,7 @@ from datetime import datetime
 import time
 
 # Configuration - Read from frontend/.env
-BASE_URL = "https://template-manager-21.preview.emergentagent.com/api"
+BASE_URL = "https://jobcard-templates.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

@@ -7,7 +7,7 @@ Tests ONLY the critical bug fix: Account balance updates when payments are added
 import requests
 import json
 
-BASE_URL = "https://template-manager-21.preview.emergentagent.com/api"
+BASE_URL = "https://jobcard-templates.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 def authenticate():

@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://template-manager-21.preview.emergentagent.com"
+    BASE_URL = "https://jobcard-templates.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     
