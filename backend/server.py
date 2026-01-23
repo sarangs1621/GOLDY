@@ -2259,12 +2259,23 @@ async def finalize_invoice(invoice_id: str, current_user: User = Depends(get_cur
     Finalize a draft invoice - this is when all financial operations happen atomically.
     Once finalized, the invoice becomes immutable to maintain financial integrity.
     
+    ⚠️ CRITICAL - AUTHORITATIVE STOCK REDUCTION PATH ⚠️
+    This endpoint is the ONLY authorized way to reduce inventory stock (Stock OUT).
+    Manual Stock OUT movements are prohibited to ensure:
+    - Complete audit trail (all stock reductions tied to invoices)
+    - Accurate accounting (revenue recorded for all stock leaving)
+    - GST compliance (tax collected on all sales)
+    - Financial integrity (no unauthorized stock removal)
+    
     Atomic operations performed:
     1. Update invoice status to "finalized"
-    2. Create Stock OUT movements for all items
-    3. Lock linked job card (if exists)
-    4. Create customer ledger entry
-    5. Update customer outstanding balance
+    2. Create Stock OUT movements for all items (ONLY authorized path)
+    3. Directly reduce inventory header current_qty and current_weight
+    4. Lock linked job card (if exists)
+    5. Create customer ledger entry
+    6. Update customer outstanding balance
+    
+    All operations succeed together or fail together to maintain data consistency.
     """
     # Fetch the invoice
     existing = await db.invoices.find_one({"id": invoice_id, "is_deleted": False})
