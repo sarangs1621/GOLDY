@@ -8115,12 +8115,166 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix Account Balance Update in Purchase Finalization"
-    - "Fix GET /api/purchases Serialization Error"
-    - "Fix Outstanding Reports - Include Vendor Payables from Purchases"
+    - "Bug Fix #1: Account Balance Update After Purchase Finalization"
+    - "Bug Fix #2: GET /api/purchases Serialization Error"
+    - "Bug Fix #3: Outstanding Reports Datetime Timezone Error"
+    - "New Endpoint: GET /api/accounts/{account_id}"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "critical_first"
+
+backend:
+  - task: "Bug Fix #1: Account Balance Update After Purchase Finalization"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          IMPLEMENTATION COMPLETE - Lines 1814-1820 in server.py
+          
+          WHAT WAS FIXED:
+          When a purchase is finalized with money payment, the account balance is now updated correctly.
+          
+          CODE IMPLEMENTATION:
+          ```python
+          # CRITICAL FIX: Update account balance when payment is made to vendor
+          # Debit transaction decreases the account balance (money going out)
+          delta = -payment_transaction.amount  # Negative for debit (money out)
+          await db.accounts.update_one(
+              {"id": purchase["account_id"]}, 
+              {"$inc": {"current_balance": delta}}
+          )
+          ```
+          
+          HOW IT WORKS:
+          - When purchase is finalized with paid_amount > 0
+          - A debit transaction is created (money going OUT to vendor)
+          - Account current_balance is decreased by payment amount using MongoDB $inc
+          - Delta is negative because money is leaving the account
+          
+          TESTING REQUIREMENTS:
+          1. Create a new purchase with vendor and items
+          2. Note the account balance before finalization (use GET /api/accounts/{account_id})
+          3. Finalize the purchase with a payment amount (e.g., 500 OMR)
+          4. Verify account balance decreased by exact payment amount
+          5. Verify transaction record created with type="debit" and category="Purchase Payment"
+
+  - task: "Bug Fix #2: GET /api/purchases Serialization Error"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ VERIFIED AND WORKING
+          
+          Previous testing confirmed:
+          - GET /api/purchases returns 200 OK (not 500 error)
+          - Response structure: {items: [], pagination: {}}
+          - All purchases properly serialized (no ObjectId errors)
+          - decimal_to_float() processing working correctly
+          
+          NO FURTHER TESTING NEEDED - Already verified as working.
+
+  - task: "Bug Fix #3: Outstanding Reports Datetime Timezone Error"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          IMPLEMENTATION COMPLETE - Lines 4091-4092 and 4151-4153 in server.py
+          
+          WHAT WAS FIXED:
+          The /api/reports/outstanding endpoint was throwing TypeError:
+          "can't subtract offset-naive and offset-aware datetimes"
+          
+          ROOT CAUSE:
+          The code was trying to subtract dates with different timezone awareness:
+          - `today` variable was timezone-aware (UTC)
+          - Invoice/transaction dates from database were timezone-naive
+          
+          CODE IMPLEMENTATION (Two locations):
+          
+          Location 1 - Invoice overdue calculation (lines 4091-4092):
+          ```python
+          # CRITICAL FIX: Ensure due_date is timezone-aware to match today
+          if due_date.tzinfo is None:
+              due_date = due_date.replace(tzinfo=timezone.utc)
+          ```
+          
+          Location 2 - Vendor payable overdue calculation (lines 4151-4153):
+          ```python
+          # CRITICAL FIX: Ensure txn_date is timezone-aware to match today
+          if txn_date.tzinfo is None:
+              txn_date = txn_date.replace(tzinfo=timezone.utc)
+          ```
+          
+          HOW IT WORKS:
+          - Before calculating overdue_days = (today - date).days
+          - Check if the date is timezone-naive (tzinfo is None)
+          - If naive, add UTC timezone awareness using replace(tzinfo=timezone.utc)
+          - Now both dates are timezone-aware and can be safely subtracted
+          
+          TESTING REQUIREMENTS:
+          1. Call GET /api/reports/outstanding
+          2. Verify returns 200 OK (not 500 Internal Server Error)
+          3. Verify response contains vendor_payables and invoice_receivables
+          4. Verify overdue calculations are correct (overdue_0_7, overdue_8_30, overdue_31_plus)
+          5. No TypeError or timezone-related errors in response
+
+  - task: "New Endpoint: GET /api/accounts/{account_id}"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          IMPLEMENTATION COMPLETE - Lines 3048-3054 in server.py
+          
+          WHAT WAS ADDED:
+          New endpoint to retrieve a single account by ID, required for testing account balance updates.
+          
+          CODE IMPLEMENTATION:
+          ```python
+          @api_router.get("/accounts/{account_id}", response_model=Account)
+          async def get_account(account_id: str, current_user: User = Depends(get_current_user)):
+              """Get a single account by ID"""
+              account = await db.accounts.find_one({"id": account_id, "is_deleted": False}, {"_id": 0})
+              if not account:
+                  raise HTTPException(status_code=404, detail="Account not found")
+              return account
+          ```
+          
+          PURPOSE:
+          - Enables verification of account balance changes
+          - Required for Bug Fix #1 testing
+          - Complements existing GET /api/accounts (list all) endpoint
+          
+          TESTING REQUIREMENTS:
+          1. Get list of accounts using GET /api/accounts
+          2. Pick an account_id from the list
+          3. Call GET /api/accounts/{account_id} with that ID
+          4. Verify returns 200 OK with account details
+          5. Verify response includes: id, name, type, opening_balance, current_balance
+          6. Test with invalid ID and verify returns 404 Not Found
 
 agent_communication:
   - agent: "main"
