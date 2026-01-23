@@ -194,6 +194,11 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleViewInvoice = (invoice) => {
+    setViewInvoice(invoice);
+    setShowViewDialog(true);
+  };
+
   const handleOpenPaymentDialog = (invoice) => {
     setSelectedInvoice(invoice);
     setPaymentData({
