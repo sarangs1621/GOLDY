@@ -2829,6 +2829,14 @@ async def add_payment_to_invoice(
         # Insert transaction
         await db.transactions.insert_one(transaction.model_dump())
         
+        # CRITICAL: Update account balance when payment is received
+        # Credit transaction means money coming in, so increase account balance
+        delta = transaction.amount if transaction.transaction_type == "credit" else -transaction.amount
+        await db.accounts.update_one(
+            {"id": payment_data['account_id']},
+            {"$inc": {"current_balance": delta}}
+        )
+        
         # Update invoice payment details
         new_payment_status = "paid" if new_balance_due < 0.01 else "partial"
         await db.invoices.update_one(
