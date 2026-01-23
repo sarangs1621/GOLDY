@@ -289,39 +289,55 @@ export function ConfirmationDialog({
               </div>
             </div>
 
-            {/* Linked Records Warning */}
-            {(impact.has_linked_invoice || impact.has_linked_jobcard || impact.will_lock_jobcard) && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <Lock className="h-4 w-4 text-yellow-600 mt-0.5" />
-                  <div className="text-sm space-y-1">
-                    {impact.will_lock_jobcard && (
-                      <p className="text-yellow-800">
-                        <strong>Warning:</strong> This will lock the linked job card (
-                        {impact.linked_jobcard?.job_card_number}) and prevent further edits.
-                      </p>
-                    )}
-                    {impact.has_linked_invoice && (
-                      <p className="text-yellow-800">
-                        This job card is linked to invoice {impact.linked_invoice?.invoice_number}
-                      </p>
-                    )}
-                    {impact.has_linked_jobcard && (
-                      <p className="text-yellow-800">
-                        This invoice is linked to job card {impact.linked_jobcard?.job_card_number}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Party Deletion Impact */}
-            {impact.total_linked_records !== undefined && impact.total_linked_records > 0 && (
+            {/* Blocking Reasons - Cannot Proceed */}
+            {impact.can_proceed === false && impact.blocking_reasons && Array.isArray(impact.blocking_reasons) && impact.blocking_reasons.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <div className="text-sm space-y-2 text-red-800">
                   <p className="font-semibold">
-                    ⚠️ This party has {impact.total_linked_records} linked records:
+                    ⛔ Cannot proceed due to:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    {impact.blocking_reasons.map((reason, idx) => (
+                      <li key={idx}>{reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            
+            {/* Single Blocking Reason */}
+            {impact.can_proceed === false && impact.blocking_reason && !Array.isArray(impact.blocking_reasons) && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="text-sm text-red-800">
+                  <p className="font-semibold">⛔ {impact.blocking_reason}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Party Deletion Linked Records */}
+            {impact.total_linked_records !== undefined && impact.total_linked_records > 0 && impact.linked_records && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="text-sm space-y-2 text-red-800">
+                  <p className="font-semibold">
+                    ⛔ This party has {impact.total_linked_records} linked records:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    {impact.linked_records.jobcards > 0 && <li>{impact.linked_records.jobcards} Job Card(s)</li>}
+                    {impact.linked_records.invoices > 0 && <li>{impact.linked_records.invoices} Invoice(s)</li>}
+                    {impact.linked_records.purchases > 0 && <li>{impact.linked_records.purchases} Purchase(s)</li>}
+                    {impact.linked_records.transactions > 0 && <li>{impact.linked_records.transactions} Transaction(s)</li>}
+                    {impact.linked_records.gold_ledger > 0 && <li>{impact.linked_records.gold_ledger} Gold Ledger Entry/Entries</li>}
+                  </ul>
+                </div>
+              </div>
+            )}
+            
+            {/* Old Party Deletion Format (backward compatibility) */}
+            {impact.linked_invoices > 0 || impact.linked_purchases > 0 || impact.linked_jobcards > 0 || impact.linked_gold_ledger > 0 || impact.linked_transactions > 0 ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="text-sm space-y-2 text-red-800">
+                  <p className="font-semibold">
+                    ⛔ This party has linked records:
                   </p>
                   <ul className="list-disc list-inside space-y-1 ml-2">
                     {impact.linked_invoices > 0 && <li>{impact.linked_invoices} Invoices</li>}
@@ -339,14 +355,56 @@ export function ConfirmationDialog({
                   )}
                 </div>
               </div>
+            ) : null}
+
+            {/* Linked Records Warning */}
+            {(impact.has_linked_invoice || impact.has_linked_jobcard || impact.will_lock_jobcard || impact.linked_invoice) && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <Lock className="h-4 w-4 text-yellow-600 mt-0.5" />
+                  <div className="text-sm space-y-1">
+                    {impact.will_lock_jobcard && (
+                      <p className="text-yellow-800">
+                        <strong>Warning:</strong> This will lock the linked job card and prevent further edits.
+                      </p>
+                    )}
+                    {impact.has_linked_invoice && impact.linked_invoice && (
+                      <p className="text-yellow-800">
+                        This job card is linked to invoice {impact.linked_invoice.invoice_number}
+                      </p>
+                    )}
+                    {impact.linked_invoice && !impact.has_linked_invoice && (
+                      <p className="text-yellow-800">
+                        Linked to invoice: {impact.linked_invoice}
+                      </p>
+                    )}
+                    {impact.has_linked_jobcard && impact.linked_jobcard && (
+                      <p className="text-yellow-800">
+                        This invoice is linked to job card {impact.linked_jobcard.job_card_number}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Irreversible Action Warning */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-800 font-semibold">
-                ⚠️ This action cannot be undone. All changes will be permanent.
-              </p>
-            </div>
+            {impact.warning && (
+              <div className={`border rounded-lg p-3 ${impact.can_proceed === false ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                <p className={`text-sm font-semibold ${impact.can_proceed === false ? 'text-red-800' : 'text-amber-800'}`}>
+                  {impact.can_proceed === false ? '⛔' : '⚠️'} {impact.warning}
+                </p>
+              </div>
+            )}
+            
+            {/* Fallback irreversible warning */}
+            {!impact.warning && impact.can_proceed !== false && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-800 font-semibold">
+                  ⚠️ This action cannot be undone. All changes will be permanent.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
