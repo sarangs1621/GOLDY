@@ -81,10 +81,52 @@ export function ConfirmationDialog({
                   </div>
                 )}
                 
+                {impact.status && (
+                  <div>
+                    <span className="text-slate-600">Status:</span>
+                    <Badge variant="outline" className="ml-2">{impact.status}</Badge>
+                  </div>
+                )}
+                
+                {impact.status_change && (
+                  <div className="col-span-2">
+                    <span className="text-slate-600">Status Change:</span>
+                    <span className="font-medium ml-2 text-blue-600">{impact.status_change}</span>
+                  </div>
+                )}
+                
+                {impact.invoice_number && (
+                  <div className="col-span-2">
+                    <span className="text-slate-600">Invoice:</span>
+                    <span className="font-medium ml-2">{impact.invoice_number}</span>
+                  </div>
+                )}
+                
+                {impact.item_count !== undefined && (
+                  <div>
+                    <span className="text-slate-600">Items:</span>
+                    <span className="font-medium ml-2">{impact.item_count}</span>
+                  </div>
+                )}
+                
                 {impact.total_items !== undefined && (
                   <div>
                     <span className="text-slate-600">Total Items:</span>
                     <span className="font-medium ml-2">{impact.total_items}</span>
+                  </div>
+                )}
+                
+                {impact.total_weight !== undefined && (
+                  <div>
+                    <span className="text-slate-600">Total Weight:</span>
+                    <span className="font-medium ml-2">{impact.total_weight?.toFixed(3)}g</span>
+                  </div>
+                )}
+                
+                {impact.weight !== undefined && (
+                  <div>
+                    <span className="text-slate-600">Weight:</span>
+                    <span className="font-medium ml-2">{impact.weight?.toFixed(3)}g</span>
                   </div>
                 )}
                 
@@ -95,45 +137,87 @@ export function ConfirmationDialog({
                   </div>
                 )}
                 
+                {impact.total_making_charges !== undefined && (
+                  <div>
+                    <span className="text-slate-600">Making Charges:</span>
+                    <span className="font-medium ml-2">{impact.total_making_charges?.toFixed(2)} OMR</span>
+                  </div>
+                )}
+                
                 {impact.grand_total !== undefined && (
                   <div>
                     <span className="text-slate-600">Grand Total:</span>
-                    <span className="font-medium ml-2">{impact.grand_total} OMR</span>
+                    <span className="font-medium ml-2">{impact.grand_total?.toFixed(2)} OMR</span>
                   </div>
                 )}
                 
                 {impact.amount_total !== undefined && (
                   <div>
                     <span className="text-slate-600">Amount:</span>
-                    <span className="font-medium ml-2">{impact.amount_total} OMR</span>
+                    <span className="font-medium ml-2">{impact.amount_total?.toFixed(2)} OMR</span>
+                  </div>
+                )}
+                
+                {impact.amount !== undefined && (
+                  <div>
+                    <span className="text-slate-600">Amount:</span>
+                    <span className="font-medium ml-2">{impact.amount?.toFixed(2)} OMR</span>
                   </div>
                 )}
                 
                 {impact.paid_amount !== undefined && impact.paid_amount > 0 && (
                   <div>
                     <span className="text-slate-600">Paid Amount:</span>
-                    <span className="font-medium ml-2 text-green-600">{impact.paid_amount} OMR</span>
-                  </div>
-                )}
-                
-                {impact.balance_due !== undefined && impact.balance_due > 0 && (
-                  <div>
-                    <span className="text-slate-600">Balance Due:</span>
-                    <span className="font-medium ml-2 text-red-600">{impact.balance_due} OMR</span>
+                    <span className="font-medium ml-2 text-green-600">{impact.paid_amount?.toFixed(2)} OMR</span>
                   </div>
                 )}
                 
                 {impact.paid_amount_money !== undefined && impact.paid_amount_money > 0 && (
                   <div>
                     <span className="text-slate-600">Paid:</span>
-                    <span className="font-medium ml-2 text-green-600">{impact.paid_amount_money} OMR</span>
+                    <span className="font-medium ml-2 text-green-600">{impact.paid_amount_money?.toFixed(2)} OMR</span>
+                  </div>
+                )}
+                
+                {impact.balance_due !== undefined && impact.balance_due > 0 && (
+                  <div>
+                    <span className="text-slate-600">Balance Due:</span>
+                    <span className="font-medium ml-2 text-red-600">{impact.balance_due?.toFixed(2)} OMR</span>
                   </div>
                 )}
                 
                 {impact.balance_due_money !== undefined && impact.balance_due_money > 0 && (
                   <div>
                     <span className="text-slate-600">Balance:</span>
-                    <span className="font-medium ml-2 text-red-600">{impact.balance_due_money} OMR</span>
+                    <span className="font-medium ml-2 text-red-600">{impact.balance_due_money?.toFixed(2)} OMR</span>
+                  </div>
+                )}
+                
+                {impact.payment_count !== undefined && (
+                  <div>
+                    <span className="text-slate-600">Payments:</span>
+                    <span className="font-medium ml-2">{impact.payment_count}</span>
+                  </div>
+                )}
+                
+                {impact.transaction_type && (
+                  <div>
+                    <span className="text-slate-600">Type:</span>
+                    <span className="font-medium ml-2">{impact.transaction_type}</span>
+                  </div>
+                )}
+                
+                {impact.category && (
+                  <div>
+                    <span className="text-slate-600">Category:</span>
+                    <span className="font-medium ml-2">{impact.category}</span>
+                  </div>
+                )}
+                
+                {impact.transaction_number && (
+                  <div className="col-span-2">
+                    <span className="text-slate-600">Transaction:</span>
+                    <span className="font-medium ml-2">{impact.transaction_number}</span>
                   </div>
                 )}
                 
@@ -147,7 +231,31 @@ export function ConfirmationDialog({
                 {impact.vendor_payable_will_be !== undefined && impact.vendor_payable_will_be > 0 && (
                   <div>
                     <span className="text-slate-600">Vendor Payable:</span>
-                    <span className="font-medium ml-2 text-red-600">{impact.vendor_payable_will_be} OMR</span>
+                    <span className="font-medium ml-2 text-red-600">{impact.vendor_payable_will_be?.toFixed(2)} OMR</span>
+                  </div>
+                )}
+                
+                {impact.will_add_stock && (
+                  <div className="col-span-2 text-green-700">
+                    <span className="font-medium">✓ Will add stock at 916 purity (22K)</span>
+                  </div>
+                )}
+                
+                {impact.will_deduct_stock && (
+                  <div className="col-span-2 text-amber-700">
+                    <span className="font-medium">⚠ Will deduct stock from inventory</span>
+                  </div>
+                )}
+                
+                {impact.will_create_payable && (
+                  <div className="col-span-2 text-amber-700">
+                    <span className="font-medium">⚠ Will create vendor payable</span>
+                  </div>
+                )}
+                
+                {impact.will_affect_account && (
+                  <div className="col-span-2 text-amber-700">
+                    <span className="font-medium">⚠ Will adjust account balance</span>
                   </div>
                 )}
                 
@@ -169,6 +277,13 @@ export function ConfirmationDialog({
                   <div className="col-span-2">
                     <span className="text-slate-600">Party:</span>
                     <span className="font-medium ml-2">{impact.party_name}</span>
+                  </div>
+                )}
+                
+                {impact.party_type && (
+                  <div>
+                    <span className="text-slate-600">Party Type:</span>
+                    <span className="font-medium ml-2">{impact.party_type}</span>
                   </div>
                 )}
               </div>
