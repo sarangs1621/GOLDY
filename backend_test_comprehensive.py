@@ -501,7 +501,7 @@ class GoldShopERPTester:
         # Test pagination on major endpoints
         endpoints_to_test = [
             "parties", "jobcards", "invoices", "transactions", 
-            "stock-movements", "daily-closings"
+            "purchases", "daily-closings"
         ]
         
         for endpoint in endpoints_to_test:
