@@ -209,10 +209,10 @@ class BugFixTester:
             vendor_id = vendor["id"]
             self.log_result("Bug #1 - Create Vendor", "PASS", f"Created vendor: {vendor['name']}")
             
-            # STEP 2: Create test account with proper balance setup
+            # STEP 2: Create test account with unique name and proper balance setup
             print("STEP 2: Creating test account...")
             account_data = {
-                "name": "Test Cash Account",
+                "name": f"Test Cash Account {datetime.now().strftime('%Y%m%d%H%M%S')}",
                 "account_type": "cash",
                 "opening_balance": 10000.00,
                 "current_balance": 10000.00  # Set current_balance explicitly
