@@ -176,17 +176,18 @@ class PurchasesBugFixTester:
             cash_account_id = self.test_data['cash_account']['id']
             
             purchase_data = {
-                "vendor_id": vendor_id,
+                "vendor_party_id": vendor_id,
                 "date": datetime.now(timezone.utc).isoformat(),
                 "description": "Test Purchase - Account Balance Update Verification",
                 "weight_grams": 50.0,
-                "purity_entered": 916,
+                "entered_purity": 916,
                 "rate_per_gram": 30.0,
                 "amount_total": 1500.0,  # 50.0 * 30.0
                 "paid_amount_money": 1000.0,  # Partial payment
                 "balance_due_money": 500.0,   # Remaining balance
                 "account_id": cash_account_id,
-                "payment_mode": "Cash"
+                "payment_mode": "Cash",
+                "created_by": "admin"
             }
             
             response = self.session.post(f"{BASE_URL}/purchases", json=purchase_data)
