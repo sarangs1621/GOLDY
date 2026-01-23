@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
-import { FileText, Printer, CheckCircle, Lock, DollarSign, AlertTriangle, Eye } from 'lucide-react';
+import { FileText, Printer, CheckCircle, Lock, DollarSign, AlertTriangle, Eye, Trash2 } from 'lucide-react';
+import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
