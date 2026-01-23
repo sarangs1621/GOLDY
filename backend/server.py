@@ -14,11 +14,6 @@ from passlib.context import CryptContext
 import jwt
 from decimal import Decimal
 from bson import Decimal128, ObjectId
-import pydantic
-
-# CRITICAL FIX: Global ObjectId to string encoder for JSON serialization
-# This fixes "ObjectId is not JSON serializable" errors across all endpoints
-pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
