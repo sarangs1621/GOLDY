@@ -982,6 +982,32 @@ export default function InvoicesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Finalize Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showFinalizeConfirm}
+        onOpenChange={setShowFinalizeConfirm}
+        onConfirm={confirmFinalizeInvoice}
+        title="Finalize Invoice"
+        description={`Are you sure you want to finalize invoice ${confirmInvoice?.invoice_number}? This will lock the invoice and deduct stock from inventory. This action cannot be undone.`}
+        impact={impactData}
+        actionLabel="Finalize Invoice"
+        actionType="warning"
+        loading={confirmLoading}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        onConfirm={confirmDeleteInvoice}
+        title="Delete Invoice"
+        description={`Are you sure you want to delete invoice ${confirmInvoice?.invoice_number}? This action cannot be undone.`}
+        impact={impactData}
+        actionLabel="Delete Invoice"
+        actionType="danger"
+        loading={confirmLoading}
+      />
     </div>
   );
 }
