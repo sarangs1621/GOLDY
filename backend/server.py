@@ -669,6 +669,9 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
       * Complete audit trail (tied to invoice)
       * Accurate accounting (revenue recorded)
       * GST compliance (tax collected)
+      
+    WORKFLOW CONTROL:
+    - confirmation_reason is REQUIRED for all manual adjustments
     """
     header = await db.inventory_headers.find_one({"id": movement_data['header_id']}, {"_id": 0})
     if not header:
@@ -678,6 +681,14 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
     movement_type = movement_data.get('movement_type', '').strip()
     qty_delta = movement_data.get('qty_delta', 0)
     weight_delta = movement_data.get('weight_delta', 0)
+    
+    # WORKFLOW CONTROL: Require confirmation_reason for manual adjustments
+    confirmation_reason = movement_data.get('confirmation_reason', '').strip()
+    if not confirmation_reason:
+        raise HTTPException(
+            status_code=400,
+            detail="confirmation_reason is required for all manual inventory adjustments. Please provide a reason for this stock movement."
+        )
     
     # Block Stock OUT movement type entirely
     if movement_type == "Stock OUT":
@@ -711,11 +722,28 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
         weight_delta=weight_delta,
         purity=movement_data['purity'],
         notes=movement_data.get('notes'),
+        confirmation_reason=confirmation_reason,
         created_by=current_user.id
     )
     
     # Insert stock movement for audit trail
     await db.stock_movements.insert_one(movement.model_dump())
+    
+    # Create audit log for manual inventory adjustment
+    await create_audit_log(
+        current_user.id,
+        current_user.full_name,
+        "inventory",
+        movement.id,
+        f"manual_{movement_type.lower().replace(' ', '_')}",
+        {
+            "movement_type": movement_type,
+            "header_name": header['name'],
+            "qty_delta": qty_delta,
+            "weight_delta": weight_delta,
+            "confirmation_reason": confirmation_reason
+        }
+    )
     
     # DIRECT UPDATE: Update header's current quantity and weight
     new_qty = header.get('current_qty', 0) + qty_delta
