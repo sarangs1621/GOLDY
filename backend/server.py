@@ -680,19 +680,34 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
 @api_router.delete("/inventory/movements/{movement_id}")
 async def delete_stock_movement(movement_id: str, current_user: User = Depends(get_current_user)):
     """
-    Delete a stock movement and reverse its effect on inventory
-    WARNING: This should only be used for corrections of errors
+    Delete a stock movement and reverse its effect on inventory.
+    
+    CRITICAL RESTRICTIONS - Production ERP Compliance:
+    - CANNOT delete movements linked to invoices or purchases (reference_type set)
+    - CANNOT delete Stock OUT movements (these are created only by invoice finalization)
+    - CAN ONLY delete manual Stock IN or Adjustment movements
+    - This ensures audit trail integrity and prevents financial record corruption
+    
+    WARNING: This should only be used for corrections of manual entry errors.
     """
     # Find the movement
     movement = await db.stock_movements.find_one({"id": movement_id, "is_deleted": False}, {"_id": 0})
     if not movement:
         raise HTTPException(status_code=404, detail="Stock movement not found")
     
-    # Check if this movement is linked to an invoice or purchase (reference_type)
+    # CRITICAL VALIDATION 1: Check if linked to invoice or purchase
     if movement.get('reference_type') in ['invoice', 'purchase']:
         raise HTTPException(
-            status_code=400,
-            detail=f"Cannot delete stock movement linked to {movement.get('reference_type')}. This movement is part of an official transaction and must be preserved for audit trail."
+            status_code=403,
+            detail=f"Cannot delete stock movement linked to {movement.get('reference_type')}. This movement is part of an official transaction and must be preserved for audit trail, accounting accuracy, and GST compliance."
+        )
+    
+    # CRITICAL VALIDATION 2: Prevent deletion of Stock OUT movements
+    # Stock OUT should NEVER be created manually, but if somehow exists without reference_type, block deletion
+    if movement.get('movement_type') == "Stock OUT":
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot delete 'Stock OUT' movement. Stock OUT movements represent sales/reductions and must be preserved for audit trail. If this movement was created in error, contact system administrator."
         )
     
     # Get the header to reverse the stock changes
