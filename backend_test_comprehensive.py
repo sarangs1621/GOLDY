@@ -310,7 +310,7 @@ class GoldShopERPTester:
                     # Check invoice structure
                     if len(invoices) > 0:
                         first_invoice = invoices[0]
-                        required_fields = ["items", "subtotal", "discount", "grand_total"]
+                        required_fields = ["items", "subtotal", "discount_amount", "grand_total"]
                         
                         has_required_fields = all(field in first_invoice for field in required_fields)
                         
