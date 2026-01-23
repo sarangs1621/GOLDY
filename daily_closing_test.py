@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://smart-purchase-9.preview.emergentagent.com"
+    BASE_URL = "https://confirm-dialogs.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     
