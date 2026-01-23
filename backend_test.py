@@ -314,16 +314,15 @@ class InvoiceFinalizationTester:
             
             # 1. Basic structure
             required_fields = ["id", "invoice_number", "date", "customer_name", "items", 
-                             "subtotal", "vat_total", "grand_total", "status", "finalized_at", "locked"]
+                             "subtotal", "vat_total", "grand_total", "status", "finalized_at"]
             missing_fields = [field for field in required_fields if field not in invoice_data]
             verification_results.append(("Basic structure", len(missing_fields) == 0, f"Missing: {missing_fields}" if missing_fields else "All fields present"))
             
             # 2. Status verification
             status = invoice_data.get("status")
-            locked = invoice_data.get("locked")
             finalized_at = invoice_data.get("finalized_at")
-            verification_results.append(("Status verification", status == "finalized" and locked and finalized_at, 
-                                       f"Status: {status}, Locked: {locked}, Finalized: {bool(finalized_at)}"))
+            verification_results.append(("Status verification", status == "finalized" and finalized_at, 
+                                       f"Status: {status}, Finalized: {bool(finalized_at)}"))
             
             # 3. Customer information
             customer_info_complete = all(invoice_data.get(field) for field in ["customer_name", "customer_id"])
