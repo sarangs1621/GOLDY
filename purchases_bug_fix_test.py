@@ -420,17 +420,18 @@ class PurchasesBugFixTester:
             # 2. Purchase Creation with Validation
             vendor_id = self.test_data['vendor']['id']
             purchase_data = {
-                "vendor_id": vendor_id,
+                "vendor_party_id": vendor_id,
                 "date": datetime.now(timezone.utc).isoformat(),
                 "description": "Comprehensive Workflow Test Purchase",
                 "weight_grams": 75.0,
-                "purity_entered": 916,
+                "entered_purity": 916,
                 "rate_per_gram": 35.0,
                 "amount_total": 2625.0,  # 75.0 * 35.0
                 "paid_amount_money": 1500.0,
                 "balance_due_money": 1125.0,
                 "account_id": self.test_data['cash_account']['id'],
-                "payment_mode": "Cash"
+                "payment_mode": "Cash",
+                "created_by": "admin"
             }
             
             response = self.session.post(f"{BASE_URL}/purchases", json=purchase_data)
