@@ -437,6 +437,7 @@ export default function PurchasesPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleOpenDialog(purchase)}
+                                title="Edit Purchase"
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -444,9 +445,18 @@ export default function PurchasesPage() {
                                 size="sm"
                                 onClick={() => handleFinalizePurchase(purchase)}
                                 disabled={finalizing === purchase.id}
+                                title="Finalize Purchase"
                               >
                                 <CheckCircle className="w-4 h-4 mr-1" />
                                 {finalizing === purchase.id ? 'Finalizing...' : 'Finalize'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeletePurchase(purchase)}
+                                title="Delete Purchase"
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </Button>
                             </>
                           )}
