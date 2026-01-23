@@ -128,72 +128,7 @@ class BugFixTester:
             self.log_result("Bug #3 - Exception", "FAIL", f"Exception: {str(e)}")
             return False
     
-    def test_account_detail_endpoint(self):
-        """🔥 PRIORITY 2: Test Account Detail Endpoint (New Feature)"""
-        print("🔥 PRIORITY 2: TESTING ACCOUNT DETAIL ENDPOINT (New Feature)")
-        print("=" * 60)
-        
-        try:
-            # First get list of accounts
-            accounts_response = self.session.get(f"{BASE_URL}/accounts")
-            
-            if accounts_response.status_code != 200:
-                self.log_result("Account Detail - Get Accounts List", "FAIL", 
-                              f"Status: {accounts_response.status_code}")
-                return False
-            
-            accounts_data = accounts_response.json()
-            accounts = accounts_data.get("items", []) if isinstance(accounts_data, dict) else accounts_data
-            
-            if not accounts:
-                self.log_result("Account Detail - Get Accounts List", "FAIL", "No accounts found")
-                return False
-            
-            self.log_result("Account Detail - Get Accounts List", "PASS", 
-                          f"Found {len(accounts)} accounts")
-            
-            # Test with valid account ID
-            test_account = accounts[0]
-            account_id = test_account["id"]
-            
-            detail_response = self.session.get(f"{BASE_URL}/accounts/{account_id}")
-            
-            if detail_response.status_code == 200:
-                account_detail = detail_response.json()
-                
-                # Verify required fields
-                required_fields = ["id", "name", "type", "opening_balance", "current_balance"]
-                missing_fields = [field for field in required_fields if field not in account_detail]
-                
-                if missing_fields:
-                    self.log_result("Account Detail - Valid ID Response", "FAIL", 
-                                  f"Missing fields: {missing_fields}")
-                    return False
-                
-                self.log_result("Account Detail - Valid ID Response", "PASS", 
-                              f"Account: {account_detail['name']}, Type: {account_detail['type']}, Balance: {account_detail['current_balance']}")
-                
-            else:
-                self.log_result("Account Detail - Valid ID Response", "FAIL", 
-                              f"Status: {detail_response.status_code}")
-                return False
-            
-            # Test with invalid account ID
-            invalid_response = self.session.get(f"{BASE_URL}/accounts/invalid-account-id")
-            
-            if invalid_response.status_code == 404:
-                self.log_result("Account Detail - Invalid ID Response", "PASS", 
-                              "Returns 404 Not Found for invalid account ID")
-            else:
-                self.log_result("Account Detail - Invalid ID Response", "FAIL", 
-                              f"Expected 404, got {invalid_response.status_code}")
-                return False
-            
-            return True
-            
-        except Exception as e:
-            self.log_result("Account Detail - Exception", "FAIL", f"Exception: {str(e)}")
-            return False
+    # Removed old test_account_detail_endpoint method - not needed for this bug fix verification
     
     def test_bug_2_purchases_serialization(self):
         """🔥 TEST 2: Bug Fix #2 - GET /api/purchases Serialization (Re-confirmation)"""
