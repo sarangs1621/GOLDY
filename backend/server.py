@@ -1037,6 +1037,20 @@ async def update_party(party_id: str, party_data: dict, current_user: User = Dep
     if not existing:
         raise HTTPException(status_code=404, detail="Party not found")
     
+    # Validate duplicate phone number if phone is being updated
+    phone = party_data.get('phone')
+    if phone and phone.strip():  # Only check if phone is provided and not empty
+        existing_phone = await db.parties.find_one({
+            "phone": phone.strip(),
+            "is_deleted": False,
+            "id": {"$ne": party_id}  # Exclude current party
+        })
+        if existing_phone:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Phone number {phone} is already registered with another party: {existing_phone.get('name', 'Unknown')}"
+            )
+    
     await db.parties.update_one({"id": party_id}, {"$set": party_data})
     await create_audit_log(current_user.id, current_user.full_name, "party", party_id, "update", party_data)
     
