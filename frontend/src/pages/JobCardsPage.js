@@ -387,17 +387,34 @@ export default function JobCardsPage() {
   };
 
   const handleDeleteJobCard = async (jobcardId, jobcardNumber) => {
-    if (!window.confirm(`Are you sure you want to delete job card ${jobcardNumber}? This action cannot be undone.`)) {
-      return;
-    }
-
+    // Load impact data first
     try {
-      await axios.delete(`${API}/jobcards/${jobcardId}`);
-      toast.success('Job card deleted successfully');
-      loadData();
+      const impactRes = await axios.get(`${API}/jobcards/${jobcardId}/impact`);
+      const impact = impactRes.data;
+      
+      setConfirmDialog({
+        open: true,
+        type: 'delete',
+        title: 'Delete Job Card',
+        description: `Are you sure you want to delete job card ${jobcardNumber}? This action cannot be undone and will permanently remove this record from the system.`,
+        impact: impact,
+        action: async () => {
+          try {
+            setConfirmDialog(prev => ({ ...prev, loading: true }));
+            await axios.delete(`${API}/jobcards/${jobcardId}`);
+            toast.success('Job card deleted successfully');
+            setConfirmDialog(prev => ({ ...prev, open: false, loading: false }));
+            loadData();
+          } catch (error) {
+            const errorMsg = error.response?.data?.detail || 'Failed to delete job card';
+            toast.error(errorMsg);
+            setConfirmDialog(prev => ({ ...prev, loading: false }));
+          }
+        },
+        loading: false
+      });
     } catch (error) {
-      const errorMsg = error.response?.data?.detail || 'Failed to delete job card';
-      toast.error(errorMsg);
+      toast.error('Failed to load job card details');
     }
   };
 
