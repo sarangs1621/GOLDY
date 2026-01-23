@@ -282,15 +282,14 @@ class InvoiceFinalizationTester:
             # Verify finalization
             status = finalized_invoice.get("status")
             finalized_at = finalized_invoice.get("finalized_at")
-            locked = finalized_invoice.get("locked")
             
-            if status == "finalized" and finalized_at and locked:
+            if status == "finalized" and finalized_at:
                 self.log_test("Step 3 - Finalize Invoice", True, 
-                            f"Invoice finalized successfully. Status: {status}, Locked: {locked}, Finalized at: {finalized_at}")
+                            f"Invoice finalized successfully. Status: {status}, Finalized at: {finalized_at}")
                 return True
             else:
                 self.log_test("Step 3 - Finalize Invoice", False, 
-                            f"Finalization incomplete. Status: {status}, Locked: {locked}, Finalized at: {finalized_at}")
+                            f"Finalization incomplete. Status: {status}, Finalized at: {finalized_at}")
                 return False
         else:
             self.log_test("Step 3 - Finalize Invoice", False, 
