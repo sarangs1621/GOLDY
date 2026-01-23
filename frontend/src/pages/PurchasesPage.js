@@ -21,6 +21,13 @@ export default function PurchasesPage() {
   const [editingPurchase, setEditingPurchase] = useState(null);
   const [finalizing, setFinalizing] = useState(null);
   
+  // Confirmation Dialogs
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [confirmPurchase, setConfirmPurchase] = useState(null);
+  const [impactData, setImpactData] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  
   // Filters
   const [filterVendor, setFilterVendor] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
