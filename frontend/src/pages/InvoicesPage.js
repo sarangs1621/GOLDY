@@ -770,6 +770,63 @@ export default function InvoicesPage() {
                 </div>
               </div>
 
+              {/* Enhanced Cost Components Breakdown */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200 mb-4">
+                <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  Cost Components Breakdown
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-md p-3 border border-blue-100">
+                    <div className="text-xs text-gray-600 mb-1">Total Metal Value</div>
+                    <div className="font-mono font-bold text-amber-700">
+                      {(viewInvoice.items || []).reduce((sum, item) => sum + (item.gold_value || 0), 0).toFixed(3)} OMR
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Weight × Rate</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-md p-3 border border-blue-100">
+                    <div className="text-xs text-gray-600 mb-1">Total Making Charges</div>
+                    <div className="font-mono font-bold text-green-700">
+                      {(viewInvoice.items || []).reduce((sum, item) => sum + (item.making_value || 0), 0).toFixed(3)} OMR
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Labor & Craftsmanship</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-md p-3 border border-blue-100">
+                    <div className="text-xs text-gray-600 mb-1">Total VAT</div>
+                    <div className="font-mono font-bold text-blue-700">
+                      {(viewInvoice.vat_total || 0).toFixed(3)} OMR
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {viewInvoice.items && viewInvoice.items.length > 0 
+                        ? `@ ${viewInvoice.items[0].vat_percent || 5}%` 
+                        : '@ 5%'}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-md p-3">
+                    <div className="text-xs text-blue-100 mb-1">Grand Total</div>
+                    <div className="font-mono font-bold text-xl">
+                      {(viewInvoice.grand_total || 0).toFixed(2)} OMR
+                    </div>
+                    <div className="text-xs text-blue-200 mt-1">Inc. All Charges</div>
+                  </div>
+                </div>
+                
+                {/* Weight Summary */}
+                <div className="mt-3 pt-3 border-t border-blue-200">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-blue-800 font-medium">Total Weight:</span>
+                    <span className="font-mono font-semibold text-blue-900">
+                      {(viewInvoice.items || []).reduce((sum, item) => sum + (item.weight || 0), 0).toFixed(3)}g
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Totals Section */}
               <div className="grid grid-cols-2 gap-6">
                 {/* Left side - Payment Details */}
