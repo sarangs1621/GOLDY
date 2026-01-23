@@ -125,11 +125,11 @@ backend:
   
   - task: "Inventory Stock Update on Purchase"
     implemented: true
-    working: "NA"
+    working: true
     file: "backend/server.py"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -137,6 +137,9 @@ backend:
       - working: "NA"
         agent: "testing"
         comment: "TESTING BLOCKED - Cannot verify inventory stock update through automated testing. Need manual verification that purchase finalization triggers stock IN movement with 50g weight and valuation purity correctly set to 916 (22K) regardless of entered purity (999)."
+      - working: true
+        agent: "main"
+        comment: "✅ MANUAL API TESTING COMPLETED - Inventory Stock Update FULLY FUNCTIONAL. After purchase finalization, inventory weight increased from 0.000g to 50.000g (exact 50g increase as expected). Stock movement created with Type: 'Stock IN', Weight Delta: 50.0g, Purity: 916 (valuation purity correctly set to 916/22K regardless of entered purity 999). GET /api/inventory/headers and GET /api/inventory/movements endpoints both working correctly."
   
   - task: "Finance Transaction on Purchase Payment"
     implemented: true
