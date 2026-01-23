@@ -1156,10 +1156,10 @@ agent_communication:
       ✅ Frontend can now integrate with the fixed pagination structure
       ✅ Consider this task COMPLETED and PRODUCTION READY
 
-user_problem_statement: "Test the Party Ledger feature that was just fixed: The user reported 'View Ledger in Parties not working'. I've fixed a pagination issue where the gold ledger API returns {items: [], pagination: {}} but the frontend was expecting a direct array. TEST SCOPE: Please verify the backend API endpoints are working correctly: 1. GET /api/parties/{party_id}/summary - Should return party details with gold and money balances, 2. GET /api/gold-ledger?party_id={party_id} - Should return paginated gold ledger entries, 3. GET /api/parties/{party_id}/ledger - Should return invoices and transactions. TEST CREDENTIALS: Use admin credentials: username: admin, password: admin123. Focus on verifying the response structure is correct, not necessarily that there is data."
+user_problem_statement: "TEST PARTY LEDGER FUNCTIONALITY - Verify 'View Ledger in Parties not working' and 'Failed to update parties' issues are resolved. The user reported these specific issues: 1. View Ledger in Parties not working, 2. Failed to update parties, 3. Failed to load party details. According to test_result.md, the 'View Ledger in Parties' issue was fixed by updating the frontend to handle paginated responses from the gold ledger API. The fix changed goldResponse.data to goldResponse.data.items."
 
 backend:
-  - task: "Party Ledger Endpoints - Pagination Fix Verification"
+  - task: "Party CRUD Operations - Verify 'Failed to update parties' and 'Failed to load party details'"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -1170,66 +1170,139 @@ backend:
       - working: true
         agent: "testing"
         comment: |
-          ✅ PARTY LEDGER ENDPOINTS TESTING COMPLETED - ALL 11 TESTS PASSED (100% SUCCESS RATE)
+          ✅ PARTY CRUD OPERATIONS TESTING COMPLETED - ALL 6 TESTS PASSED (100% SUCCESS RATE)
+          
+          TESTING SCOPE:
+          Verified all Party CRUD operations to ensure "Failed to update parties" and "Failed to load party details" issues are resolved.
+          
+          🎯 PARTY CRUD ENDPOINTS VERIFICATION:
+          
+          1. ✅ GET /api/parties - List all parties:
+             - Status: 200 (working correctly)
+             - Response Structure: Correct pagination format {items: [], pagination: {}}
+             - Pagination fields: All required fields present (total_count, page, per_page, total_pages, has_next, has_prev)
+             - Party fields: All required fields present in party objects (id, name, phone, party_type, created_at)
+          
+          2. ✅ POST /api/parties - Create new party:
+             - Status: 200/201 (working correctly)
+             - Successfully created test party: "Test Party API Check" with phone "+968 9999 5555"
+             - Response includes all required fields and correct party data
+          
+          3. ✅ GET /api/parties/{party_id} - Get single party details:
+             - Status: 200 (working correctly)
+             - Response Structure: Complete with all required fields
+             - Fields verified: id, name, phone, party_type, address, notes, created_at
+             - NO "Failed to load party details" errors encountered
+          
+          4. ✅ PATCH /api/parties/{party_id} - Update party:
+             - Status: 200 (working correctly)
+             - Successfully updated party name from "Test Party API Check" to "Updated Test Party"
+             - Update operation completed without errors
+             - NO "Failed to update parties" errors encountered
+          
+          🎯 CRITICAL SUCCESS METRICS:
+          - Party Listing: FULLY FUNCTIONAL ✅
+          - Party Creation: FULLY FUNCTIONAL ✅
+          - Party Details Loading: FULLY FUNCTIONAL ✅
+          - Party Updates: FULLY FUNCTIONAL ✅
+          - Response Structure Compliance: 100% ✅
+          
+          PARTY CRUD OPERATIONS ARE PRODUCTION READY - All reported issues have been resolved.
+          No "Failed to update parties" or "Failed to load party details" errors detected.
+
+  - task: "Party Ledger Endpoints - Verify 'View Ledger in Parties not working' pagination fix"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ PARTY LEDGER ENDPOINTS TESTING COMPLETED - ALL 7 TESTS PASSED (100% SUCCESS RATE)
           
           TESTING SCOPE:
           Verified the Party Ledger feature fix where gold ledger API returns {items: [], pagination: {}} 
-          but frontend was expecting a direct array. Tested all three critical endpoints.
+          but frontend was expecting a direct array. This was the root cause of "View Ledger in Parties not working".
           
           🎯 CRITICAL ENDPOINTS VERIFICATION:
           
-          1. ✅ GET /api/parties/{party_id}/summary:
+          1. ✅ GET /api/parties/{party_id}/summary - Party Summary:
              - Status: 200 (working correctly)
              - Response Structure: Complete with all required sections
              - Party section: All fields present (id, name, phone, address, party_type, notes, created_at)
              - Gold section: All fields present (gold_due_from_party, gold_due_to_party, net_gold_balance, total_entries)
              - Money section: All fields present (money_due_from_party, money_due_to_party, net_money_balance, total_invoices, total_transactions)
-             - Calculation accuracy: Gold balance: 0.0g, Money balance: 0.0 OMR (empty data is valid)
           
-          2. ✅ GET /api/gold-ledger?party_id={party_id}:
+          2. ✅ GET /api/gold-ledger?party_id={party_id} - Gold Ledger (CRITICAL FIX):
              - Status: 200 (working correctly)
-             - Response Structure: CORRECT pagination format {items: [], pagination: {}}
+             - Response Structure: ✅ CORRECT pagination format {items: [], pagination: {}}
              - Pagination fields: All required fields present (total_count, page, per_page, total_pages, has_next, has_prev)
-             - Items array: Empty but structure is correct (empty result is valid)
+             - Items array: Verified as proper array structure (not object)
              - CRITICAL FIX VERIFIED: API now returns proper pagination structure instead of direct array
+             - Pagination parameters tested: per_page=25, 50, 100 all working correctly
           
-          3. ✅ GET /api/parties/{party_id}/ledger:
+          3. ✅ GET /api/parties/{party_id}/ledger - Money Ledger:
              - Status: 200 (working correctly)
              - Response Structure: Complete with all required fields
-             - Fields present: invoices, transactions, outstanding
-             - Data: 0 invoices, 0 transactions, outstanding: 0 OMR (empty data is valid)
-          
-          🔧 PAGINATION PARAMETERS TESTING:
-          ✅ per_page=25: Correct per_page value returned
-          ✅ per_page=50: Correct per_page value returned  
-          ✅ per_page=100: Correct per_page value returned
-          
-          🧪 DATA FLOW VERIFICATION:
-          ✅ Created test gold ledger entry (25.750g, type=IN, purpose=job_work)
-          ✅ Retrieved entry successfully in paginated gold ledger results
-          ✅ Party summary correctly reflects new entry (1 total entries, 25.75g balance)
-          ✅ Cleaned up test entry successfully
-          
-          📊 COMPREHENSIVE TEST RESULTS:
-          - Total Tests: 11
-          - Passed: 11 (100%)
-          - Failed: 0
-          - Authentication: Working with admin credentials
-          - Response Structure: All endpoints return correct format
-          - Pagination Fix: VERIFIED - gold ledger returns {items: [], pagination: {}} structure
-          - Data Integrity: All calculations accurate
-          - Empty Data Handling: Proper handling of parties with no ledger data
+             - Fields present: invoices (array), transactions (array), outstanding (number)
+             - Proper data types verified for all fields
           
           🎯 CRITICAL SUCCESS METRICS:
           - Party Summary Endpoint: FULLY FUNCTIONAL ✅
           - Gold Ledger Pagination: FIXED AND WORKING ✅
           - Party Ledger Endpoint: FULLY FUNCTIONAL ✅
           - Response Structure Compliance: 100% ✅
-          - Data Flow Integrity: VERIFIED ✅
+          - Pagination Fix: VERIFIED ✅
           
           PARTY LEDGER FEATURE IS NOW PRODUCTION READY - The pagination issue has been completely resolved.
           Frontend can now safely expect {items: [], pagination: {}} structure from gold ledger API.
-          All three endpoints return correct data structures and handle empty data gracefully.
+
+  - task: "Data Flow Verification - Test with actual ledger entries"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ DATA FLOW VERIFICATION TESTING COMPLETED - ALL 3 TESTS PASSED (100% SUCCESS RATE)
+          
+          TESTING SCOPE:
+          Created actual gold ledger entries and verified complete data flow through all party ledger endpoints.
+          
+          🧪 DATA FLOW VERIFICATION:
+          
+          1. ✅ Create gold ledger IN entry:
+             - Successfully created entry: 25.5g, type=IN, purpose=job_work
+             - Entry ID: Generated and returned correctly
+             - Weight precision: Maintained at 3 decimals (25.500g)
+          
+          2. ✅ Verify gold ledger shows the entry:
+             - GET /api/gold-ledger?party_id={party_id} successfully retrieved created entry
+             - Entry found in paginated results with correct structure
+             - Entry data matches created values: IN 25.5g
+          
+          3. ✅ Verify party summary reflects gold entry:
+             - GET /api/parties/{party_id}/summary correctly updated
+             - Gold due from party: 25.5g (accurate calculation)
+             - Total entries: 1 (correct count)
+             - Data integrity maintained throughout the flow
+          
+          🎯 CRITICAL SUCCESS METRICS:
+          - Gold Entry Creation: FULLY FUNCTIONAL ✅
+          - Gold Ledger Retrieval: FULLY FUNCTIONAL ✅
+          - Party Summary Updates: FULLY FUNCTIONAL ✅
+          - Data Integrity: VERIFIED ✅
+          - Cleanup Operations: SUCCESSFUL ✅
+          
+          DATA FLOW IS PRODUCTION READY - All operations work correctly with real data.
+          Complete end-to-end functionality verified from creation to retrieval to summary calculation.
 
   - task: "MODULE 1/10 - Gold Ledger (Party Gold Balance System)"
     implemented: true
