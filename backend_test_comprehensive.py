@@ -411,14 +411,14 @@ class GoldShopERPTester:
                     # Check transaction structure
                     if len(transactions) > 0:
                         # Check for receipt and payment types
-                        transaction_types = [t.get("type", "") for t in transactions]
+                        transaction_types = [t.get("transaction_type", "") for t in transactions]
                         has_receipts = "receipt" in transaction_types
                         has_payments = "payment" in transaction_types
                         
                         # Check for payment modes
                         payment_modes = []
                         for t in transactions:
-                            mode = t.get("payment_mode", "")
+                            mode = t.get("mode", "")
                             if mode and mode not in payment_modes:
                                 payment_modes.append(mode)
                         
