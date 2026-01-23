@@ -2230,6 +2230,99 @@ async def convert_jobcard_to_invoice(jobcard_id: str, invoice_data: dict, curren
     await create_audit_log(current_user.id, current_user.full_name, "invoice", invoice.id, "create_from_jobcard")
     return invoice
 
+# ============================================================================
+# JOB CARD TEMPLATE ENDPOINTS
+# ============================================================================
+
+@api_router.get("/jobcard-templates")
+async def get_jobcard_templates(current_user: User = Depends(get_current_user)):
+    """Get all job card templates (accessible to all users)"""
+    query = {"card_type": "template", "is_deleted": False}
+    templates = await db.jobcards.find(query, {"_id": 0}).sort("template_name", 1).to_list(None)
+    return {"items": templates}
+
+@api_router.post("/jobcard-templates")
+async def create_jobcard_template(template_data: dict, current_user: User = Depends(get_current_user)):
+    """Create a new job card template (admin only)"""
+    # Check if user is admin
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Only administrators can create templates")
+    
+    # Validate required fields for templates
+    if not template_data.get('template_name') or not template_data.get('template_name').strip():
+        raise HTTPException(status_code=400, detail="template_name is required for templates")
+    
+    # Ensure card_type is set to 'template'
+    template_data['card_type'] = 'template'
+    
+    # Templates don't need job card number, use template name as identifier
+    template_data['job_card_number'] = f"TEMPLATE-{str(uuid.uuid4())[:8]}"
+    
+    # Templates should not have customer information
+    template_data['customer_type'] = 'saved'  # Default, will be set when creating actual job card
+    template_data['customer_id'] = None
+    template_data['customer_name'] = None
+    template_data['walk_in_name'] = None
+    template_data['walk_in_phone'] = None
+    
+    # Templates always start with 'created' status (will be set when creating actual job card)
+    template_data['status'] = 'created'
+    
+    # Create the template
+    template = JobCard(**template_data, created_by=current_user.id)
+    await db.jobcards.insert_one(template.model_dump())
+    await create_audit_log(current_user.id, current_user.full_name, "jobcard_template", template.id, "create")
+    
+    return template
+
+@api_router.patch("/jobcard-templates/{template_id}")
+async def update_jobcard_template(template_id: str, update_data: dict, current_user: User = Depends(get_current_user)):
+    """Update a job card template (admin only)"""
+    # Check if user is admin
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Only administrators can edit templates")
+    
+    # Verify the template exists
+    existing = await db.jobcards.find_one({"id": template_id, "card_type": "template", "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Validate template_name if provided
+    if 'template_name' in update_data:
+        if not update_data['template_name'] or not update_data['template_name'].strip():
+            raise HTTPException(status_code=400, detail="template_name cannot be empty")
+    
+    # Prevent changing card_type from template
+    if 'card_type' in update_data and update_data['card_type'] != 'template':
+        raise HTTPException(status_code=400, detail="Cannot change card_type of a template")
+    
+    # Update the template
+    await db.jobcards.update_one({"id": template_id}, {"$set": update_data})
+    await create_audit_log(current_user.id, current_user.full_name, "jobcard_template", template_id, "update", update_data)
+    
+    return {"message": "Template updated successfully"}
+
+@api_router.delete("/jobcard-templates/{template_id}")
+async def delete_jobcard_template(template_id: str, current_user: User = Depends(get_current_user)):
+    """Delete a job card template (admin only)"""
+    # Check if user is admin
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Only administrators can delete templates")
+    
+    # Verify the template exists
+    existing = await db.jobcards.find_one({"id": template_id, "card_type": "template", "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Soft delete the template
+    await db.jobcards.update_one(
+        {"id": template_id},
+        {"$set": {"is_deleted": True, "deleted_at": datetime.now(timezone.utc), "deleted_by": current_user.id}}
+    )
+    await create_audit_log(current_user.id, current_user.full_name, "jobcard_template", template_id, "delete")
+    
+    return {"message": "Template deleted successfully"}
+
 @api_router.get("/invoices")
 async def get_invoices(
     page: int = 1,
