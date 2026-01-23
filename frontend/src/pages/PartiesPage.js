@@ -23,6 +23,7 @@ export default function PartiesPage() {
   const [showGoldDepositDialog, setShowGoldDepositDialog] = useState(false);
   const [editingParty, setEditingParty] = useState(null);
   const [deletingParty, setDeleteingParty] = useState(null);
+  const [deleteImpact, setDeleteImpact] = useState(null);
   const [ledgerData, setLedgerData] = useState(null);
   const [goldEntries, setGoldEntries] = useState([]);
   const [moneyLedger, setMoneyLedger] = useState([]);
