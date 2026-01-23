@@ -1046,8 +1046,13 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Invoice Payment to Account Integration - TESTING COMPLETED - VERIFIED WORKING"
-  stuck_tasks: []
+    - "Bug Fix #3: Outstanding Reports Timezone Error - COMPLETED ✅"
+    - "Bug Fix #2: Account Detail Endpoint - COMPLETED ✅" 
+    - "Bug Fix #1: Account Balance Update - BLOCKED by ObjectId serialization error ❌"
+    - "Purchase Finalization ObjectId Serialization Issue - CRITICAL FIX NEEDED ❌"
+  stuck_tasks:
+    - "Bug Fix #1: Account Balance Update After Purchase Finalization"
+    - "Purchase Finalization ObjectId Serialization Error"
   test_all: false
   test_priority: "critical_first"
 
