@@ -6957,3 +6957,133 @@ agent_communication:
       This fix establishes production-grade inventory control with single authoritative
       paths for stock changes, ensuring audit trail integrity, accounting accuracy,
       and GST compliance.
+
+user_problem_statement: "View Ledger in Parties not working - Gold and Money ledgers not displaying in Party detail dialog"
+
+frontend:
+  - task: "Fix pagination response handling for gold ledger in Party detail view"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/PartiesPage.js"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "User reported 'View Ledger in Parties not working'. Gold and Money ledger tables were not displaying entries when clicking the eye icon on a party."
+      - working: true
+        agent: "main"
+        comment: |
+          ROOT CAUSE IDENTIFIED AND FIXED:
+          
+          Issue: The gold ledger API endpoint GET /api/gold-ledger returns paginated data with structure:
+          {
+            items: [...],
+            pagination: {...}
+          }
+          
+          But the frontend was expecting a direct array and was setting the entire pagination object to goldEntries state:
+          - Line 147: setGoldEntries(goldResponse.data) // This set {items: [], pagination: {}} instead of just the array
+          
+          This caused the gold entries to be an object instead of an array, breaking the .filter() and .map() operations.
+          
+          FIXES APPLIED:
+          1. Updated handleViewLedger function (line 147):
+             Changed: setGoldEntries(goldResponse.data);
+             To: setGoldEntries(goldResponse.data.items || goldResponse.data || []);
+             
+          2. Updated handleCreateGoldDeposit function (line 235):
+             Changed: setGoldEntries(goldResponse.data);
+             To: setGoldEntries(goldResponse.data.items || goldResponse.data || []);
+          
+          ADDITIONAL FIXES:
+          - Reinstalled frontend dependencies (node_modules) as craco was missing from .bin directory
+          - Restarted both backend and frontend services
+          
+          The fix properly extracts the items array from the paginated response while maintaining backward compatibility
+          with non-paginated responses using fallback: goldResponse.data.items || goldResponse.data || []
+          
+          Both gold ledger and money ledger tables should now display correctly in the party detail dialog.
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "View Ledger in Parties - Gold Ledger Display"
+    - "View Ledger in Parties - Money Ledger Display"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "critical_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      VIEW LEDGER IN PARTIES FIX COMPLETED - Ready for Testing
+      
+      ISSUE REPORTED BY USER:
+      "View Ledger in Parties not working" - Gold and money ledger tables were not displaying when viewing party details
+      
+      ROOT CAUSE:
+      The GET /api/gold-ledger endpoint returns paginated response {items: [], pagination: {}} but frontend was
+      expecting a direct array. This caused goldEntries state to be an object instead of array, breaking .filter()
+      and .map() operations in the UI.
+      
+      SOLUTION IMPLEMENTED:
+      1. Fixed handleViewLedger function to extract items array: goldResponse.data.items || goldResponse.data || []
+      2. Fixed handleCreateGoldDeposit reload function with same pattern
+      3. Reinstalled frontend dependencies to fix missing craco binary
+      4. Restarted both backend and frontend services
+      
+      TESTING NEEDED:
+      Please test the following scenarios in Parties page:
+      
+      1. ✅ Open Party List Page:
+         - Navigate to Parties page
+         - Verify parties are listed correctly
+      
+      2. ✅ View Ledger Dialog Opens:
+         - Click the eye icon on any party
+         - Verify the party detail dialog opens
+         - Verify 4 summary cards are displayed (Gold They Owe Us, Gold We Owe Them, Money They Owe Us, Money We Owe Them)
+      
+      3. ✅ Gold Ledger Table Display:
+         - Verify "Gold Ledger (X entries)" section is visible
+         - Verify table headers: Date, Type, Weight (g), Purity, Purpose, Notes
+         - Verify gold entries are displayed in the table (if any exist)
+         - Verify "No gold ledger entries found" message if no entries exist
+         - Verify IN/OUT badges are colored correctly (Green for IN, Blue for OUT)
+      
+      4. ✅ Money Ledger Table Display:
+         - Verify "Money Ledger (X entries)" section is visible
+         - Verify table headers: Date, Type, Reference, Amount (OMR), Balance, Status
+         - Verify money entries (invoices + transactions) are displayed
+         - Verify "No money ledger entries found" message if no entries exist
+         - Verify type badges are colored correctly (Blue for Invoice, Green for Receipt, Purple for Payment)
+      
+      5. ✅ Filters Work Correctly:
+         - Test search filter on both tables
+         - Test date range filter (From Date and To Date)
+         - Verify Clear Filters button works
+      
+      6. ✅ Add Gold Deposit:
+         - Click "Add Gold Deposit" button
+         - Fill in weight, purity, purpose, and notes
+         - Submit the form
+         - Verify gold ledger table refreshes with new entry
+         - Verify summary cards update with new balances
+      
+      CRITICAL VERIFICATION:
+      - Gold ledger entries display correctly as a table with proper data
+      - Money ledger entries display correctly as a table with proper data
+      - No JavaScript errors in browser console related to .filter() or .map()
+      - Pagination response is properly handled across the application
+      
+      SERVICES STATUS:
+      ✅ Backend: RUNNING (pid 2771)
+      ✅ Frontend: RUNNING (pid 2772)
+      ✅ MongoDB: RUNNING (pid 639)
