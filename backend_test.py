@@ -37,7 +37,7 @@ from datetime import datetime
 import time
 
 # Configuration - Read from frontend/.env
-BASE_URL = "https://safe-delete-tx.preview.emergentagent.com/api"
+BASE_URL = "https://party-impact.preview.emergentagent.com/api"
 
 class JobCardTemplateTester:
     def __init__(self):
