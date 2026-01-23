@@ -201,6 +201,9 @@ class JobCard(BaseModel):
     locked_by: Optional[str] = None
     created_by: str
     is_deleted: bool = False
+    # Template-specific fields
+    template_name: Optional[str] = None  # Required when card_type='template'
+    delivery_days_offset: Optional[int] = None  # For templates: days from creation to delivery
 
 class InvoiceItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
