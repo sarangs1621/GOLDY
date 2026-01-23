@@ -310,11 +310,11 @@ class BugFixTester:
             
             account_after_finalize = self.session.get(f"{BASE_URL}/accounts/{account_id}").json()
             final_balance = account_after_finalize["current_balance"]
-            expected_balance = 9000.00  # 10000 - 1000
+            expected_balance = initial_balance - 1000.00  # Should decrease by payment amount
             
             if abs(final_balance - expected_balance) < 0.01:
                 self.log_result("Bug #1 - Account Balance Update", "PASS", 
-                              f"Balance updated correctly: 10000.00 → {final_balance} (decreased by 1000.00)")
+                              f"Balance updated correctly: {initial_balance} → {final_balance} (decreased by 1000.00)")
             else:
                 self.log_result("Bug #1 - Account Balance Update", "FAIL", 
                               f"Balance incorrect: Expected {expected_balance}, Got {final_balance}")
