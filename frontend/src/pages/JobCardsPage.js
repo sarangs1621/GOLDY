@@ -926,8 +926,143 @@ export default function JobCardsPage() {
             </div>
 
             <Button data-testid="save-jobcard-button" onClick={handleCreateJobCard} className="w-full">
-              {editingJobCard ? 'Update Job Card' : 'Create Job Card'}
+              {editingTemplate ? 'Update Template' : saveAsTemplate ? 'Save Template' : editingJobCard ? 'Update Job Card' : 'Create Job Card'}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Load Template Dialog */}
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Load from Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {templates.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No templates available</p>
+                <p className="text-sm mt-2">Admins can create templates by using "Save as Template" button</p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {templates.map((template) => (
+                  <Card key={template.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg">{template.template_name}</h3>
+                          {template.notes && (
+                            <p className="text-sm text-muted-foreground mt-1">{template.notes}</p>
+                          )}
+                          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                            <span>Items: {template.items?.length || 0}</span>
+                            {template.delivery_days_offset && (
+                              <span>Delivery: {template.delivery_days_offset} days</span>
+                            )}
+                            {template.gold_rate_at_jobcard && (
+                              <span>Gold Rate: {template.gold_rate_at_jobcard} OMR/g</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleLoadTemplate(template)}
+                        >
+                          Load
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Templates Dialog */}
+      <Dialog open={showManageTemplatesDialog} onOpenChange={setShowManageTemplatesDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Templates</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {templates.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No templates available</p>
+                {user?.role === 'admin' && (
+                  <p className="text-sm mt-2">Create your first template using "Save as Template" button when creating a job card</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {templates.map((template) => (
+                  <Card key={template.id}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg">{template.template_name}</h3>
+                          {template.notes && (
+                            <p className="text-sm text-muted-foreground mt-1">{template.notes}</p>
+                          )}
+                          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                            <span>Items: {template.items?.length || 0}</span>
+                            {template.delivery_days_offset && (
+                              <span>Delivery: {template.delivery_days_offset} days</span>
+                            )}
+                            {template.gold_rate_at_jobcard && (
+                              <span>Gold Rate: {template.gold_rate_at_jobcard} OMR/g</span>
+                            )}
+                          </div>
+                          
+                          {/* Display template items */}
+                          <div className="mt-3 space-y-1">
+                            {template.items?.map((item, idx) => (
+                              <div key={idx} className="text-xs bg-gray-50 p-2 rounded">
+                                <span className="font-medium">{item.category}</span>
+                                {item.description && ` - ${item.description}`}
+                                <span className="text-muted-foreground ml-2">
+                                  ({item.purity}K, {item.work_type})
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleLoadTemplate(template)}
+                          >
+                            <FolderOpen className="w-4 h-4" />
+                          </Button>
+                          {user?.role === 'admin' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditTemplate(template)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleDeleteTemplate(template.id, template.template_name)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
