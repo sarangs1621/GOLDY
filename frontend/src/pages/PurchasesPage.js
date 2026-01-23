@@ -186,19 +186,74 @@ export default function PurchasesPage() {
   };
 
   const handleFinalizePurchase = async (purchase) => {
-    if (window.confirm(`Finalize purchase for ${purchase.weight_grams}g from ${getVendorName(purchase.vendor_party_id)}?\n\nThis will:\n• Create Stock IN movement (add inventory)\n• Lock the purchase (no further edits)\n• Record vendor payable for balance due\n• Create payment transactions if applicable`)) {
-      setFinalizing(purchase.id);
-      try {
-        await axios.post(`${API}/purchases/${purchase.id}/finalize`);
-        toast.success('Purchase finalized successfully!');
-        loadPurchases();
-      } catch (error) {
-        console.error('Error finalizing purchase:', error);
-        const errorMsg = extractErrorMessage(error, 'Failed to finalize purchase');
-        toast.error(errorMsg);
-      } finally {
-        setFinalizing(null);
-      }
+    setConfirmPurchase(purchase);
+    setConfirmLoading(true);
+    try {
+      const response = await axios.get(`${API}/purchases/${purchase.id}/finalize-impact`);
+      setImpactData(response.data);
+      setShowFinalizeConfirm(true);
+    } catch (error) {
+      console.error('Error fetching finalize impact:', error);
+      toast.error('Failed to load confirmation data');
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
+  const confirmFinalizePurchase = async () => {
+    if (!confirmPurchase) return;
+    
+    setConfirmLoading(true);
+    setFinalizing(confirmPurchase.id);
+    try {
+      await axios.post(`${API}/purchases/${confirmPurchase.id}/finalize`);
+      toast.success('Purchase finalized successfully!');
+      setShowFinalizeConfirm(false);
+      setConfirmPurchase(null);
+      setImpactData(null);
+      loadPurchases();
+    } catch (error) {
+      console.error('Error finalizing purchase:', error);
+      const errorMsg = extractErrorMessage(error, 'Failed to finalize purchase');
+      toast.error(errorMsg);
+    } finally {
+      setFinalizing(null);
+      setConfirmLoading(false);
+    }
+  };
+
+  const handleDeletePurchase = async (purchase) => {
+    setConfirmPurchase(purchase);
+    setConfirmLoading(true);
+    try {
+      const response = await axios.get(`${API}/purchases/${purchase.id}/delete-impact`);
+      setImpactData(response.data);
+      setShowDeleteConfirm(true);
+    } catch (error) {
+      console.error('Error fetching delete impact:', error);
+      toast.error('Failed to load confirmation data');
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
+  const confirmDeletePurchase = async () => {
+    if (!confirmPurchase) return;
+    
+    setConfirmLoading(true);
+    try {
+      await axios.delete(`${API}/purchases/${confirmPurchase.id}`);
+      toast.success('Purchase deleted successfully!');
+      setShowDeleteConfirm(false);
+      setConfirmPurchase(null);
+      setImpactData(null);
+      loadPurchases();
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      const errorMsg = extractErrorMessage(error, 'Failed to delete purchase');
+      toast.error(errorMsg);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
