@@ -6,9 +6,10 @@ import os
 
 async def check_data():
     # Connect to MongoDB
-    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/gold_inventory')
+    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+    db_name = os.environ.get('DB_NAME', 'gold_shop_erp')
     client = AsyncIOMotorClient(mongo_url)
-    db = client.gold_inventory
+    db = client[db_name]
     
     print("=" * 80)
     print("INVENTORY HEADERS CHECK")
