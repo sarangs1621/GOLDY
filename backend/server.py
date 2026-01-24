@@ -4510,7 +4510,7 @@ async def delete_account(request: Request, account_id: str, current_user: User =
 @api_router.get("/transactions")
 async def get_transactions(
     page: int = 1,
-    per_page: int = 50,
+    page_size: int = 10,
     account_id: Optional[str] = None,
     account_type: Optional[str] = None,  # "cash" or "bank"
     transaction_type: Optional[str] = None,  # "credit" or "debit"
@@ -4556,10 +4556,10 @@ async def get_transactions(
             query["account_id"] = {"$in": account_ids}
         else:
             # No accounts of this type exist, return empty
-            return create_pagination_response([], 0, page, per_page)
+            return create_pagination_response([], 0, page, page_size)
     
     # Calculate skip value
-    skip = (page - 1) * per_page
+    skip = (page - 1) * page_size
     
     # Get total count for pagination
     total_count = await db.transactions.count_documents(query)
