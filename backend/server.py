@@ -4960,7 +4960,7 @@ async def get_audit_logs(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     page: int = 1,
-    per_page: int = 50,
+    page_size: int = 10,
     current_user: User = Depends(require_permission('audit.view'))
 ):
     """
@@ -4973,7 +4973,7 @@ async def get_audit_logs(
     - date_from: Filter logs from this date (ISO format: YYYY-MM-DD)
     - date_to: Filter logs up to this date (ISO format: YYYY-MM-DD)
     - page: Page number (default: 1)
-    - per_page: Items per page (default: 50)
+    - page_size: Items per page (default: 10)
     """
     query = {}
     
@@ -5010,15 +5010,15 @@ async def get_audit_logs(
             query['timestamp'] = date_query
     
     # Calculate skip value
-    skip = (page - 1) * per_page
+    skip = (page - 1) * page_size
     
     # Get total count for pagination
     total_count = await db.audit_logs.count_documents(query)
     
     # Get paginated results
-    logs = await db.audit_logs.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(per_page).to_list(per_page)
+    logs = await db.audit_logs.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(page_size).to_list(page_size)
     
-    return create_pagination_response(logs, total_count, page, per_page)
+    return create_pagination_response(logs, total_count, page, page_size)
 
 @api_router.get("/reports/inventory-export")
 async def export_inventory(
