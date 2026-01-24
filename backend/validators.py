@@ -125,11 +125,25 @@ class PartyValidator(BaseModel):
     party_type: str = Field(..., pattern="^(customer|vendor|worker)$")
     notes: Optional[str] = Field(None, max_length=1000)
     
+    @validator('name')
+    def sanitize_name(cls, v):
+        return sanitize_text_field(v, max_length=100)
+    
     @validator('phone')
     def validate_phone(cls, v):
-        if v and not re.match(r'^\+?[\d\s\-()]+$', v):
-            raise ValueError('Invalid phone number format')
+        if v:
+            v = sanitize_phone(v)
+            if v and not re.match(r'^\+?[\d\s\-()]+$', v):
+                raise ValueError('Invalid phone number format')
         return v
+    
+    @validator('address')
+    def sanitize_address(cls, v):
+        return sanitize_text_field(v, max_length=500)
+    
+    @validator('notes')
+    def sanitize_notes(cls, v):
+        return sanitize_text_field(v, max_length=1000)
 
 class StockMovementValidator(BaseModel):
     movement_type: str = Field(..., pattern="^(Stock IN|Stock OUT|Adjustment IN|Adjustment OUT|Transfer)$")
