@@ -1472,7 +1472,20 @@ async def get_inventory_headers(
 
 @api_router.post("/inventory/headers", response_model=InventoryHeader)
 async def create_inventory_header(header_data: dict, current_user: User = Depends(require_permission('inventory.adjust'))):
-    header = InventoryHeader(name=header_data['name'], created_by=current_user.id)
+    # Check for duplicate category name (case-insensitive)
+    category_name = header_data['name'].strip()
+    existing_category = await db.inventory_headers.find_one({
+        "name": {"$regex": f"^{category_name}$", "$options": "i"},
+        "is_deleted": False
+    })
+    
+    if existing_category:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Category '{category_name}' already exists. Please use a different name."
+        )
+    
+    header = InventoryHeader(name=category_name, created_by=current_user.id)
     await db.inventory_headers.insert_one(header.model_dump())
     await create_audit_log(current_user.id, current_user.full_name, "inventory_header", header.id, "create")
     return header
