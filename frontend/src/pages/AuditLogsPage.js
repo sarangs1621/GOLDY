@@ -3,18 +3,24 @@ import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { History } from 'lucide-react';
+import Pagination from '../components/Pagination';
+import { useURLPagination } from '../hooks/useURLPagination';
 
 export default function AuditLogsPage() {
+  const { currentPage, setPage, pagination, setPagination } = useURLPagination();
   const [logs, setLogs] = useState([]);
 
   useEffect(() => {
     loadLogs();
-  }, []);
+  }, [currentPage]);
 
   const loadLogs = async () => {
     try {
-      const response = await axios.get(`${API}/audit-logs`);
+      const response = await axios.get(`${API}/audit-logs`, {
+        params: { page: currentPage, page_size: 10 }
+      });
       setLogs(response.data.items || []);
+      setPagination(response.data.pagination);
     } catch (error) {
       console.error('Failed to load audit logs:', error);
     }
