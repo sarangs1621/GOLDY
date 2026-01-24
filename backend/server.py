@@ -3619,6 +3619,111 @@ async def create_transaction(transaction_data: dict, current_user: User = Depend
     await create_audit_log(current_user.id, current_user.full_name, "transaction", transaction.id, "create")
     return transaction
 
+
+@api_router.get("/transactions/summary")
+async def get_transactions_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    account_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get transaction summary including:
+    - Total credit (money IN)
+    - Total debit (money OUT)
+    - Net flow
+    - Account-wise breakdown
+    - Cash vs Bank breakdown
+    """
+    query = {"is_deleted": False}
+    
+    # Date range filter
+    if start_date or end_date:
+        date_query = {}
+        if start_date:
+            date_query["$gte"] = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        if end_date:
+            date_query["$lte"] = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        if date_query:
+            query["date"] = date_query
+    
+    # Account filter
+    if account_id:
+        query["account_id"] = account_id
+    
+    # Get all transactions matching the query
+    transactions = await db.transactions.find(query, {"_id": 0}).to_list(10000)
+    
+    # Calculate totals
+    total_credit = 0.0
+    total_debit = 0.0
+    account_breakdown = {}
+    
+    for txn in transactions:
+        if txn['transaction_type'] == 'credit':
+            total_credit += txn['amount']
+        else:
+            total_debit += txn['amount']
+        
+        # Account-wise breakdown
+        acc_id = txn['account_id']
+        if acc_id not in account_breakdown:
+            account_breakdown[acc_id] = {
+                'account_id': acc_id,
+                'account_name': txn['account_name'],
+                'credit': 0.0,
+                'debit': 0.0
+            }
+        
+        if txn['transaction_type'] == 'credit':
+            account_breakdown[acc_id]['credit'] += txn['amount']
+        else:
+            account_breakdown[acc_id]['debit'] += txn['amount']
+    
+    # Get accounts to determine cash vs bank
+    accounts = await db.accounts.find({"is_deleted": False}, {"_id": 0}).to_list(1000)
+    account_types = {acc['id']: acc['account_type'] for acc in accounts}
+    
+    # Add account type to breakdown and calculate net
+    for acc_id, breakdown in account_breakdown.items():
+        breakdown['account_type'] = account_types.get(acc_id, 'unknown')
+        breakdown['net'] = round(breakdown['credit'] - breakdown['debit'], 3)
+        breakdown['credit'] = round(breakdown['credit'], 3)
+        breakdown['debit'] = round(breakdown['debit'], 3)
+    
+    # Cash vs Bank breakdown
+    cash_credit = 0.0
+    cash_debit = 0.0
+    bank_credit = 0.0
+    bank_debit = 0.0
+    
+    for breakdown in account_breakdown.values():
+        if breakdown['account_type'] == 'cash' or breakdown['account_type'] == 'petty':
+            cash_credit += breakdown['credit']
+            cash_debit += breakdown['debit']
+        elif breakdown['account_type'] == 'bank':
+            bank_credit += breakdown['credit']
+            bank_debit += breakdown['debit']
+    
+    return {
+        "total_credit": round(total_credit, 3),
+        "total_debit": round(total_debit, 3),
+        "net_flow": round(total_credit - total_debit, 3),
+        "transaction_count": len(transactions),
+        "cash_summary": {
+            "credit": round(cash_credit, 3),
+            "debit": round(cash_debit, 3),
+            "net": round(cash_credit - cash_debit, 3)
+        },
+        "bank_summary": {
+            "credit": round(bank_credit, 3),
+            "debit": round(bank_debit, 3),
+            "net": round(bank_credit - bank_debit, 3)
+        },
+        "account_breakdown": list(account_breakdown.values())
+    }
+
+
 @api_router.get("/daily-closings", response_model=List[DailyClosing])
 async def get_daily_closings(current_user: User = Depends(get_current_user)):
     closings = await db.daily_closings.find({}, {"_id": 0}).sort("date", -1).to_list(1000)
