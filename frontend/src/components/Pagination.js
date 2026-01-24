@@ -7,24 +7,23 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
  * @param {Object} props
  * @param {Object} props.pagination - Pagination metadata from API response
  * @param {number} props.pagination.page - Current page number
- * @param {number} props.pagination.per_page - Items per page
+ * @param {number} props.pagination.page_size - Items per page
  * @param {number} props.pagination.total_count - Total number of items
  * @param {number} props.pagination.total_pages - Total number of pages
  * @param {boolean} props.pagination.has_next - Whether there's a next page
  * @param {boolean} props.pagination.has_prev - Whether there's a previous page
  * @param {Function} props.onPageChange - Callback when page changes
- * @param {Function} props.onPerPageChange - Callback when per_page changes
  */
-const Pagination = ({ pagination, onPageChange, onPerPageChange }) => {
+const Pagination = ({ pagination, onPageChange }) => {
   if (!pagination || pagination.total_count === 0) {
     return null;
   }
 
-  const { page, per_page, total_count, total_pages, has_next, has_prev } = pagination;
+  const { page, page_size, total_count, total_pages, has_next, has_prev } = pagination;
 
   // Calculate display range
-  const startItem = (page - 1) * per_page + 1;
-  const endItem = Math.min(page * per_page, total_count);
+  const startItem = (page - 1) * page_size + 1;
+  const endItem = Math.min(page * page_size, total_count);
 
   // Generate page numbers to display (max 7 buttons)
   const getPageNumbers = () => {
@@ -70,31 +69,12 @@ const Pagination = ({ pagination, onPageChange, onPerPageChange }) => {
   const pageNumbers = getPageNumbers();
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-4 py-3 bg-white border-t border-gray-200">
-      {/* Left side: Items info and per-page selector */}
-      <div className="flex items-center gap-4">
-        <div className="text-sm text-gray-700">
-          Showing <span className="font-medium">{startItem}</span> to{' '}
-          <span className="font-medium">{endItem}</span> of{' '}
-          <span className="font-medium">{total_count}</span> entries
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <label htmlFor="per-page-select" className="text-sm text-gray-700">
-            Per page:
-          </label>
-          <select
-            id="per-page-select"
-            value={per_page}
-            onChange={(e) => onPerPageChange(parseInt(e.target.value))}
-            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-          </select>
-        </div>
+    <div className="flex items-center justify-between gap-4 px-4 py-3 bg-white border-t border-gray-200">
+      {/* Left side: Items info */}
+      <div className="text-sm text-gray-700">
+        Showing <span className="font-medium">{startItem}</span> to{' '}
+        <span className="font-medium">{endItem}</span> of{' '}
+        <span className="font-medium">{total_count}</span> entries
       </div>
 
       {/* Right side: Page navigation */}
