@@ -77,6 +77,9 @@ export default function PurchasesPage() {
     exchange_in_gold_grams: ''
   });
 
+  // Get current page from URL, default to 1
+  const currentPage = parseInt(searchParams.get('page') || '1', 10);
+
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -99,6 +102,8 @@ export default function PurchasesPage() {
   const loadPurchases = async () => {
     try {
       const params = new URLSearchParams();
+      params.append('page', currentPage);
+      params.append('page_size', 10);
       if (filterVendor && filterVendor !== 'all') params.append('vendor_party_id', filterVendor);
       if (filterStatus && filterStatus !== 'all') params.append('status', filterStatus);
       if (startDate) params.append('start_date', startDate);
@@ -106,6 +111,7 @@ export default function PurchasesPage() {
       
       const response = await axios.get(`${API}/purchases?${params.toString()}`);
       setPurchases(response.data.items || []);
+      setPagination(response.data.pagination);
     } catch (error) {
       toast.error('Failed to load purchases');
     }
@@ -113,7 +119,7 @@ export default function PurchasesPage() {
 
   const loadVendors = async () => {
     try {
-      const response = await axios.get(`${API}/parties?party_type=vendor`);
+      const response = await axios.get(`${API}/parties?party_type=vendor&page_size=1000`);
       setVendors(response.data.items || []);
     } catch (error) {
       console.error('Failed to load vendors:', error);
@@ -131,7 +137,11 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     loadPurchases();
-  }, [filterVendor, filterStatus, startDate, endDate]);
+  }, [filterVendor, filterStatus, startDate, endDate, currentPage]);
+
+  const handlePageChange = (newPage) => {
+    setSearchParams({ page: newPage.toString() });
+  };
 
   const handleOpenDialog = (purchase = null) => {
     if (purchase) {
