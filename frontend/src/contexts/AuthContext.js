@@ -55,8 +55,39 @@ export const AuthProvider = ({ children }) => {
     await axios.post(`${API}/auth/register`, userData);
   };
 
+  const hasPermission = (permission) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const userPermissions = user.permissions || [];
+    return userPermissions.includes(permission);
+  };
+
+  const hasAnyPermission = (permissions) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const userPermissions = user.permissions || [];
+    return permissions.some(perm => userPermissions.includes(perm));
+  };
+
+  const hasAllPermissions = (permissions) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const userPermissions = user.permissions || [];
+    return permissions.every(perm => userPermissions.includes(perm));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, register, loading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      login, 
+      logout, 
+      register, 
+      loading,
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions
+    }}>
       {children}
     </AuthContext.Provider>
   );
