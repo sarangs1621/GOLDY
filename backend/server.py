@@ -1177,6 +1177,9 @@ async def delete_inventory_header(header_id: str, current_user: User = Depends(g
 
 @api_router.get("/inventory/movements", response_model=List[StockMovement])
 async def get_stock_movements(header_id: Optional[str] = None, current_user: User = Depends(get_current_user)):
+    if not user_has_permission(current_user, 'inventory.view'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view inventory")
+    
     query = {"is_deleted": False}
     if header_id:
         query['header_id'] = header_id
