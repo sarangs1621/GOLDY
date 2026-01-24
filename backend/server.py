@@ -6357,7 +6357,8 @@ async def export_purchase_history(
 
 # Health check endpoint (no authentication required)
 @api_router.get("/health")
-async def health_check():
+@limiter.limit("100/minute")  # General rate limit: 100 requests per minute per IP
+async def health_check(request: Request):
     """Health check endpoint for monitoring"""
     try:
         # Test database connection
