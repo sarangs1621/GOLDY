@@ -10924,3 +10924,276 @@ agent_communication:
       6. Test cancel and confirm operations
       7. Verify API integration
       8. Check data reload after deletion
+
+user_problem_statement: "Reporting & Visibility: Add summary of charges before finalizing, show cost breakdown (item-wise calculations), and better display of total costs in Purchase module"
+
+backend:
+  - task: "No backend changes required"
+    implemented: true
+    working: true
+    file: "N/A"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "All required data already available through existing finalize-impact endpoint. Purchase data contains all necessary fields for comprehensive breakdown display."
+
+frontend:
+  - task: "Enhanced Purchase Finalize Confirmation with Comprehensive Cost Breakdown"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/PurchasesPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ COMPREHENSIVE FINALIZE CONFIRMATION DIALOG IMPLEMENTED
+          
+          Replaced generic ConfirmationDialog with custom enhanced dialog showing complete cost breakdown before finalizing purchases.
+          
+          🎯 KEY SECTIONS IMPLEMENTED:
+          
+          1. PURCHASE HEADER INFO ✅
+             - Vendor name (bold, prominent)
+             - Purchase date (formatted)
+             - Description (if available)
+             - Clean layout in slate background
+          
+          2. GOLD DETAILS & CALCULATION SECTION ✅
+             - Amber/yellow gradient theme matching gold
+             - Four detail cards:
+               * Weight (with 3 decimal precision)
+               * Entered Purity (as received from vendor)
+               * Valuation Purity (916K/22K - highlighted in green)
+               * Rate per Gram (in OMR)
+             - Calculation Formula Card:
+               * Visual formula: Weight × Rate = Base Amount
+               * Shows actual calculation with values
+               * Example: 50.000g × 25.00 OMR/g = 1,250.00 OMR
+             - Total Purchase Amount Card (MOST PROMINENT):
+               * Large display in amber-yellow gradient
+               * Bold 3xl font for amount
+               * Shows adjustments if amount differs from base calculation
+          
+          3. PAYMENT BREAKDOWN SECTION ✅
+             - Green/emerald gradient theme for financial details
+             - Three payment status cards:
+               * Total Amount (blue border) - Full purchase value
+               * Paid Amount (green border) - Payment made
+               * Balance Due (red gradient, prominent) - Outstanding to vendor
+             - Payment Details Grid (if payment made):
+               * Payment Mode (Cash/Bank/Card/etc.)
+               * Payment Account name
+          
+          4. GOLD SETTLEMENT SECTION ✅ (Conditional)
+             - Purple/indigo gradient theme
+             - Only shown if applicable
+             - Two cards:
+               * Advance Gold Returned (gold previously given to vendor)
+               * Exchange Gold Received (gold exchanged)
+             - Each showing weight with 3 decimal precision
+             - Descriptive text for context
+          
+          5. IMPACT SUMMARY SECTION ✅
+             - Indigo/blue gradient theme
+             - Four impact cards with icons:
+               * Stock Increase: Shows exact weight increase at 916 purity
+               * Vendor Payable: Shows outstanding balance to vendor (if any)
+               * Financial Transaction: Shows debit amount (if paid)
+               * Status Change: Draft → Finalized with badges
+             - Each card has icon, title, and detailed description
+          
+          6. IRREVERSIBLE ACTION WARNING ✅
+             - Red background with prominent alert
+             - AlertTriangle icon
+             - Bold heading: "IRREVERSIBLE ACTION"
+             - Detailed explanation of consequences:
+               * Cannot be undone after finalization
+               * Purchase locked permanently
+               * All records updated (inventory, finance, vendor)
+          
+          7. ACTION BUTTONS ✅
+             - Cancel button (outline, disabled during processing)
+             - Confirm & Finalize button:
+               * Yellow theme (warning color)
+               * CheckCircle icon
+               * Loading state with spinner
+               * "Finalizing..." text during processing
+          
+          🎨 VISUAL ENHANCEMENTS:
+          - Color-coded sections for different data types
+          - Gradient backgrounds for visual appeal
+          - Icons for each section (gold, payment, settlement, info)
+          - Card-based layout with borders and shadows
+          - Prominent displays for critical amounts
+          - Responsive grid layouts
+          - Professional spacing and typography
+          - Amber gradient for gold-related sections
+          - Green gradient for payment sections
+          - Purple gradient for gold settlement
+          - Indigo gradient for impact summary
+          - Red background for warnings
+          
+          📋 CALCULATION VISIBILITY:
+          - Formula shown: Weight × Rate per Gram
+          - Base amount calculated and displayed
+          - Adjustment indicator if total differs from base
+          - All amounts in OMR with 2 decimal precision
+          - All weights in grams with 3 decimal precision
+          - Purity values clearly labeled (entered vs valuation)
+          
+          💡 AUDIT-FRIENDLY FEATURES:
+          - All purchase details visible before confirmation
+          - Clear explanation of what will happen
+          - Status change explicitly shown
+          - Impact on all systems (inventory, finance, vendor) listed
+          - Read-only display - cannot modify during confirmation
+          - Comprehensive summary for decision-making
+          
+          🔒 USER SAFETY:
+          - Explicit warning about irreversible nature
+          - Cancel option always available
+          - Loading state prevents double-submission
+          - Clear visual hierarchy guides attention to critical info
+          - Prominent display of financial commitments
+          
+          TECHNICAL IMPLEMENTATION:
+          - Replaced ConfirmationDialog with custom Dialog component
+          - Uses existing confirmPurchase state for data
+          - No backend changes needed (all data already in purchase object)
+          - Imports: Added AlertTriangle from lucide-react
+          - Responsive design with Tailwind CSS
+          - Consistent with existing UI patterns
+          - Hot reload enabled for instant updates
+          
+          INTEGRATION:
+          - Triggered by "Finalize" button in purchases table
+          - handleFinalizePurchase() sets confirmPurchase and opens dialog
+          - confirmFinalizePurchase() executes the actual finalization
+          - Success toast on completion
+          - Purchases list refreshed after finalization
+          
+          CONSISTENCY:
+          - Visual style matches purchase view dialog
+          - Uses same helper functions (getVendorName, accounts lookup)
+          - Consistent color coding across the application
+          - Matches invoice and job card confirmation patterns
+          
+          Frontend compiled successfully. Services running.
+          Ready for comprehensive testing of enhanced finalize confirmation.
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Enhanced Purchase Finalize Confirmation - NEEDS TESTING"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      ✅ PURCHASE FINALIZE CONFIRMATION ENHANCEMENT COMPLETED
+      
+      IMPLEMENTATION CONTEXT:
+      User requested better reporting & visibility for purchases with:
+      1. Summary of charges before finalizing ✅
+      2. Cost breakdown (item-wise calculations) ✅
+      3. Better display of total costs ✅
+      
+      WHAT WAS IMPLEMENTED:
+      Replaced the basic finalize confirmation dialog with a comprehensive custom dialog
+      that shows complete cost breakdown and impact summary before finalizing purchases.
+      
+      KEY IMPROVEMENTS:
+      
+      📊 COMPREHENSIVE COST BREAKDOWN:
+      - Gold Details: Weight, Purity (entered & valuation), Rate per Gram
+      - Visual Calculation: Weight × Rate = Base Amount formula
+      - Total Purchase Amount: Most prominent display
+      - Adjustment indicator if total differs from base calculation
+      
+      💰 PAYMENT VISIBILITY:
+      - Total Amount, Paid Amount, Balance Due shown separately
+      - Color-coded cards (blue/green/red) for quick understanding
+      - Payment mode and account displayed if payment made
+      - Outstanding balance prominently highlighted in red
+      
+      🏆 GOLD SETTLEMENT TRANSPARENCY:
+      - Advance Gold and Exchange Gold shown if applicable
+      - Helps understand complex vendor transactions
+      - Purple-themed section for visual distinction
+      
+      📈 IMPACT SUMMARY:
+      - Stock increase with exact weight and purity
+      - Vendor payable creation for outstanding balance
+      - Financial transaction recording
+      - Status change visualization (Draft → Finalized)
+      - Each impact with icon and detailed description
+      
+      ⚠️ ENHANCED SAFETY:
+      - Explicit "IRREVERSIBLE ACTION" warning
+      - Detailed explanation of consequences
+      - Clear statement about permanent changes
+      - Cancel option always available
+      
+      TECHNICAL DETAILS:
+      - Custom Dialog component (replaced generic ConfirmationDialog)
+      - No backend changes required (uses existing purchase data)
+      - Added AlertTriangle icon import
+      - Responsive design with Tailwind CSS
+      - Color-coded sections: Amber (gold), Green (payment), Purple (settlement), Indigo (impact)
+      - Frontend compiled successfully
+      
+      TESTING NEEDED:
+      1. Create a draft purchase with various scenarios:
+         - Full payment (paid = total)
+         - Partial payment (balance due exists)
+         - With gold settlement (advance/exchange)
+         - Without gold settlement
+      
+      2. Click "Finalize" button and verify:
+         - Enhanced confirmation dialog appears
+         - All sections display correctly:
+           * Gold details with calculation
+           * Payment breakdown
+           * Gold settlement (if applicable)
+           * Impact summary
+           * Irreversible warning
+         - Visual styling and color coding
+         - Responsive layout
+      
+      3. Test user interactions:
+         - Cancel button closes dialog without changes
+         - Confirm button finalizes purchase
+         - Loading state during processing
+         - Success toast after finalization
+         - Purchase status changes to "Finalized"
+         - Purchase list refreshes
+      
+      4. Verify finalized purchase:
+         - Cannot be edited
+         - Cannot be deleted
+         - Shows locked badge
+         - View dialog still accessible
+      
+      ALIGNMENT WITH REQUIREMENTS:
+      ✅ Summary of charges before finalizing: Complete gold + payment + settlement summary
+      ✅ Cost breakdown: Visual formula showing weight × rate calculation
+      ✅ Better display of total costs: Prominent display with color-coded sections
+      ✅ Read-only confirmation: Cannot modify during confirmation
+      ✅ Audit-friendly: All details visible for informed decision
+      ✅ Concise: No item-level drilldowns, focused on confirmation needs
+      ✅ Consistent: Matches view dialog styling and patterns
+      
+      All services running. Ready for testing!
