@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, FileText, Trash2, Edit, AlertTriangle, Save, FolderOpen, Settings, CheckCircle, Truck } from 'lucide-react';
+import { Plus, FileText, Trash2, Edit, AlertTriangle, Save, FolderOpen, Settings, CheckCircle, Truck, Eye } from 'lucide-react';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
 
 export default function JobCardsPage() {
@@ -29,6 +29,10 @@ export default function JobCardsPage() {
     walk_in_phone: '',
     discount_amount: 0  // MODULE 7: Discount amount
   });
+  
+  // View dialog state
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [viewJobCard, setViewJobCard] = useState(null);
   
   // Template state
   const [templates, setTemplates] = useState([]);
