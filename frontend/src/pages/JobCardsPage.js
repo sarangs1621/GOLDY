@@ -11,9 +11,12 @@ import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, FileText, Trash2, Edit, AlertTriangle, Save, FolderOpen, Settings, CheckCircle, Truck, Eye } from 'lucide-react';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
+import Pagination from '../components/Pagination';
+import { useURLPagination } from '../hooks/useURLPagination';
 
 export default function JobCardsPage() {
   const { user } = useAuth();
+  const { currentPage, setPage, pagination, setPagination } = useURLPagination();
   const [jobcards, setJobcards] = useState([]);
   const [parties, setParties] = useState([]);
   const [inventoryHeaders, setInventoryHeaders] = useState([]);
