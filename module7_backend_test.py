@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 import sys
 
 # Configuration
-BACKEND_URL = "https://input-guard-https.preview.emergentagent.com"
+BACKEND_URL = "https://jewel-invoice-pro-1.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

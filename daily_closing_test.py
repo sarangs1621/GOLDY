@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://input-guard-https.preview.emergentagent.com"
+    BASE_URL = "https://jewel-invoice-pro-1.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     

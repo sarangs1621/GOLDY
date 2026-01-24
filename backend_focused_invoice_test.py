@@ -19,7 +19,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://input-guard-https.preview.emergentagent.com/api"
+BACKEND_URL = "https://jewel-invoice-pro-1.preview.emergentagent.com/api"
 
 # Test credentials
 USERNAME = "admin"
