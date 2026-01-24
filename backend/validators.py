@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional
 import re
+import bleach
+import html
 
 class PartyValidator(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
