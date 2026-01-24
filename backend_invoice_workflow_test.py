@@ -96,7 +96,7 @@ class InvoiceWorkflowTester:
             customers_response = self.session.get(f"{BACKEND_URL}/parties?party_type=customer")
             if customers_response.status_code == 200:
                 customers_data = customers_response.json()
-                customers = customers_data.get('data', []) if isinstance(customers_data, dict) else customers_data
+                customers = customers_data.get('items', [])
                 if not customers:
                     # Create test customer
                     customer_data = {
