@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://expense-view.preview.emergentagent.com"
+    BASE_URL = "https://invoice-param-fix.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     
