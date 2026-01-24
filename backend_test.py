@@ -23,7 +23,7 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://auth-shield-core.preview.emergentagent.com/api"
+BASE_URL = "https://rbac-system-7.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 import sys
 
 # Configuration
-BACKEND_URL = "https://auth-shield-core.preview.emergentagent.com"
+BACKEND_URL = "https://rbac-system-7.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
