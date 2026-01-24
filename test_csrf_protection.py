@@ -153,13 +153,13 @@ def test_csrf_protection():
     # First get a party to update
     parties_response = session.get(f"{BASE_URL}/parties")
     if parties_response.status_code == 200:
-        parties_data = parties_response.json()
+        parties_result = parties_response.json()
+        parties_list = parties_result.get('items', []) if isinstance(parties_result, dict) else parties_result
         
-        # API returns a dictionary with party IDs as keys
-        if parties_data and isinstance(parties_data, dict) and len(parties_data) > 0:
-            # Get the first party from the dictionary
-            party_id = list(parties_data.keys())[0]
-            party = parties_data[party_id]
+        # Get the first party from the list
+        if parties_list and len(parties_list) > 0:
+            party = parties_list[0]
+            party_id = party.get('id')
             
             response = session.put(
                 f"{BASE_URL}/parties/{party_id}",
