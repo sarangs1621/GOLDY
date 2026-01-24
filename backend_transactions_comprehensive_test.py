@@ -20,7 +20,7 @@ import uuid
 from decimal import Decimal
 
 # Configuration
-BASE_URL = "https://dashboard-preview-8.preview.emergentagent.com/api"
+BASE_URL = "https://dashboard-metrics-23.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 import sys
 
 # Configuration
-BACKEND_URL = "https://dashboard-preview-8.preview.emergentagent.com"
+BACKEND_URL = "https://dashboard-metrics-23.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
