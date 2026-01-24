@@ -2640,7 +2640,7 @@ async def get_purchases(
     end_date: Optional[str] = None,
     status: Optional[str] = None,
     page: int = 1,
-    per_page: int = 50,
+    page_size: int = 10,
     current_user: User = Depends(require_permission('purchases.view'))
 ):
     """Get all purchases with optional filters and pagination"""
@@ -2663,18 +2663,18 @@ async def get_purchases(
         query["status"] = status
     
     # Calculate skip value
-    skip = (page - 1) * per_page
+    skip = (page - 1) * page_size
     
     # Get total count for pagination
     total_count = await db.purchases.count_documents(query)
     
     # Get paginated results
-    purchases = await db.purchases.find(query).sort("date", -1).skip(skip).limit(per_page).to_list(per_page)
+    purchases = await db.purchases.find(query).sort("date", -1).skip(skip).limit(page_size).to_list(page_size)
     
     # CRITICAL FIX: Process purchases through decimal_to_float to handle Decimal serialization
     purchases = [decimal_to_float(p) for p in purchases]
     
-    return create_pagination_response(purchases, total_count, page, per_page)
+    return create_pagination_response(purchases, total_count, page, page_size)
 
 @api_router.patch("/purchases/{purchase_id}")
 async def update_purchase(
