@@ -20,7 +20,7 @@ import uuid
 from decimal import Decimal
 
 # Configuration
-BASE_URL = "https://auth-control-8.preview.emergentagent.com/api"
+BASE_URL = "https://fortress-api-1.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

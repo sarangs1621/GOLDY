@@ -383,7 +383,7 @@ backend:
         comment: "❌ CRITICAL INFRASTRUCTURE FAILURE - Backend and Frontend services were completely STOPPED. Application returning 'Web server returned an unknown error' with HTTP 520 errors. Complete system unavailability detected during stress testing."
       - working: true
         agent: "testing"
-        comment: "✅ INFRASTRUCTURE ISSUES RESOLVED - Restarted all services successfully. Backend now running on port 8001, Frontend compiled and serving. Application accessible at https://auth-control-8.preview.emergentagent.com with HTTP 200 responses."
+        comment: "✅ INFRASTRUCTURE ISSUES RESOLVED - Restarted all services successfully. Backend now running on port 8001, Frontend compiled and serving. Application accessible at https://fortress-api-1.preview.emergentagent.com with HTTP 200 responses."
       - working: true
         agent: "main"
         comment: "✅ ALL SERVICES RUNNING - After dependency fixes, all services restarted successfully. Backend running on port 8001, Frontend compiled without errors, MongoDB running. Application fully operational."
