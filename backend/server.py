@@ -6065,7 +6065,7 @@ async def get_purchase_history_report(
     date_to: Optional[str] = None,
     vendor_party_id: Optional[str] = None,
     search: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission('reports.view'))
 ):
     """
     Get purchase history report showing ONLY finalized purchases.
