@@ -1708,7 +1708,9 @@ async def get_inventory(
 # ============================================================================
 
 @api_router.get("/parties")
+@limiter.limit("1000/hour")  # General authenticated rate limit: 1000 requests per hour
 async def get_parties(
+    request: Request,
     party_type: Optional[str] = None,
     page: int = 1,
     per_page: int = 50,
