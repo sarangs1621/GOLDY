@@ -720,6 +720,9 @@ class Invoice(BaseModel):
     customer_type: str = "saved"  # "saved" or "walk_in"
     customer_id: Optional[str] = None  # For saved customers only
     customer_name: Optional[str] = None  # For saved customers only
+    customer_phone: Optional[str] = None  # Customer phone (from party or walk-in)
+    customer_address: Optional[str] = None  # Customer address (from party)
+    customer_gstin: Optional[str] = None  # Customer GSTIN (from party)
     walk_in_name: Optional[str] = None  # For walk-in customers only
     walk_in_phone: Optional[str] = None  # For walk-in customers only
     invoice_type: str = "sale"
@@ -729,8 +732,14 @@ class Invoice(BaseModel):
     finalized_by: Optional[str] = None
     items: List[InvoiceItem] = []
     subtotal: float = 0
-    discount_amount: float = 0.0  # MODULE 7: Discount amount (amount-based, not percentage)
-    vat_total: float = 0
+    discount_amount: float = 0.0  # Invoice-level discount amount
+    # Tax breakdown
+    tax_type: str = "cgst_sgst"  # "cgst_sgst" or "igst"
+    gst_percent: float = 5.0  # Default 5% GST
+    cgst_total: float = 0.0  # CGST amount (for intra-state)
+    sgst_total: float = 0.0  # SGST amount (for intra-state)
+    igst_total: float = 0.0  # IGST amount (for inter-state)
+    vat_total: float = 0  # Legacy field, total tax amount
     grand_total: float = 0
     paid_amount: float = 0
     balance_due: float = 0
