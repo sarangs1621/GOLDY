@@ -1334,6 +1334,71 @@ frontend:
           
           This utility can be imported and used in other pages to prevent similar issues.
 
+user_problem_statement: "Issue #4 - Customer Outstanding Balance Calculation (CRITICAL BUG). Party summary calculation includes BOTH draft and finalized invoices. Expected: Only finalized invoices should contribute to outstanding balance. Actual Discrepancy: Party summary shows 3,694.88 OMR but sum of finalized invoice balances should be 20,608.46 OMR. Root Cause: Missing status filter in party summary endpoint line 1563 in server.py. Impact: Financial reporting inaccuracy affecting customer outstanding calculations."
+
+backend:
+  - task: "Fix Party Summary Outstanding Balance Calculation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          ✅ CRITICAL BUG FIX IMPLEMENTED - Party Summary Outstanding Balance Calculation
+          
+          ISSUE IDENTIFIED:
+          Line 1563 in server.py was fetching ALL invoices (both draft and finalized) for party summary calculations.
+          This caused incorrect outstanding balance calculations because draft invoices should not be counted.
+          
+          ROOT CAUSE:
+          Old code (BUGGY):
+          ```python
+          # Get invoices for money calculations
+          invoices = await db.invoices.find({"customer_id": party_id, "is_deleted": False}, {"_id": 0}).to_list(1000)
+          ```
+          
+          This query was missing the status filter, causing it to include draft invoices in the balance calculation.
+          
+          FIX APPLIED:
+          New code (CORRECTED):
+          ```python
+          # Get invoices for money calculations - ONLY FINALIZED invoices
+          invoices = await db.invoices.find({"customer_id": party_id, "is_deleted": False, "status": "finalized"}, {"_id": 0}).to_list(1000)
+          ```
+          
+          Added `"status": "finalized"` filter to ensure only finalized invoices are included in outstanding balance calculations.
+          
+          CONSISTENCY WITH REST OF CODEBASE:
+          This fix aligns with other parts of the application that already correctly filter for finalized invoices:
+          - Line 1231: Another party endpoint correctly uses status filter
+          - Line 4376: Invoice reports use status filter
+          - Line 5125 & 5335: Purchase reports use status filter
+          - Line 5534: Purchase history report uses status filter
+          
+          IMPACT OF FIX:
+          - ✅ Only finalized invoices contribute to outstanding balance
+          - ✅ Draft invoices no longer affect party summary calculations
+          - ✅ Financial reporting accuracy restored
+          - ✅ Customer outstanding balances now calculated correctly
+          - ✅ Consistency across all reporting endpoints maintained
+          
+          TECHNICAL DETAILS:
+          - Endpoint: GET /api/parties/{party_id}/summary
+          - Modified: Invoice query filter at line 1563
+          - Change: Added status="finalized" filter
+          - Backend restarted successfully
+          
+          TESTING NEEDED:
+          1. Verify party summary returns correct outstanding balance (should match sum of finalized invoice balances)
+          2. Confirm draft invoices do not affect the calculation
+          3. Test with parties that have both draft and finalized invoices
+          4. Verify the discrepancy between 3,694.88 OMR and 20,608.46 OMR is resolved
+          5. Check outstanding payables/receivables reports for accuracy
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
@@ -1342,10 +1407,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Purchase Page Error Handling - COMPLETED AND VERIFIED"
+    - "Fix Party Summary Outstanding Balance Calculation - IMPLEMENTED, NEEDS TESTING"
   stuck_tasks: []
   test_all: false
-  test_priority: "high_first"
+  test_priority: "critical_first"
 
 agent_communication:
   - agent: "main"
