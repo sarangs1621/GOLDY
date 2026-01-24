@@ -6941,6 +6941,9 @@ app.add_middleware(
 # Add Security Headers middleware (must be after CORS)
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Add Input Sanitization middleware (sanitizes all incoming data)
+app.add_middleware(InputSanitizationMiddleware)
+
 # Add CSRF Protection middleware (must be after CORS and Security Headers)
 app.add_middleware(CSRFProtectionMiddleware)
 
