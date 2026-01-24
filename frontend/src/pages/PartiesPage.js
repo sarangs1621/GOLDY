@@ -64,7 +64,7 @@ export default function PartiesPage() {
       const response = await axios.get(`${API}/parties`, {
         params: {
           page: currentPage,
-          per_page: perPage
+          page_size: perPage
         }
       });
       setParties(response.data.items || response.data);
@@ -77,7 +77,7 @@ export default function PartiesPage() {
   };
 
   const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
+    setSearchParams({ page: newPage.toString() });
   };
 
   const handlePerPageChange = (newPerPage) => {
