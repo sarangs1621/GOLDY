@@ -27,13 +27,12 @@ BASE_URL = "https://inventory-cat-bug.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
-class InvoicePrintingTester:
+class InventoryHeadersTester:
     def __init__(self):
         self.session = requests.Session()
         self.token = None
         self.test_results = []
-        self.test_invoice_id = None
-        self.test_customer_id = None
+        self.test_headers = []
         
     def log_result(self, test_name, status, details):
         """Log test result"""
@@ -69,365 +68,260 @@ class InvoicePrintingTester:
             self.log_result("Authentication", "ERROR", f"Authentication error: {str(e)}")
             return False
     
-    def test_shop_settings_endpoint(self):
+    def test_inventory_headers_endpoint_structure(self):
         """
-        TEST 1: Shop Settings Endpoint
-        GET /api/settings/shop should return placeholder shop settings
+        TEST 1: Inventory Headers API Endpoint Structure
+        GET /api/inventory/headers should return correct paginated structure
         """
         print("\n" + "="*80)
-        print("TEST 1: SHOP SETTINGS ENDPOINT")
+        print("TEST 1: INVENTORY HEADERS API ENDPOINT STRUCTURE")
         print("="*80)
         
         try:
-            response = self.session.get(f"{BASE_URL}/settings/shop")
-            
-            if response.status_code == 200:
-                settings = response.json()
-                
-                # Verify required fields are present
-                required_fields = ['shop_name', 'address', 'phone', 'email', 'gstin', 'terms_and_conditions']
-                missing_fields = [field for field in required_fields if field not in settings]
-                
-                if not missing_fields:
-                    # Verify placeholder data is returned
-                    expected_shop_name = "Gold Jewellery ERP"
-                    actual_shop_name = settings.get('shop_name')
-                    
-                    if actual_shop_name == expected_shop_name:
-                        self.log_result("Shop Settings - Placeholder Data", "PASS", 
-                                      f"Returned correct placeholder data: {actual_shop_name}")
-                    else:
-                        self.log_result("Shop Settings - Placeholder Data", "PASS", 
-                                      f"Returned shop settings with name: {actual_shop_name}")
-                    
-                    # Log all returned fields
-                    field_details = ", ".join([f"{k}: {v}" for k, v in settings.items() if k in required_fields])
-                    self.log_result("Shop Settings - All Fields", "PASS", 
-                                  f"All required fields present: {field_details}")
-                else:
-                    self.log_result("Shop Settings - Missing Fields", "FAIL", 
-                                  f"Missing required fields: {missing_fields}")
-            else:
-                self.log_result("Shop Settings - HTTP Response", "FAIL", 
-                              f"Failed to get shop settings: {response.status_code} - {response.text}")
-                
-        except Exception as e:
-            self.log_result("Shop Settings - Exception", "ERROR", f"Error: {str(e)}")
-    
-    def find_existing_invoice(self):
-        """
-        Find an existing invoice in the database for testing
-        """
-        print("\n" + "="*80)
-        print("SETUP: FINDING EXISTING INVOICE")
-        print("="*80)
-        
-        try:
-            # Get list of invoices
-            response = self.session.get(f"{BASE_URL}/invoices?page=1&per_page=10")
-            
-            if response.status_code == 200:
-                data = response.json()
-                invoices = data.get("items", [])
-                
-                if invoices:
-                    # Use the first invoice
-                    invoice = invoices[0]
-                    self.test_invoice_id = invoice.get("id")
-                    invoice_number = invoice.get("invoice_number", "Unknown")
-                    customer_type = invoice.get("customer_type", "Unknown")
-                    
-                    self.log_result("Setup - Find Invoice", "PASS", 
-                                  f"Found invoice: {invoice_number} (ID: {self.test_invoice_id}, Type: {customer_type})")
-                    
-                    # Store customer_id if it's a saved customer
-                    if customer_type == "saved":
-                        self.test_customer_id = invoice.get("customer_id")
-                    
-                    return True
-                else:
-                    # Create a test invoice if none exist
-                    return self.create_test_invoice()
-            else:
-                self.log_result("Setup - Find Invoice", "FAIL", 
-                              f"Failed to get invoices: {response.status_code} - {response.text}")
-                return False
-                
-        except Exception as e:
-            self.log_result("Setup - Find Invoice", "ERROR", f"Error: {str(e)}")
-            return False
-    
-    def create_test_invoice(self):
-        """
-        Create a test invoice with enhanced fields for testing
-        """
-        try:
-            # First create a test customer
-            import random
-            unique_suffix = f"{datetime.now().strftime('%H%M%S')}{random.randint(100, 999)}"
-            
-            customer_data = {
-                "name": f"Test Customer {unique_suffix}",
-                "party_type": "customer",
-                "phone": f"99123{unique_suffix}",
-                "address": "123 Test Street, Test City, Test Country",
-                "notes": "Created for invoice printing tests"
-            }
-            
-            response = self.session.post(f"{BASE_URL}/parties", json=customer_data)
-            if response.status_code == 200:
-                customer = response.json()
-                self.test_customer_id = customer["id"]
-                
-                # Create invoice with enhanced fields
-                invoice_data = {
-                    "customer_type": "saved",
-                    "customer_id": self.test_customer_id,
-                    "invoice_type": "sale",
-                    "items": [
-                        {
-                            "description": "Gold Ring 22K",
-                            "qty": 1,
-                            "gross_weight": 15.500,
-                            "stone_weight": 2.250,
-                            "net_gold_weight": 13.250,
-                            "weight": 13.250,
-                            "purity": 916,
-                            "metal_rate": 55.50,
-                            "gold_value": 735.38,
-                            "making_charge_type": "per_gram",
-                            "making_value": 200.00,
-                            "stone_charges": 150.00,
-                            "wastage_charges": 50.00,
-                            "item_discount": 25.00,
-                            "vat_percent": 5.0,
-                            "vat_amount": 55.52,
-                            "line_total": 1165.90
-                        }
-                    ],
-                    "subtotal": 1165.90,
-                    "discount_amount": 50.00,
-                    "tax_type": "cgst_sgst",
-                    "gst_percent": 5.0,
-                    "cgst_total": 27.76,
-                    "sgst_total": 27.76,
-                    "igst_total": 0.0,
-                    "vat_total": 55.52,
-                    "grand_total": 1171.42,
-                    "notes": "Test invoice for printing module"
-                }
-                
-                response = self.session.post(f"{BASE_URL}/invoices", json=invoice_data)
-                if response.status_code == 200:
-                    invoice = response.json()
-                    self.test_invoice_id = invoice["id"]
-                    self.log_result("Setup - Create Test Invoice", "PASS", 
-                                  f"Created test invoice: {invoice.get('invoice_number')} (ID: {self.test_invoice_id})")
-                    return True
-                else:
-                    self.log_result("Setup - Create Test Invoice", "FAIL", 
-                                  f"Failed to create invoice: {response.status_code} - {response.text}")
-                    return False
-            else:
-                self.log_result("Setup - Create Test Customer", "FAIL", 
-                              f"Failed to create customer: {response.status_code} - {response.text}")
-                return False
-                
-        except Exception as e:
-            self.log_result("Setup - Create Test Invoice", "ERROR", f"Error: {str(e)}")
-            return False
-    
-    def test_invoice_full_details_endpoint(self):
-        """
-        TEST 2: Invoice Full Details Endpoint
-        GET /api/invoices/{invoice_id}/full-details should return enhanced invoice data
-        """
-        print("\n" + "="*80)
-        print("TEST 2: INVOICE FULL DETAILS ENDPOINT")
-        print("="*80)
-        
-        if not self.test_invoice_id:
-            self.log_result("Invoice Full Details - No Invoice", "FAIL", "No test invoice available")
-            return
-        
-        try:
-            response = self.session.get(f"{BASE_URL}/invoices/{self.test_invoice_id}/full-details")
+            response = self.session.get(f"{BASE_URL}/inventory/headers")
             
             if response.status_code == 200:
                 data = response.json()
                 
-                # Verify response structure
-                required_keys = ['invoice', 'payments', 'customer_details']
+                # Verify top-level structure: {items: [...], pagination: {...}}
+                required_keys = ['items', 'pagination']
                 missing_keys = [key for key in required_keys if key not in data]
                 
                 if not missing_keys:
-                    self.log_result("Invoice Full Details - Response Structure", "PASS", 
-                                  "Response contains invoice, payments, and customer_details")
+                    self.log_result("Inventory Headers - Response Structure", "PASS", 
+                                  "Response contains correct structure: {items: [...], pagination: {...}}")
                     
-                    # Test invoice object
-                    invoice = data.get('invoice', {})
-                    if invoice:
-                        self.log_result("Invoice Full Details - Invoice Object", "PASS", 
-                                      f"Invoice object present with ID: {invoice.get('id')}")
-                        
-                        # Test enhanced invoice fields
-                        self.test_invoice_enhanced_fields(invoice)
-                        
-                        # Test invoice items enhanced fields
-                        items = invoice.get('items', [])
-                        if items:
-                            self.test_invoice_item_enhanced_fields(items[0])
+                    # Verify items is an array
+                    items = data.get('items', [])
+                    if isinstance(items, list):
+                        self.log_result("Inventory Headers - Items Array", "PASS", 
+                                      f"Items is array with {len(items)} inventory headers")
+                        self.test_headers = items
                     else:
-                        self.log_result("Invoice Full Details - Invoice Object", "FAIL", 
-                                      "Invoice object is empty or missing")
+                        self.log_result("Inventory Headers - Items Array", "FAIL", 
+                                      f"Items is not an array: {type(items)}")
                     
-                    # Test payments array
-                    payments = data.get('payments', [])
-                    self.log_result("Invoice Full Details - Payments Array", "PASS", 
-                                  f"Payments array present with {len(payments)} payments")
-                    
-                    # Test customer_details
-                    customer_details = data.get('customer_details')
-                    if customer_details:
-                        self.log_result("Invoice Full Details - Customer Details", "PASS", 
-                                      f"Customer details present: {customer_details.get('name', 'Unknown')}")
+                    # Verify pagination object
+                    pagination = data.get('pagination', {})
+                    if isinstance(pagination, dict):
+                        required_pagination_fields = ['total_count', 'page', 'page_size', 'total_pages', 'has_next', 'has_prev']
+                        missing_pagination_fields = [field for field in required_pagination_fields if field not in pagination]
+                        
+                        if not missing_pagination_fields:
+                            self.log_result("Inventory Headers - Pagination Object", "PASS", 
+                                          f"Pagination object contains all required fields: {', '.join(required_pagination_fields)}")
+                            
+                            # Log pagination details
+                            pagination_details = f"total_count: {pagination.get('total_count')}, page: {pagination.get('page')}, page_size: {pagination.get('page_size')}, total_pages: {pagination.get('total_pages')}, has_next: {pagination.get('has_next')}, has_prev: {pagination.get('has_prev')}"
+                            self.log_result("Inventory Headers - Pagination Details", "PASS", pagination_details)
+                        else:
+                            self.log_result("Inventory Headers - Pagination Object", "FAIL", 
+                                          f"Missing pagination fields: {missing_pagination_fields}")
                     else:
-                        self.log_result("Invoice Full Details - Customer Details", "PASS", 
-                                      "Customer details is null (expected for walk-in customers)")
+                        self.log_result("Inventory Headers - Pagination Object", "FAIL", 
+                                      f"Pagination is not an object: {type(pagination)}")
                         
                 else:
-                    self.log_result("Invoice Full Details - Response Structure", "FAIL", 
+                    self.log_result("Inventory Headers - Response Structure", "FAIL", 
                                   f"Missing required keys: {missing_keys}")
             else:
-                self.log_result("Invoice Full Details - HTTP Response", "FAIL", 
-                              f"Failed to get invoice details: {response.status_code} - {response.text}")
+                self.log_result("Inventory Headers - HTTP Response", "FAIL", 
+                              f"Failed to get inventory headers: {response.status_code} - {response.text}")
                 
         except Exception as e:
-            self.log_result("Invoice Full Details - Exception", "ERROR", f"Error: {str(e)}")
+            self.log_result("Inventory Headers - Exception", "ERROR", f"Error: {str(e)}")
     
-    def test_invoice_enhanced_fields(self, invoice):
+    def test_inventory_headers_item_fields(self):
         """
-        TEST 3: Invoice Model Enhancements
-        Verify new fields are accessible in invoice object
+        TEST 2: Inventory Headers Item Fields
+        Verify each header has required fields: id, name, current_qty, current_weight
         """
         print("\n" + "="*80)
-        print("TEST 3: INVOICE MODEL ENHANCEMENTS")
+        print("TEST 2: INVENTORY HEADERS ITEM FIELDS")
         print("="*80)
         
-        # Test customer fields
-        customer_fields = ['customer_phone', 'customer_address', 'customer_gstin']
-        accessible_customer_fields = []
+        if not self.test_headers:
+            self.log_result("Inventory Headers - Item Fields", "FAIL", "No inventory headers available for testing")
+            return
         
-        for field in customer_fields:
-            if field in invoice:
-                accessible_customer_fields.append(field)
-        
-        if accessible_customer_fields:
-            self.log_result("Invoice Enhanced Fields - Customer Fields", "PASS", 
-                          f"Customer fields accessible: {', '.join(accessible_customer_fields)}")
-        else:
-            self.log_result("Invoice Enhanced Fields - Customer Fields", "PASS", 
-                          "Customer fields present but may be null (expected for some invoices)")
-        
-        # Test tax breakdown fields
-        tax_fields = ['tax_type', 'gst_percent', 'cgst_total', 'sgst_total', 'igst_total']
-        accessible_tax_fields = []
-        
-        for field in tax_fields:
-            if field in invoice:
-                accessible_tax_fields.append(f"{field}: {invoice.get(field)}")
-        
-        if len(accessible_tax_fields) >= 3:  # At least 3 tax fields should be present
-            self.log_result("Invoice Enhanced Fields - Tax Breakdown", "PASS", 
-                          f"Tax breakdown fields accessible: {', '.join(accessible_tax_fields)}")
-        else:
-            self.log_result("Invoice Enhanced Fields - Tax Breakdown", "FAIL", 
-                          f"Missing tax breakdown fields. Found: {', '.join(accessible_tax_fields)}")
+        try:
+            required_fields = ['id', 'name', 'current_qty', 'current_weight']
+            
+            for i, header in enumerate(self.test_headers):
+                missing_fields = [field for field in required_fields if field not in header]
+                
+                if not missing_fields:
+                    header_name = header.get('name', 'Unknown')
+                    header_id = header.get('id', 'Unknown')
+                    current_qty = header.get('current_qty', 0)
+                    current_weight = header.get('current_weight', 0)
+                    
+                    self.log_result(f"Inventory Header {i+1} - Required Fields", "PASS", 
+                                  f"Header '{header_name}' (ID: {header_id}) has all required fields: qty={current_qty}, weight={current_weight}g")
+                else:
+                    self.log_result(f"Inventory Header {i+1} - Required Fields", "FAIL", 
+                                  f"Missing required fields: {missing_fields}")
+            
+            # Test additional fields that should be present
+            additional_fields = ['is_active', 'created_at', 'created_by']
+            headers_with_additional_fields = 0
+            
+            for header in self.test_headers:
+                present_additional_fields = [field for field in additional_fields if field in header]
+                if len(present_additional_fields) >= 2:  # At least 2 additional fields should be present
+                    headers_with_additional_fields += 1
+            
+            if headers_with_additional_fields > 0:
+                self.log_result("Inventory Headers - Additional Fields", "PASS", 
+                              f"{headers_with_additional_fields}/{len(self.test_headers)} headers have additional fields (is_active, created_at, created_by)")
+            else:
+                self.log_result("Inventory Headers - Additional Fields", "PASS", 
+                              "Additional fields may not be present (acceptable)")
+                
+        except Exception as e:
+            self.log_result("Inventory Headers - Item Fields", "ERROR", f"Error: {str(e)}")
     
-    def test_invoice_item_enhanced_fields(self, item):
+    def test_inventory_headers_pagination_parameters(self):
         """
-        TEST 4: InvoiceItem Model Enhancements
-        Verify new fields are accessible in invoice items
+        TEST 3: Inventory Headers Pagination Parameters
+        Test pagination parameters work correctly (page=1, page_size=10)
         """
         print("\n" + "="*80)
-        print("TEST 4: INVOICE ITEM MODEL ENHANCEMENTS")
+        print("TEST 3: INVENTORY HEADERS PAGINATION PARAMETERS")
         print("="*80)
         
-        # Test weight breakdown fields
-        weight_fields = ['gross_weight', 'stone_weight', 'net_gold_weight']
-        accessible_weight_fields = []
-        
-        for field in weight_fields:
-            if field in item:
-                accessible_weight_fields.append(f"{field}: {item.get(field)}")
-        
-        if len(accessible_weight_fields) >= 2:  # At least 2 weight fields should be present
-            self.log_result("Invoice Item Enhanced Fields - Weight Breakdown", "PASS", 
-                          f"Weight fields accessible: {', '.join(accessible_weight_fields)}")
-        else:
-            self.log_result("Invoice Item Enhanced Fields - Weight Breakdown", "FAIL", 
-                          f"Missing weight breakdown fields. Found: {', '.join(accessible_weight_fields)}")
-        
-        # Test charge fields
-        charge_fields = ['making_charge_type', 'stone_charges', 'wastage_charges', 'item_discount']
-        accessible_charge_fields = []
-        
-        for field in charge_fields:
-            if field in item:
-                accessible_charge_fields.append(f"{field}: {item.get(field)}")
-        
-        if len(accessible_charge_fields) >= 2:  # At least 2 charge fields should be present
-            self.log_result("Invoice Item Enhanced Fields - Charge Fields", "PASS", 
-                          f"Charge fields accessible: {', '.join(accessible_charge_fields)}")
-        else:
-            self.log_result("Invoice Item Enhanced Fields - Charge Fields", "FAIL", 
-                          f"Missing charge fields. Found: {', '.join(accessible_charge_fields)}")
+        try:
+            # Test with custom page_size
+            response = self.session.get(f"{BASE_URL}/inventory/headers?page=1&page_size=5")
+            
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get('items', [])
+                pagination = data.get('pagination', {})
+                
+                # Verify page_size parameter is respected
+                page_size = pagination.get('page_size')
+                if page_size == 5:
+                    self.log_result("Inventory Headers - Page Size Parameter", "PASS", 
+                                  f"Custom page_size=5 parameter working correctly")
+                    
+                    # Verify items length respects page_size
+                    if len(items) <= 5:
+                        self.log_result("Inventory Headers - Items Length vs Page Size", "PASS", 
+                                      f"Items length ({len(items)}) respects page_size limit (5)")
+                    else:
+                        self.log_result("Inventory Headers - Items Length vs Page Size", "FAIL", 
+                                      f"Items length ({len(items)}) exceeds page_size limit (5)")
+                else:
+                    self.log_result("Inventory Headers - Page Size Parameter", "FAIL", 
+                                  f"Expected page_size=5, got {page_size}")
+                
+                # Test page parameter
+                page = pagination.get('page')
+                if page == 1:
+                    self.log_result("Inventory Headers - Page Parameter", "PASS", 
+                                  f"Page parameter working correctly: page={page}")
+                else:
+                    self.log_result("Inventory Headers - Page Parameter", "FAIL", 
+                                  f"Expected page=1, got {page}")
+                
+            else:
+                self.log_result("Inventory Headers - Pagination Parameters", "FAIL", 
+                              f"Failed to test pagination parameters: {response.status_code} - {response.text}")
+                
+        except Exception as e:
+            self.log_result("Inventory Headers - Pagination Parameters", "ERROR", f"Error: {str(e)}")
     
-    def test_authentication_requirements(self):
+    def test_inventory_headers_category_dropdown_compatibility(self):
+        """
+        TEST 4: Category Dropdown Compatibility
+        Verify the response structure can be used in Category dropdown for Add Stock Movement dialog
+        """
+        print("\n" + "="*80)
+        print("TEST 4: CATEGORY DROPDOWN COMPATIBILITY")
+        print("="*80)
+        
+        try:
+            response = self.session.get(f"{BASE_URL}/inventory/headers")
+            
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get('items', [])
+                pagination = data.get('pagination', {})
+                
+                # Simulate dropdown population scenario
+                dropdown_options = []
+                
+                for header in items:
+                    header_id = header.get('id')
+                    header_name = header.get('name')
+                    
+                    if header_id and header_name:
+                        dropdown_options.append({
+                            'value': header_id,
+                            'label': header_name
+                        })
+                
+                if dropdown_options:
+                    self.log_result("Category Dropdown - Option Generation", "PASS", 
+                                  f"Successfully generated {len(dropdown_options)} dropdown options from inventory headers")
+                    
+                    # Log sample dropdown options
+                    sample_options = dropdown_options[:3]  # First 3 options
+                    sample_details = ", ".join([f"'{opt['label']}' (ID: {opt['value']})" for opt in sample_options])
+                    self.log_result("Category Dropdown - Sample Options", "PASS", 
+                                  f"Sample dropdown options: {sample_details}")
+                    
+                    # Verify total count is accessible for pagination in dropdown
+                    total_count = pagination.get('total_count', 0)
+                    if total_count >= len(dropdown_options):
+                        self.log_result("Category Dropdown - Total Count Access", "PASS", 
+                                      f"Total count ({total_count}) accessible for dropdown pagination")
+                    else:
+                        self.log_result("Category Dropdown - Total Count Access", "FAIL", 
+                                      f"Total count ({total_count}) is less than current items ({len(dropdown_options)})")
+                else:
+                    self.log_result("Category Dropdown - Option Generation", "FAIL", 
+                                  "Could not generate dropdown options - headers missing id or name fields")
+                
+            else:
+                self.log_result("Category Dropdown - Compatibility", "FAIL", 
+                              f"Failed to test dropdown compatibility: {response.status_code} - {response.text}")
+                
+        except Exception as e:
+            self.log_result("Category Dropdown - Compatibility", "ERROR", f"Error: {str(e)}")
+    
+    def test_inventory_headers_authentication(self):
         """
         TEST 5: Authentication Requirements
-        Verify endpoints are properly protected
+        Verify inventory headers endpoint is properly protected
         """
         print("\n" + "="*80)
         print("TEST 5: AUTHENTICATION REQUIREMENTS")
         print("="*80)
         
-        # Test shop settings without authentication
         try:
+            # Test without authentication
             unauthenticated_session = requests.Session()
-            response = unauthenticated_session.get(f"{BASE_URL}/settings/shop")
+            response = unauthenticated_session.get(f"{BASE_URL}/inventory/headers")
             
             if response.status_code == 401:
-                self.log_result("Authentication - Shop Settings Protected", "PASS", 
-                              "Shop settings endpoint properly requires authentication")
+                self.log_result("Authentication - Inventory Headers Protected", "PASS", 
+                              "Inventory headers endpoint properly requires authentication")
             else:
-                self.log_result("Authentication - Shop Settings Protected", "FAIL", 
-                              f"Shop settings endpoint should require auth: {response.status_code}")
+                self.log_result("Authentication - Inventory Headers Protected", "FAIL", 
+                              f"Inventory headers endpoint should require auth: {response.status_code}")
                 
         except Exception as e:
-            self.log_result("Authentication - Shop Settings Protected", "ERROR", f"Error: {str(e)}")
-        
-        # Test invoice full details without authentication
-        if self.test_invoice_id:
-            try:
-                unauthenticated_session = requests.Session()
-                response = unauthenticated_session.get(f"{BASE_URL}/invoices/{self.test_invoice_id}/full-details")
-                
-                if response.status_code == 401:
-                    self.log_result("Authentication - Invoice Details Protected", "PASS", 
-                                  "Invoice full details endpoint properly requires authentication")
-                else:
-                    self.log_result("Authentication - Invoice Details Protected", "FAIL", 
-                                  f"Invoice details endpoint should require auth: {response.status_code}")
-                    
-            except Exception as e:
-                self.log_result("Authentication - Invoice Details Protected", "ERROR", f"Error: {str(e)}")
+            self.log_result("Authentication - Inventory Headers Protected", "ERROR", f"Error: {str(e)}")
     
     def run_all_tests(self):
-        """Run all invoice printing endpoint tests"""
-        print("STARTING PROFESSIONAL INVOICE PRINTING ENDPOINTS TESTING")
+        """Run all inventory headers API endpoint tests"""
+        print("STARTING INVENTORY HEADERS API ENDPOINT TESTING")
         print("Backend URL:", BASE_URL)
         print("Authentication:", f"{USERNAME}/***")
+        print("Target Endpoint: GET /api/inventory/headers")
+        print("Purpose: Ensure Category dropdown in Add Stock Movement dialog populates correctly")
         print("="*80)
         
         # Authenticate first
@@ -435,22 +329,24 @@ class InvoicePrintingTester:
             print("❌ Authentication failed. Cannot proceed with tests.")
             return False
         
-        # Test authentication requirements first
-        self.test_authentication_requirements()
+        # Test authentication requirements
+        self.test_inventory_headers_authentication()
         
-        # Test shop settings endpoint
-        self.test_shop_settings_endpoint()
+        # Test endpoint structure
+        self.test_inventory_headers_endpoint_structure()
         
-        # Find or create test invoice
-        if not self.find_existing_invoice():
-            print("❌ Could not find or create test invoice. Skipping invoice tests.")
-        else:
-            # Test invoice full details endpoint
-            self.test_invoice_full_details_endpoint()
+        # Test item fields
+        self.test_inventory_headers_item_fields()
+        
+        # Test pagination parameters
+        self.test_inventory_headers_pagination_parameters()
+        
+        # Test category dropdown compatibility
+        self.test_inventory_headers_category_dropdown_compatibility()
         
         # Summary
         print("\n" + "="*80)
-        print("TEST SUMMARY - PROFESSIONAL INVOICE PRINTING ENDPOINTS")
+        print("TEST SUMMARY - INVENTORY HEADERS API ENDPOINT")
         print("="*80)
         
         total_tests = len(self.test_results)
@@ -466,51 +362,61 @@ class InvoicePrintingTester:
         # Success criteria assessment
         print("\nSUCCESS CRITERIA ASSESSMENT:")
         
-        shop_settings_tests = [r for r in self.test_results if "Shop Settings" in r["test"]]
-        shop_settings_success = all(r["status"] == "PASS" for r in shop_settings_tests)
+        structure_tests = [r for r in self.test_results if "Response Structure" in r["test"] or "Pagination Object" in r["test"]]
+        structure_success = all(r["status"] == "PASS" for r in structure_tests)
         
-        invoice_details_tests = [r for r in self.test_results if "Invoice Full Details" in r["test"]]
-        invoice_details_success = all(r["status"] == "PASS" for r in invoice_details_tests)
+        fields_tests = [r for r in self.test_results if "Required Fields" in r["test"]]
+        fields_success = all(r["status"] == "PASS" for r in fields_tests)
         
-        enhanced_fields_tests = [r for r in self.test_results if "Enhanced Fields" in r["test"]]
-        enhanced_fields_success = all(r["status"] == "PASS" for r in enhanced_fields_tests)
+        pagination_tests = [r for r in self.test_results if "Pagination Parameters" in r["test"] or "Page Size" in r["test"]]
+        pagination_success = all(r["status"] == "PASS" for r in pagination_tests)
+        
+        dropdown_tests = [r for r in self.test_results if "Category Dropdown" in r["test"]]
+        dropdown_success = all(r["status"] == "PASS" for r in dropdown_tests)
         
         auth_tests = [r for r in self.test_results if "Authentication" in r["test"]]
         auth_success = all(r["status"] == "PASS" for r in auth_tests)
         
-        if shop_settings_success:
-            print("✅ Shop Settings Endpoint - Returns placeholder data correctly")
+        if structure_success:
+            print("✅ Response Structure - Returns correct paginated structure {items: [...], pagination: {...}}")
         else:
-            print("❌ Shop Settings Endpoint - FAILED")
+            print("❌ Response Structure - FAILED")
         
-        if invoice_details_success:
-            print("✅ Invoice Full Details Endpoint - Returns enhanced invoice data")
+        if fields_success:
+            print("✅ Item Fields - All headers have required fields (id, name, current_qty, current_weight)")
         else:
-            print("❌ Invoice Full Details Endpoint - FAILED")
+            print("❌ Item Fields - FAILED")
         
-        if enhanced_fields_success:
-            print("✅ Enhanced Model Fields - All new fields accessible")
+        if pagination_success:
+            print("✅ Pagination Parameters - page and page_size parameters work correctly")
         else:
-            print("❌ Enhanced Model Fields - Some fields missing or inaccessible")
+            print("❌ Pagination Parameters - FAILED")
+        
+        if dropdown_success:
+            print("✅ Category Dropdown Compatibility - Can populate Category dropdown for Add Stock Movement")
+        else:
+            print("❌ Category Dropdown Compatibility - FAILED")
         
         if auth_success:
-            print("✅ Authentication Requirements - Endpoints properly protected")
+            print("✅ Authentication Requirements - Endpoint properly protected")
         else:
             print("❌ Authentication Requirements - FAILED")
         
         # Overall assessment
-        overall_success = shop_settings_success and invoice_details_success and enhanced_fields_success and auth_success
+        overall_success = structure_success and fields_success and pagination_success and dropdown_success and auth_success
         
         if overall_success:
-            print("\n🎉 ALL PROFESSIONAL INVOICE PRINTING ENDPOINTS WORKING!")
-            print("✅ Shop settings endpoint returns placeholder data")
-            print("✅ Invoice full details endpoint includes enhanced fields")
-            print("✅ All new model fields are accessible")
-            print("✅ Endpoints are properly authenticated")
-            print("✅ Ready for frontend integration")
+            print("\n🎉 INVENTORY HEADERS API ENDPOINT FULLY FUNCTIONAL!")
+            print("✅ Returns correct paginated structure: {items: [...], pagination: {...}}")
+            print("✅ Items array contains inventory headers with proper id and name fields")
+            print("✅ Each header has required fields: id, name, current_qty, current_weight")
+            print("✅ Pagination parameters (page=1, page_size=10) work correctly")
+            print("✅ Category dropdown in Add Stock Movement dialog will populate correctly")
+            print("✅ Endpoint is properly authenticated")
         else:
             print("\n🚨 SOME ISSUES DETECTED!")
-            print("❌ Some endpoints or fields are not working as expected")
+            print("❌ Some aspects of the inventory headers endpoint are not working as expected")
+            print("❌ Category dropdown may not populate correctly")
             print("❌ Review failed tests above")
         
         # Detailed results
