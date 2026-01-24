@@ -764,7 +764,7 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
     )
     
     await create_audit_log(current_user.id, current_user.full_name, "stock_movement", movement.id, "create", 
-                          details={"movement_type": movement_type, "qty_delta": qty_delta, "weight_delta": weight_delta})
+                          changes={"movement_type": movement_type, "qty_delta": qty_delta, "weight_delta": weight_delta})
     return movement
 
 @api_router.delete("/inventory/movements/{movement_id}")
