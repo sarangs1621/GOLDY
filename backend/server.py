@@ -741,20 +741,83 @@ async def register(user_data: UserCreate):
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
     user_doc = await db.users.find_one({"username": credentials.username, "is_deleted": False}, {"_id": 0})
+    
+    # Check if user exists
     if not user_doc:
+        await create_auth_audit_log(
+            username=credentials.username,
+            action="login_failed",
+            success=False,
+            failure_reason="User not found"
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    # Check account lockout
+    is_locked, lock_message = await check_account_lockout(user_doc)
+    if is_locked:
+        await create_auth_audit_log(
+            username=credentials.username,
+            action="login_failed",
+            success=False,
+            user_id=user_doc.get('id'),
+            failure_reason="Account locked"
+        )
+        raise HTTPException(status_code=403, detail=lock_message)
+    
+    # Verify password
     if not pwd_context.verify(credentials.password, user_doc.get('hashed_password', '')):
+        await handle_failed_login(user_doc, credentials.username)
+        await create_auth_audit_log(
+            username=credentials.username,
+            action="login_failed",
+            success=False,
+            user_id=user_doc.get('id'),
+            failure_reason="Invalid password"
+        )
+        
+        # Check if this failure caused a lockout
+        failed_attempts = user_doc.get('failed_login_attempts', 0) + 1
+        if failed_attempts >= MAX_LOGIN_ATTEMPTS:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Account locked due to {MAX_LOGIN_ATTEMPTS} failed login attempts. Please try again in {LOCKOUT_DURATION_MINUTES} minutes."
+            )
+        
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    # Check if user is active
     if not user_doc.get('is_active', False):
+        await create_auth_audit_log(
+            username=credentials.username,
+            action="login_failed",
+            success=False,
+            user_id=user_doc.get('id'),
+            failure_reason="User inactive"
+        )
         raise HTTPException(status_code=403, detail="User is inactive")
     
+    # Populate permissions
+    if 'permissions' not in user_doc or not user_doc['permissions']:
+        user_doc['permissions'] = get_user_permissions(user_doc.get('role', 'staff'))
+    
     user = User(**user_doc)
+    
+    # Handle successful login
+    await handle_successful_login(user.id)
+    
+    # Create JWT token
     token = jwt.encode(
         {"user_id": user.id, "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)},
         JWT_SECRET,
         algorithm=JWT_ALGORITHM
+    )
+    
+    # Log successful login
+    await create_auth_audit_log(
+        username=credentials.username,
+        action="login",
+        success=True,
+        user_id=user.id
     )
     
     return TokenResponse(access_token=token, user=user)
