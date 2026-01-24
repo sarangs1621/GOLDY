@@ -540,6 +540,142 @@ async def create_audit_log(user_id: str, user_name: str, module: str, record_id:
     )
     await db.audit_logs.insert_one(log.model_dump())
 
+# ============================================================================
+# AUTHENTICATION & SECURITY HELPER FUNCTIONS
+# ============================================================================
+
+def validate_password_complexity(password: str) -> tuple[bool, str]:
+    """
+    Validate password meets complexity requirements:
+    - Minimum 12 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one number
+    - At least one special character
+    """
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return False, f"Password must be at least {PASSWORD_MIN_LENGTH} characters long"
+    
+    if not any(c.isupper() for c in password):
+        return False, "Password must contain at least one uppercase letter"
+    
+    if not any(c.islower() for c in password):
+        return False, "Password must contain at least one lowercase letter"
+    
+    if not any(c.isdigit() for c in password):
+        return False, "Password must contain at least one number"
+    
+    special_chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
+    if not any(c in special_chars for c in password):
+        return False, "Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)"
+    
+    return True, ""
+
+async def create_auth_audit_log(username: str, action: str, success: bool, 
+                                user_id: Optional[str] = None, 
+                                failure_reason: Optional[str] = None,
+                                ip_address: Optional[str] = None):
+    """Create an authentication audit log entry"""
+    log = AuthAuditLog(
+        user_id=user_id,
+        username=username,
+        action=action,
+        success=success,
+        failure_reason=failure_reason,
+        ip_address=ip_address
+    )
+    await db.auth_audit_logs.insert_one(log.model_dump())
+
+async def check_account_lockout(user_doc: dict) -> tuple[bool, Optional[str]]:
+    """
+    Check if account is locked due to failed login attempts
+    Returns: (is_locked, error_message)
+    """
+    locked_until = user_doc.get('locked_until')
+    if locked_until:
+        # Convert string to datetime if needed
+        if isinstance(locked_until, str):
+            locked_until = datetime.fromisoformat(locked_until)
+        
+        if datetime.now(timezone.utc) < locked_until:
+            remaining = (locked_until - datetime.now(timezone.utc)).total_seconds() / 60
+            return True, f"Account is locked due to multiple failed login attempts. Try again in {int(remaining)} minutes."
+    
+    return False, None
+
+async def handle_failed_login(user_doc: dict, username: str):
+    """Handle failed login attempt - increment counter and potentially lock account"""
+    failed_attempts = user_doc.get('failed_login_attempts', 0) + 1
+    
+    update_data = {
+        'failed_login_attempts': failed_attempts
+    }
+    
+    # Lock account if max attempts reached
+    if failed_attempts >= MAX_LOGIN_ATTEMPTS:
+        lockout_time = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+        update_data['locked_until'] = lockout_time
+    
+    await db.users.update_one(
+        {"username": username},
+        {"$set": update_data}
+    )
+
+async def handle_successful_login(user_id: str):
+    """Reset failed login attempts and update last login time"""
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            'failed_login_attempts': 0,
+            'locked_until': None,
+            'last_login': datetime.now(timezone.utc)
+        }}
+    )
+
+def get_user_permissions(role: str) -> List[str]:
+    """Get permissions for a given role"""
+    return ROLE_PERMISSIONS.get(role, [])
+
+def user_has_permission(user: User, required_permission: str) -> bool:
+    """Check if user has a specific permission"""
+    # Admin always has all permissions
+    if user.role == 'admin':
+        return True
+    
+    # Check user's assigned permissions
+    user_permissions = user.permissions if user.permissions else get_user_permissions(user.role)
+    return required_permission in user_permissions
+
+# ============================================================================
+# PERMISSION DECORATOR
+# ============================================================================
+
+def require_permission(permission: str):
+    """
+    Decorator to require a specific permission for an endpoint
+    Usage: @require_permission('users.create')
+    """
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            # Extract current_user from kwargs
+            current_user = kwargs.get('current_user')
+            if not current_user:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Authentication dependency not properly configured"
+                )
+            
+            # Check permission
+            if not user_has_permission(current_user, permission):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"You don't have permission to perform this action. Required: {permission}"
+                )
+            
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     token = credentials.credentials
     try:
