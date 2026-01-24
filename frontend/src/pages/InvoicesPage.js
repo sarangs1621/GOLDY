@@ -424,10 +424,18 @@ export default function InvoicesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {pagination && (
+            <Pagination
+              pagination={pagination}
+              onPageChange={handlePageChange}
+            />
+          )}
         </CardContent>
       </Card>
 
