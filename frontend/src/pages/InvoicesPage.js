@@ -329,7 +329,16 @@ export default function InvoicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((inv) => (
+                {invoices.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="px-4 py-12 text-center text-gray-500">
+                      <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <p className="text-lg font-medium">No invoices found</p>
+                      <p className="text-sm mt-1">Start by creating your first invoice</p>
+                    </td>
+                  </tr>
+                ) : (
+                  invoices.map((inv) => (
                   <tr key={inv.id} className="border-t hover:bg-muted/30">
                     <td className="px-4 py-3 font-mono font-semibold">{inv.invoice_number}</td>
                     <td className="px-4 py-3 text-sm">{new Date(inv.date).toLocaleDateString()}</td>
