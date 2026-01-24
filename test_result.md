@@ -4922,3 +4922,91 @@ agent_communication:
       - Verify user can select a category
       - Verify stock movement can be saved successfully
       - Test with different movement types (Stock IN, Stock OUT, Adjustment IN, Adjustment OUT)
+
+user_problem_statement: "Failed to add movement in Inventory. Can you test the working condition of inventory"
+
+backend:
+  - task: "Inventory Movement API - confirmation_reason validation"
+    implemented: true
+    working: false
+    file: "backend/server.py"
+    stuck_count: 1
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORTED - Failed to add movement in Inventory. Stock movement creation not working."
+      - working: false
+        agent: "main"
+        comment: "⚠️ ROOT CAUSE IDENTIFIED - Backend endpoint POST /api/inventory/movements requires 'confirmation_reason' field (line 1606-1610) for all manual adjustments, but frontend InventoryPage.js doesn't send this field. Backend validation will reject requests with 400 error: 'confirmation_reason is required for all manual inventory adjustments.' Additional issues: Frontend allows 'Stock OUT' and 'Adjustment OUT' in dropdown but backend blocks 'Stock OUT' with 403 error (line 1612-1617) and doesn't recognize 'Adjustment OUT' (line 1628-1633). Frontend needs to: (1) Add confirmation_reason field to form, (2) Remove 'Stock OUT' and 'Adjustment OUT' from dropdown options, (3) Use only 'Stock IN' and 'Adjustment' movement types."
+
+frontend:
+  - task: "Inventory Movement Form - Missing confirmation_reason field"
+    implemented: false
+    working: false
+    file: "frontend/src/pages/InventoryPage.js"
+    stuck_count: 1
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "❌ CRITICAL ISSUE - Add Stock Movement dialog missing required 'confirmation_reason' field. Current form (lines 25-33) only has: movement_type, header_id, description, qty_delta, weight_delta, purity, notes. Backend requires confirmation_reason for audit trail compliance. Form also shows invalid movement type options: 'Stock OUT' and 'Adjustment OUT' are not allowed by backend. Fix needed: (1) Add confirmation_reason textarea field to form, (2) Update movement type dropdown to only show 'Stock IN' and 'Adjustment', (3) Update handleAddMovement to include confirmation_reason in POST request."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.5"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Inventory Movement Form - Missing confirmation_reason field"
+    - "Inventory Movement API - confirmation_reason validation"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "critical_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      🔍 INVENTORY MOVEMENT ISSUE ANALYSIS COMPLETED - ROOT CAUSE IDENTIFIED
+      
+      USER REPORT: "Failed to add movement in Inventory"
+      
+      ROOT CAUSE ANALYSIS:
+      ================================================================================
+      
+      ❌ CRITICAL MISMATCH BETWEEN FRONTEND AND BACKEND:
+      
+      1. MISSING REQUIRED FIELD - confirmation_reason:
+         - Backend (server.py line 1606-1610): REQUIRES confirmation_reason for all manual adjustments
+         - Frontend (InventoryPage.js line 25-33): movementForm does NOT include confirmation_reason
+         - Frontend (InventoryPage.js line 83-92): handleAddMovement does NOT send confirmation_reason
+         - Result: Backend rejects with 400 error "confirmation_reason is required"
+      
+      2. INVALID MOVEMENT TYPE OPTIONS:
+         - Backend (server.py line 1612-1617): BLOCKS "Stock OUT" with 403 error
+         - Backend (server.py line 1628-1633): Only allows ["Stock IN", "Adjustment"]
+         - Frontend (InventoryPage.js line 163-166): Shows 4 options including "Stock OUT" and "Adjustment OUT"
+         - Result: Backend rejects "Stock OUT" with 403 and "Adjustment OUT" with 400
+      
+      3. BUSINESS LOGIC DOCUMENTATION:
+         - Backend enforces ERP compliance: Stock can only be reduced via Invoice Finalization
+         - Manual Stock OUT movements are prohibited for audit trail integrity
+         - confirmation_reason required for regulatory compliance
+      
+      FIX REQUIRED:
+      ================================================================================
+      
+      FRONTEND CHANGES NEEDED (InventoryPage.js):
+      1. Add confirmation_reason field to movementForm state (line 25-33)
+      2. Add confirmation_reason textarea to Add Stock Movement dialog UI
+      3. Update movement type dropdown to only show: "Stock IN" and "Adjustment"
+      4. Remove "Stock OUT" and "Adjustment OUT" options (lines 163-166)
+      5. Make confirmation_reason field required in UI validation
+      6. Update handleAddMovement to include confirmation_reason in POST request (lines 83-92)
+      7. Add field validation before submission
+      
+      NEXT STEP: Implement frontend fixes to align with backend requirements
