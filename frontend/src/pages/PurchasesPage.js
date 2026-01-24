@@ -802,8 +802,11 @@ export default function PurchasesPage() {
                     min="0"
                     value={formData.paid_amount_money}
                     onChange={(e) => setFormData({...formData, paid_amount_money: e.target.value})}
+                    onBlur={(e) => validateField('paid_amount_money', e.target.value)}
                     placeholder="0.00"
+                    className={errors.paid_amount_money ? 'border-red-500' : ''}
                   />
+                  <FormErrorMessage error={errors.paid_amount_money} />
                   <p className="text-xs text-gray-600">Amount paid during purchase</p>
                 </div>
 
