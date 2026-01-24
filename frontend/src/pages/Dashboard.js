@@ -26,15 +26,23 @@ export default function Dashboard() {
       ]);
 
       setStats({
-        totalHeaders: headersRes.data.length,
-        totalStock: stockRes.data.reduce((sum, item) => sum + item.total_weight, 0),
-        totalOutstanding: outstandingRes.data.total_customer_due || 0,
-        lowStockItems: stockRes.data.filter(item => item.total_qty < 5).length
+        totalHeaders: headersRes.data?.length || 0,
+        totalStock: stockRes.data?.reduce((sum, item) => sum + (item.total_weight || 0), 0) || 0,
+        totalOutstanding: outstandingRes.data?.total_customer_due || 0,
+        lowStockItems: stockRes.data?.filter(item => item.total_qty < 5).length || 0
       });
 
-      setStockTotals(stockRes.data);
+      setStockTotals(Array.isArray(stockRes.data) ? stockRes.data : []);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
+      // Set safe default values on error
+      setStats({
+        totalHeaders: 0,
+        totalStock: 0,
+        totalOutstanding: 0,
+        lowStockItems: 0
+      });
+      setStockTotals([]);
     }
   };
 
