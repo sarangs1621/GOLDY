@@ -453,7 +453,7 @@ export default function PurchasesPage() {
             <CardTitle className="text-sm font-medium text-gray-600">Total Weight</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalWeight.toFixed(3)}g</div>
+            <div className="text-2xl font-bold">{safeToFixed(totalWeight, 3)}g</div>
           </CardContent>
         </Card>
         <Card>
@@ -461,7 +461,7 @@ export default function PurchasesPage() {
             <CardTitle className="text-sm font-medium text-gray-600">Total Value</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalValue.toFixed(2)} OMR</div>
+            <div className="text-2xl font-bold">{safeToFixed(totalValue, 2)} OMR</div>
           </CardContent>
         </Card>
       </div>
