@@ -3203,6 +3203,200 @@ agent_communication:
 user_problem_statement: "MODULE 8 — EDGE CASES, STABILITY & UX GAPS: Stress the application by triggering rapid interactions, repeated actions, partial inputs, refreshes during critical flows, and unexpected navigation paths; identify where the system fails silently, behaves unpredictably, or provides unclear feedback; surface UX gaps, missing confirmations, ambiguous copy, or broken expectations; and summarize the most critical issues that prevent the app from feeling stable and production-ready."
 
 backend:
+  - task: "Rapid Interactions - Submit forms multiple times rapidly"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test rapid form submissions across all modules: job cards, invoices, purchases, parties, stock movements. Verify: no duplicate records created, proper loading states, no race conditions, error handling for concurrent requests"
+
+  - task: "Repeated Actions - Click same button multiple times"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test repeated clicks on action buttons: finalize invoice/purchase, add payment, delete records, status changes. Verify: operations are idempotent, proper error messages for already-processed actions, no system crashes"
+
+  - task: "Partial Inputs - Save with missing required fields"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test form submissions with partial/invalid data: empty required fields, invalid data types, out-of-range values. Verify: clear validation messages, field-specific errors, no silent failures, helpful error text"
+
+  - task: "Refresh During Critical Flows - Interrupt operations"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test page refreshes during: invoice creation (mid-form), purchase finalization (after click), payment addition (during process). Verify: no partial data corruption, proper state recovery, no orphaned records, data consistency maintained"
+
+  - task: "Unexpected Navigation - Back button and direct URL changes"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test browser back/forward buttons during operations, navigate away from unsaved forms, direct URL manipulation to invalid resources. Verify: unsaved data warnings, graceful 404 handling, no broken states, proper navigation flow"
+
+frontend:
+  - task: "Loading States and Feedback - Are operations clearly indicated"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Verify loading indicators exist for: data fetching, form submissions, calculations, exports. Check: spinners visible, buttons disabled during operations, success/error toasts clear, progress feedback adequate"
+
+  - task: "Confirmations for Destructive Actions - Delete operations"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test delete operations across all modules: invoices, purchases, job cards, parties, accounts, inventory. Verify: confirmation dialogs present, summary of what will be deleted, clear Cancel option, impact warnings shown"
+
+  - task: "Finalization Confirmations - Irreversible operations"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test finalization operations: invoice finalize, purchase finalize, daily closing lock. Verify: confirmation dialogs exist, impact summary shown (what gets locked), warnings about irreversibility, clear review before confirm"
+
+  - task: "Error Messages Quality - Are errors actionable"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test error scenarios across operations: API failures, validation errors, permission errors, network errors. Verify: error messages are clear and specific, tell user what went wrong, suggest how to fix, no technical jargon for end users"
+
+  - task: "Form Validation Timing - When do errors appear"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test form validation across major forms: job card creation, invoice creation, purchase creation. Verify: validation on blur vs submit, inline error messages, field highlighting, validation state persistence, error clearing when fixed"
+
+  - task: "Edge Case: Zero/Negative Values"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test with zero and negative values: weights, amounts, rates, quantities. Verify: appropriate validation, clear error messages, no calculations breaking, no division by zero errors"
+
+  - task: "Edge Case: Very Large Numbers"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test with extremely large values: weight 999999.999g, amount 999999.99 OMR. Verify: proper validation limits, no UI breaking, number formatting correct, calculations accurate, database storage limits respected"
+
+  - task: "Edge Case: Special Characters in Text Fields"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test special characters in text fields: names with apostrophes, descriptions with quotes/brackets, notes with line breaks. Verify: no escaping issues, data saved correctly, display formatting proper, no XSS vulnerabilities"
+
+  - task: "UX Gap: Empty States - What happens with no data"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test empty states across all pages: no invoices, no purchases, no parties, no inventory. Verify: helpful empty state messages, clear call-to-action buttons, no blank pages, guidance for first-time users"
+
+  - task: "UX Gap: Date Picker Edge Cases"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test date pickers: future dates, past dates, invalid date ranges (from > to), timezone handling. Verify: appropriate constraints, clear validation, date format consistency, no timezone conversion issues"
+
+  - task: "UX Gap: Filter Persistence"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test filter behavior in reports: apply filters, navigate away, return to page. Verify: filters reset or persist appropriately, clear filters button works, filter state clear to user, no confusing default states"
+
+backend:
   - task: "Fix Invoice Payment to Account Integration - Update account balance when payment is added"
     implemented: true
     working: "needs_testing"
