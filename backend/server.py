@@ -1508,7 +1508,21 @@ async def update_inventory_header(
     # Prepare update data - only allow updating name and is_active
     update_data = {}
     if 'name' in header_data:
-        update_data['name'] = header_data['name']
+        new_name = header_data['name'].strip()
+        # Check for duplicate category name (case-insensitive), excluding current header
+        duplicate_category = await db.inventory_headers.find_one({
+            "name": {"$regex": f"^{new_name}$", "$options": "i"},
+            "is_deleted": False,
+            "id": {"$ne": header_id}  # Exclude current header
+        })
+        
+        if duplicate_category:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Category '{new_name}' already exists. Please use a different name."
+            )
+        
+        update_data['name'] = new_name
     if 'is_active' in header_data:
         update_data['is_active'] = header_data['is_active']
     
