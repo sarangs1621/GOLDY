@@ -1031,7 +1031,8 @@ async def get_users(request: Request, current_user: User = Depends(require_permi
     return users
 
 @api_router.patch("/users/{user_id}")
-async def update_user(user_id: str, update_data: dict, current_user: User = Depends(require_permission('users.update'))):
+@limiter.limit("30/minute")  # Sensitive operation: 30 user updates per minute
+async def update_user(request: Request, user_id: str, update_data: dict, current_user: User = Depends(require_permission('users.update'))):
     existing = await db.users.find_one({"id": user_id, "is_deleted": False})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
