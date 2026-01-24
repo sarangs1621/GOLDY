@@ -6760,6 +6760,7 @@ async def get_transaction_delete_impact(transaction_id: str, current_user: User 
 
 app.include_router(api_router)
 
+# Add CORS middleware first (handles preflight requests)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -6767,6 +6768,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add Security Headers middleware (must be after CORS)
+app.add_middleware(SecurityHeadersMiddleware)
 
 logging.basicConfig(
     level=logging.INFO,
