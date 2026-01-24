@@ -453,15 +453,15 @@ export default function InvoicesPage() {
               <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Grand Total:</span>
-                  <span className="font-mono font-semibold">{selectedInvoice.grand_total.toFixed(3)} OMR</span>
+                  <span className="font-mono font-semibold">{safeToFixed(selectedInvoice.grand_total, 3)} OMR</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Paid Amount:</span>
-                  <span className="font-mono">{selectedInvoice.paid_amount.toFixed(3)} OMR</span>
+                  <span className="font-mono">{safeToFixed(selectedInvoice.paid_amount, 3)} OMR</span>
                 </div>
                 <div className="flex justify-between text-base font-semibold border-t pt-2">
                   <span>Balance Due:</span>
-                  <span className="font-mono text-red-600">{selectedInvoice.balance_due.toFixed(3)} OMR</span>
+                  <span className="font-mono text-red-600">{safeToFixed(selectedInvoice.balance_due, 3)} OMR</span>
                 </div>
               </div>
 
