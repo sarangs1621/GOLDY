@@ -269,12 +269,10 @@ metadata:
   run_ui: true
 
 test_plan:
-  current_focus:
-    - "Purchases API - Testing validation fixes"
-    - "Transactions API - Testing with proper account setup"
+  current_focus: []
   stuck_tasks: []
   test_all: false
-  test_priority: "high_priority_api_fixes"
+  test_priority: "completed"
 
 agent_communication:
   - agent: "testing"
