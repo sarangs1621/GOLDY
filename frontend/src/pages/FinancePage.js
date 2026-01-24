@@ -333,7 +333,7 @@ export default function FinancePageEnhanced() {
                     </div>
                   </div>
                   <div className="text-2xl font-mono font-semibold">
-                    {acc.current_balance.toFixed(3)}
+                    {formatCurrency(acc.current_balance)}
                     <span className="text-sm ml-1">OMR</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 capitalize flex items-center gap-1">
@@ -530,13 +530,13 @@ export default function FinancePageEnhanced() {
                       <td className={`px-4 py-3 text-right font-mono font-semibold ${
                         txn.transaction_type === 'credit' ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {txn.transaction_type === 'credit' ? '+' : '-'}{txn.amount.toFixed(3)}
+                        {txn.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-sm text-muted-foreground">
-                        {txn.balance_before ? txn.balance_before.toFixed(3) : 'N/A'}
+                        {txn.balance_before ? formatCurrency(txn.balance_before) : 'N/A'}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-sm font-semibold">
-                        {txn.balance_after ? txn.balance_after.toFixed(3) : 'N/A'}
+                        {txn.balance_after ? formatCurrency(txn.balance_after) : 'N/A'}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <Button
@@ -768,7 +768,7 @@ export default function FinancePageEnhanced() {
                       transactionToDelete.transaction_type === 'credit' ? 'text-green-600' : 'text-red-600'
                     }`}>
                       {transactionToDelete.transaction_type === 'credit' ? '+' : '-'}
-                      {transactionToDelete.amount.toFixed(3)} OMR
+                      {formatCurrency(transactionToDelete.amount)} OMR
                     </p>
                   </div>
                   <div>
