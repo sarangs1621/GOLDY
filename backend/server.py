@@ -3196,6 +3196,9 @@ async def finalize_invoice(invoice_id: str, current_user: User = Depends(get_cur
     
     All operations succeed together or fail together to maintain data consistency.
     """
+    if not user_has_permission(current_user, 'invoices.finalize'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to finalize invoices")
+    
     # Fetch the invoice
     existing = await db.invoices.find_one({"id": invoice_id, "is_deleted": False})
     if not existing:
