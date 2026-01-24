@@ -322,7 +322,7 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {movements.slice(0, 20).map((mov) => (
+                  {Array.isArray(movements) && movements.slice(0, 20).map((mov) => (
                     <tr key={mov.id} className="border-t hover:bg-muted/30">
                       <td className="px-4 py-3 text-sm">{new Date(mov.date).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
