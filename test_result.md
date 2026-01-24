@@ -453,7 +453,7 @@ agent_communication:
       RECOMMENDATION:
       The Purchase Module is PRODUCTION READY for all core functionality. The Daily Closing feature may require manual record initialization but underlying transaction data is correctly available for closing calculations. All 11 critical tasks are fully functional and verified through comprehensive API testing.
 
-user_problem_statement: "Gold Shop ERP System - Comprehensive jewelry/gold business management with inventory, job cards, invoicing, parties, transactions, accounts, and daily closing features"
+user_problem_statement: "Improve Cost Components Breakdown Visibility across Invoice Details, Job Card Details, and Purchase Details (Option D - All of the Above). Option A: Invoice details with clearer visual hierarchy showing metal value + making charges + VAT + discount. Option B: Job Card details with cost estimation in both view/detail dialog and create/edit preview. Option C: Purchase details with breakdown of weight × rate + purity adjustment + payment breakdown + additional charges."
 
 backend:
   - task: "User Authentication & Authorization"
