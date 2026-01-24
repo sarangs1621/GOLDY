@@ -87,16 +87,19 @@ export default function JobCardsPage() {
   useEffect(() => {
     loadData();
     loadTemplates();
-  }, []);
+  }, [currentPage]);
 
   const loadData = async () => {
     try {
       const [jobcardsRes, partiesRes, headersRes] = await Promise.all([
-        axios.get(`${API}/jobcards`),
+        axios.get(`${API}/jobcards`, {
+          params: { page: currentPage, page_size: 10 }
+        }),
         axios.get(`${API}/parties?party_type=customer`),
         axios.get(`${API}/inventory/headers`)
       ]);
       setJobcards(jobcardsRes.data.items || []);
+      setPagination(jobcardsRes.data.pagination);
       setParties(partiesRes.data.items || []);
       setInventoryHeaders(headersRes.data);
     } catch (error) {
