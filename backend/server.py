@@ -1559,8 +1559,8 @@ async def get_party_summary(party_id: str, current_user: User = Depends(get_curr
     gold_due_to_party = round(gold_due_to_party, 3)
     net_gold_balance = round(gold_due_from_party - gold_due_to_party, 3)
     
-    # Get invoices for money calculations
-    invoices = await db.invoices.find({"customer_id": party_id, "is_deleted": False}, {"_id": 0}).to_list(1000)
+    # Get invoices for money calculations - ONLY FINALIZED invoices
+    invoices = await db.invoices.find({"customer_id": party_id, "is_deleted": False, "status": "finalized"}, {"_id": 0}).to_list(1000)
     
     # Get transactions
     transactions = await db.transactions.find({"party_id": party_id, "is_deleted": False}, {"_id": 0}).to_list(1000)
