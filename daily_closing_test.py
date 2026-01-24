@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://fortress-api-1.preview.emergentagent.com"
+    BASE_URL = "https://request-guardian.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     

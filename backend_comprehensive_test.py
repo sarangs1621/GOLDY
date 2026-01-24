@@ -28,7 +28,7 @@ import uuid
 import traceback
 
 # Configuration
-BASE_URL = "https://fortress-api-1.preview.emergentagent.com/api"
+BASE_URL = "https://request-guardian.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

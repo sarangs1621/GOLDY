@@ -19,7 +19,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://fortress-api-1.preview.emergentagent.com/api"
+BACKEND_URL = "https://request-guardian.preview.emergentagent.com/api"
 
 # Test credentials
 USERNAME = "admin"

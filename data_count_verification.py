@@ -6,7 +6,7 @@ Additional verification tests for specific data counts mentioned in review reque
 import requests
 import json
 
-BASE_URL = "https://fortress-api-1.preview.emergentagent.com/api"
+BASE_URL = "https://request-guardian.preview.emergentagent.com/api"
 
 def get_auth_token():
     """Get authentication token"""
