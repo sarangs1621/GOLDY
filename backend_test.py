@@ -37,7 +37,7 @@ from datetime import datetime
 import time
 
 # Configuration - Read from frontend/.env
-BASE_URL = "https://cost-components.preview.emergentagent.com/api"
+BASE_URL = "https://invoice-upgrade-1.preview.emergentagent.com/api"
 
 class JobCardTemplateTester:
     def __init__(self):
