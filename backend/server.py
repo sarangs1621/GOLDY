@@ -688,6 +688,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         if not user_doc:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
         
+        # Populate permissions based on role if not already set
+        if 'permissions' not in user_doc or not user_doc['permissions']:
+            user_doc['permissions'] = get_user_permissions(user_doc.get('role', 'staff'))
+        
         return User(**user_doc)
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
