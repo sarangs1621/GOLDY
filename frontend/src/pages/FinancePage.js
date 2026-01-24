@@ -240,7 +240,7 @@ export default function FinancePageEnhanced() {
                 <ArrowUpDown className="w-5 h-5 text-blue-600" />
               </div>
               <div className={`text-3xl font-bold ${summary.net_flow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {summary.net_flow >= 0 ? '+' : ''}{summary.net_flow.toFixed(3)}
+                {summary.net_flow >= 0 ? '+' : ''}{formatCurrency(summary.net_flow)}
               </div>
               <div className="text-xs text-blue-600 mt-1">OMR</div>
               <div className="mt-3 pt-3 border-t border-blue-300">
