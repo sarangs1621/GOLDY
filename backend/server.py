@@ -4085,7 +4085,8 @@ async def update_account(account_id: str, update_data: dict, current_user: User 
     return {"message": "Account updated successfully"}
 
 @api_router.delete("/accounts/{account_id}")
-async def delete_account(account_id: str, current_user: User = Depends(require_permission('finance.delete'))):
+@limiter.limit("30/minute")  # Sensitive finance operation: 30 deletions per minute
+async def delete_account(request: Request, account_id: str, current_user: User = Depends(require_permission('finance.delete'))):
     existing = await db.accounts.find_one({"id": account_id, "is_deleted": False})
     if not existing:
         raise HTTPException(status_code=404, detail="Account not found")
