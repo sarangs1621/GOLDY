@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 import sys
 
 # Configuration
-BACKEND_URL = "https://closing-dashboard.preview.emergentagent.com"
+BACKEND_URL = "https://param-naming-fix.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

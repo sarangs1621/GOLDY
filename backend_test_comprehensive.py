@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import time
 
 # Configuration
-BASE_URL = "https://closing-dashboard.preview.emergentagent.com/api"
+BASE_URL = "https://param-naming-fix.preview.emergentagent.com/api"
 
 # Test credentials from review request
 TEST_CREDENTIALS = [
