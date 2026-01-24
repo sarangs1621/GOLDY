@@ -65,7 +65,7 @@ export default function AuditLogsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm capitalize">{log.action}</td>
-                    <td className="px-4 py-3 text-sm font-mono">{log.record_id.slice(0, 8)}...</td>
+                    <td className="px-4 py-3 text-sm font-mono">{log.record_id ? log.record_id.slice(0, 8) : 'N/A'}...</td>
                   </tr>
                 ))}
               </tbody>
