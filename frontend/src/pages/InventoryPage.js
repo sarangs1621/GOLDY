@@ -247,7 +247,7 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {inventory.map((item) => (
+                  {Array.isArray(inventory) && inventory.map((item) => (
                     <tr key={item.id} className="border-t hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{item.category}</td>
                       <td className="px-4 py-3 text-right font-mono">{item.quantity}</td>
