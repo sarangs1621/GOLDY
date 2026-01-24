@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 # Configuration
-BASE_URL = "https://inventory-move-test.preview.emergentagent.com/api"
+BASE_URL = "https://category-select-bug.preview.emergentagent.com/api"
 USERNAME = "admin@goldshop.com"
 PASSWORD = "admin123"
 

@@ -23,7 +23,7 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://inventory-move-test.preview.emergentagent.com/api"
+BASE_URL = "https://category-select-bug.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

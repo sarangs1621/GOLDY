@@ -19,7 +19,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://inventory-move-test.preview.emergentagent.com/api"
+BACKEND_URL = "https://category-select-bug.preview.emergentagent.com/api"
 
 # Test credentials
 USERNAME = "admin"

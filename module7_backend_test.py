@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 import sys
 
 # Configuration
-BACKEND_URL = "https://inventory-move-test.preview.emergentagent.com"
+BACKEND_URL = "https://category-select-bug.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
