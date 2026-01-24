@@ -5979,7 +5979,7 @@ async def export_sales_history(
     date_to: Optional[str] = None,
     party_id: Optional[str] = None,
     search: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission('reports.view'))
 ):
     """Export sales history report as Excel file with applied filters"""
     from fastapi.responses import StreamingResponse
