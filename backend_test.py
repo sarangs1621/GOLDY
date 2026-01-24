@@ -337,7 +337,11 @@ class InvoiceWorkflowTester:
                 self.log_result("Issue #3 - Get Movements", "FAIL", f"Failed to get movements: {response.status_code}")
                 return
             
-            initial_movement_count = len(response.json().get("items", []))
+            movements_data = response.json()
+            if isinstance(movements_data, dict) and "items" in movements_data:
+                initial_movement_count = len(movements_data["items"])
+            else:
+                initial_movement_count = len(movements_data) if isinstance(movements_data, list) else 0
             
             # Step 4: Finalize the invoice
             response = self.session.post(f"{BASE_URL}/invoices/{invoice_id}/finalize")
