@@ -4125,26 +4125,16 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "6.0"
-  test_sequence: 7
+  version: "10.0"
+  test_sequence: 11
   run_ui: true
 
 test_plan:
   current_focus:
-    - "Dashboard Page"
-    - "Inventory Page"
-    - "Job Cards Page"
-    - "Invoices Page"
-    - "Parties Page"
-    - "Purchases Page"
-    - "Finance Page"
-    - "Daily Closing Page"
-    - "Reports Page"
-    - "Audit Logs Page"
-    - "Settings Page"
+    - "Dashboard Page - Production Ready Testing with Comprehensive Data"
   stuck_tasks: []
-  test_all: true
-  test_priority: "sequential"
+  test_all: false
+  test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
