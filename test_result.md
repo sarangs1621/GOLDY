@@ -2217,7 +2217,7 @@ agent_communication:
       
       📊 TECHNICAL VERIFICATION DETAILS:
       ✅ Authentication: Admin credentials working (username: admin, password: admin123)
-      ✅ Backend URL: https://money-flow-139.preview.emergentagent.com/api (accessible)
+      ✅ Backend URL: https://closing-dashboard.preview.emergentagent.com/api (accessible)
       ✅ Response Formats: All endpoints return correct JSON structures
       ✅ Pagination: Gold ledger pagination fix verified and working
       ✅ Data Types: All fields have correct data types (arrays, objects, numbers)
@@ -2748,7 +2748,7 @@ agent_communication:
       
       📊 TECHNICAL VERIFICATION DETAILS:
       ✅ Authentication: Admin credentials working (username: admin, password: admin123)
-      ✅ Backend URL: https://money-flow-139.preview.emergentagent.com/api (accessible)
+      ✅ Backend URL: https://closing-dashboard.preview.emergentagent.com/api (accessible)
       ✅ Response Formats: All endpoints return correct JSON structures
       ✅ Data Types: All fields have correct data types and precision
       ✅ Error Handling: Proper error responses for invalid operations
@@ -6190,7 +6190,7 @@ agent_communication:
       - Backend: RUNNING on port 8001
       - Frontend: RUNNING on port 3000
       - MongoDB: RUNNING
-      - Application accessible at: https://money-flow-139.preview.emergentagent.com
+      - Application accessible at: https://closing-dashboard.preview.emergentagent.com
       - Admin credentials: admin/admin123
       
       NOW EXECUTING FOCUSED, PRIORITIZED TESTING APPROACH:
@@ -6698,7 +6698,7 @@ agent_communication:
       - ✅ Frontend services running successfully (localhost:3000)
       - ✅ MongoDB running and accessible
       - ✅ Frontend dependencies installed successfully (yarn install completed)
-      - ✅ Backend URL configured: https://money-flow-139.preview.emergentagent.com
+      - ✅ Backend URL configured: https://closing-dashboard.preview.emergentagent.com
       
       Testing Plan - Comprehensive Frontend UI Testing:
       
@@ -7528,7 +7528,7 @@ agent_communication:
       
       Testing Tool Status:
       - Test script: /app/backend_test.py (612 lines, cleaned and functional)
-      - Backend URL: https://money-flow-139.preview.emergentagent.com
+      - Backend URL: https://closing-dashboard.preview.emergentagent.com
       - Authentication: Working (admin/admin123)
       
       Next Steps:
@@ -9989,7 +9989,7 @@ agent_communication:
       1. USE AUTHENTICATION: All endpoints require JWT authentication
          Test credentials: username=admin, password=admin123
       
-      2. USE BACKEND URL: https://money-flow-139.preview.emergentagent.com/api
+      2. USE BACKEND URL: https://closing-dashboard.preview.emergentagent.com/api
       
       3. TEST ORDER MATTERS:
          - Start with Outstanding Reports (most critical fix)
