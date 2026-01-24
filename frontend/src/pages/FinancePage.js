@@ -26,8 +26,11 @@ import {
   Briefcase,
   PenTool
 } from 'lucide-react';
+import Pagination from '../components/Pagination';
+import { useURLPagination } from '../hooks/useURLPagination';
 
 export default function FinancePageEnhanced() {
+  const { currentPage, setPage, pagination, setPagination } = useURLPagination();
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState(null);
