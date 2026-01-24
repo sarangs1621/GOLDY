@@ -625,6 +625,14 @@ export default function PurchasesPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {pagination && (
+            <Pagination
+              pagination={pagination}
+              onPageChange={handlePageChange}
+            />
+          )}
         </CardContent>
       </Card>
 
