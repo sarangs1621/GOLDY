@@ -356,8 +356,8 @@ export default function InvoicesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 capitalize text-sm">{inv.invoice_type}</td>
-                    <td className="px-4 py-3 text-right font-mono">{inv.grand_total.toFixed(3)}</td>
-                    <td className="px-4 py-3 text-right font-mono">{inv.balance_due.toFixed(3)}</td>
+                    <td className="px-4 py-3 text-right font-mono">{safeToFixed(inv.grand_total, 3)}</td>
+                    <td className="px-4 py-3 text-right font-mono">{safeToFixed(inv.balance_due, 3)}</td>
                     <td className="px-4 py-3">{getInvoiceStatusBadge(inv.status || 'draft')}</td>
                     <td className="px-4 py-3">{getPaymentStatusBadge(inv.payment_status)}</td>
                     <td className="px-4 py-3">
