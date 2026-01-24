@@ -685,6 +685,156 @@ agent_communication:
       - Add "View" button in purchases table
       
       Ready to implement both enhancements!
+  
+  - agent: "main"
+    message: |
+      ✅ IMPLEMENTATION COMPLETED - ALL THREE OPTIONS ENHANCED
+      
+      SUMMARY OF CHANGES:
+      
+      ===================================================================
+      OPTION A: Invoice Details Enhancement
+      ===================================================================
+      Status: ✅ Already Fully Implemented (Verified)
+      
+      The invoice view dialog already has comprehensive breakdown:
+      - Metal Value, Making Charges, VAT in color-coded gradient cards
+      - Discount section prominently displayed if applicable
+      - Grand Total with most prominent styling (large font, gradient background)
+      - Calculation verification summary for audit trail
+      - Clearer visual hierarchy with better grouping
+      
+      No changes needed - this option already meets all requirements!
+      
+      ===================================================================
+      OPTION B: Job Card View Dialog with Cost Estimation
+      ===================================================================
+      Status: ✅ NEWLY IMPLEMENTED
+      
+      Files Modified:
+      - /app/frontend/src/pages/JobCardsPage.js
+      
+      Changes Made:
+      1. Added state variables:
+         - showViewDialog: Controls view dialog visibility
+         - viewJobCard: Stores selected job card for viewing
+      
+      2. Added handleViewJobCard() function:
+         - Sets viewJobCard and opens dialog
+      
+      3. Added "View" button in table:
+         - Always visible for all job cards
+         - Uses Eye icon
+         - Positioned as first action
+      
+      4. Created comprehensive View Dialog:
+         - Job Card Header with customer, worker, status, dates
+         - Complete Items Table showing all item details
+         - Cost Estimation Breakdown (if gold rate available):
+           * Item-wise cards: Metal value, Making charges, VAT, Item total
+           * Summary cards: Total metal, Total making, Total VAT
+           * Grand Total: Most prominent display
+           * Important disclaimers: "ESTIMATE ONLY" with explanations
+         - No estimation message if gold rate not set
+      
+      5. Visual Enhancements:
+         - Indigo/purple/blue gradient theme
+         - Color-coded component cards
+         - Icons and badges for visual hierarchy
+         - Amber warning theme for disclaimers
+      
+      ===================================================================
+      OPTION C: Purchase View Dialog with Breakdown
+      ===================================================================
+      Status: ✅ NEWLY IMPLEMENTED
+      
+      Files Modified:
+      - /app/frontend/src/pages/PurchasesPage.js
+      
+      Changes Made:
+      1. Added state variables:
+         - showViewDialog: Controls view dialog visibility
+         - viewPurchase: Stores selected purchase for viewing
+      
+      2. Added handleViewPurchase() function:
+         - Sets viewPurchase and opens dialog
+      
+      3. Added "View" button in table:
+         - Always visible for all purchases
+         - Uses Eye icon
+         - Positioned as first action
+      
+      4. Created comprehensive View Dialog:
+         - Purchase Header: Date, vendor, description, status, timestamps
+         - Gold Details & Calculation Section:
+           * Weight, Entered Purity, Valuation Purity (916K), Rate per Gram
+           * Calculation Breakdown: Weight × Rate = Base Amount with formula
+           * Purity adjustment note if applicable
+           * Total Purchase Amount: Most prominent display
+         - Payment Breakdown Section:
+           * Total Amount, Paid Amount, Balance Due in separate cards
+           * Payment mode and account information
+         - Gold Settlement Section (conditional):
+           * Advance Gold Returned (if applicable)
+           * Exchange Gold (if applicable)
+      
+      5. Visual Enhancements:
+         - Amber/yellow theme for gold details
+         - Green/emerald theme for payment breakdown
+         - Purple/indigo theme for gold settlement
+         - Color-coded cards matching content type
+         - Prominent totals with large typography
+         - Clear formulas and calculations
+      
+      ===================================================================
+      TECHNICAL DETAILS:
+      ===================================================================
+      
+      Frontend Status:
+      ✅ Compiled successfully with 1 warning (non-critical React Hook dependency)
+      ✅ All services running (backend, frontend, mongodb, nginx)
+      ✅ Hot reload enabled for both pages
+      
+      Code Quality:
+      ✅ Consistent styling with existing components
+      ✅ Reuses existing helper functions (getStatusBadge, getVendorName)
+      ✅ Proper state management
+      ✅ Responsive layouts with Tailwind CSS
+      ✅ Accessibility features (proper labels, semantic HTML)
+      
+      Adherence to Requirements:
+      ✅ Option A: Enhanced visual hierarchy (already implemented)
+      ✅ Option B: Cost estimation in BOTH create/edit preview AND view dialog
+      ✅ Option C: Breakdown shown ONLY in view dialog, list remains high-level
+      ✅ No duplication of heavy breakdowns in list views
+      ✅ Finalized records remain read-only (View button only, no edit)
+      ✅ Focus on clarity and audit visibility
+      ✅ All values properly labeled as "Estimates" where applicable
+      
+      ===================================================================
+      NEXT STEPS:
+      ===================================================================
+      
+      Ready for comprehensive testing:
+      1. Test Job Card View Dialog:
+         - Click View button on any job card
+         - Verify items table displays correctly
+         - Check cost estimation breakdown (if gold rate set)
+         - Verify estimate disclaimers are visible
+         - Check responsive layout
+      
+      2. Test Purchase View Dialog:
+         - Click View button on any purchase
+         - Verify gold details calculation breakdown
+         - Check payment breakdown display
+         - Verify gold settlement section (if applicable)
+         - Check purity adjustment notes
+      
+      3. Verify Invoice View Dialog:
+         - Confirm existing breakdown still works correctly
+         - Check visual hierarchy and grouping
+      
+      All enhancements complete and ready for validation!
 
 backend:
   - task: "User Authentication & Authorization"
