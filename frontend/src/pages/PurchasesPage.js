@@ -74,10 +74,23 @@ export default function PurchasesPage() {
   });
 
   useEffect(() => {
-    loadPurchases();
-    loadVendors();
-    loadAccounts();
+    loadInitialData();
   }, []);
+
+  const loadInitialData = async () => {
+    setIsLoading(true);
+    try {
+      await Promise.all([
+        loadPurchases(),
+        loadVendors(),
+        loadAccounts()
+      ]);
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadPurchases = async () => {
     try {
