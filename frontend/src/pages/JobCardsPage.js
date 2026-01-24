@@ -668,6 +668,17 @@ export default function JobCardsPage() {
                     <td className="px-4 py-3 text-sm">{jc.items.length} items</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
+                        {/* View button - always available */}
+                        <Button
+                          data-testid={`view-${jc.job_card_number}`}
+                          size="sm"
+                          variant="outline"
+                          className="text-indigo-600 hover:text-indigo-700"
+                          onClick={() => handleViewJobCard(jc)}
+                        >
+                          <Eye className="w-4 h-4 mr-1" /> View
+                        </Button>
+                        
                         {/* Edit button - hide for locked, completed, and delivered job cards */}
                         {!jc.locked && jc.status !== 'completed' && jc.status !== 'delivered' && (
                           <Button
