@@ -63,11 +63,7 @@ export default function FinancePageEnhanced() {
     notes: ''
   });
 
-  useEffect(() => {
-    loadData();
-  }, [filters]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // Build query params for filters
       const params = {};
@@ -88,6 +84,14 @@ export default function FinancePageEnhanced() {
       setTransactions(transactionsRes.data.items || []);
       setSummary(summaryRes.data);
     } catch (error) {
+      console.error('Failed to load data:', error);
+      toast.error('Failed to load financial data');
+    }
+  }, [filters]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
       console.error('Failed to load data:', error);
       toast.error('Failed to load data');
     }
