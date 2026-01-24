@@ -882,6 +882,242 @@ export default function PurchasesPage() {
         loading={confirmLoading}
       />
 
+      {/* View Purchase Dialog - Option C Enhancement */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-serif">Purchase Details</DialogTitle>
+          </DialogHeader>
+
+          {viewPurchase && (
+            <div className="space-y-6">
+              {/* Purchase Header */}
+              <div className="grid grid-cols-2 gap-6 p-4 bg-muted/50 rounded-lg">
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Purchase Date</p>
+                    <p className="font-medium">{new Date(viewPurchase.date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Vendor</p>
+                    <p className="font-semibold text-lg">{getVendorName(viewPurchase.vendor_party_id)}</p>
+                  </div>
+                  {viewPurchase.description && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Description</p>
+                      <p className="font-medium text-sm">{viewPurchase.description}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Purchase Status</p>
+                    <div className="mt-1">{getStatusBadge(viewPurchase.status)}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Created At</p>
+                    <p className="font-mono text-sm">
+                      {viewPurchase.created_at ? new Date(viewPurchase.created_at).toLocaleString() : 'N/A'}
+                    </p>
+                  </div>
+                  {viewPurchase.finalized_at && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Finalized At</p>
+                      <p className="font-mono text-sm">
+                        {new Date(viewPurchase.finalized_at).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ENHANCED Gold Details Section - Option C Improvements */}
+              <div className="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-50 border-2 border-amber-300 rounded-xl p-5 shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-lg text-amber-900 flex items-center gap-2">
+                    <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Gold Details & Calculation
+                  </h3>
+                  <Badge className="bg-amber-100 text-amber-800 px-3 py-1">Gold Purchase</Badge>
+                </div>
+
+                {/* Gold Details Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                  <div className="bg-white rounded-lg p-3 border-2 border-amber-200 shadow-sm">
+                    <div className="text-xs text-amber-700 font-medium uppercase mb-1">Weight</div>
+                    <div className="font-mono font-bold text-xl text-amber-900">
+                      {(viewPurchase.weight_grams || 0).toFixed(3)} g
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-3 border-2 border-amber-200 shadow-sm">
+                    <div className="text-xs text-amber-700 font-medium uppercase mb-1">Entered Purity</div>
+                    <div className="font-mono font-bold text-xl text-amber-900">
+                      {viewPurchase.entered_purity || 999}K
+                    </div>
+                    <div className="text-xs text-amber-600 mt-1">As received</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-3 border-2 border-green-200 shadow-sm">
+                    <div className="text-xs text-green-700 font-medium uppercase mb-1">Valuation Purity</div>
+                    <div className="font-mono font-bold text-xl text-green-900">
+                      916K (22K)
+                    </div>
+                    <div className="text-xs text-green-600 mt-1">For inventory</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-3 border-2 border-blue-200 shadow-sm">
+                    <div className="text-xs text-blue-700 font-medium uppercase mb-1">Rate per Gram</div>
+                    <div className="font-mono font-bold text-xl text-blue-900">
+                      {(viewPurchase.rate_per_gram || 0).toFixed(2)} OMR
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calculation Breakdown */}
+                <div className="bg-gradient-to-r from-amber-100 to-yellow-100 rounded-lg p-4 border border-amber-300 mb-4">
+                  <div className="text-sm font-semibold text-amber-900 mb-3">Cost Calculation:</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700">Base Amount:</span>
+                      <span className="font-mono font-semibold text-amber-900">
+                        {(viewPurchase.weight_grams || 0).toFixed(3)}g × {(viewPurchase.rate_per_gram || 0).toFixed(2)} OMR/g = {((viewPurchase.weight_grams || 0) * (viewPurchase.rate_per_gram || 0)).toFixed(2)} OMR
+                      </span>
+                    </div>
+                    {viewPurchase.entered_purity !== 916 && (
+                      <div className="text-xs text-amber-700 italic border-t pt-2 border-amber-200">
+                        💡 Note: Gold entered as {viewPurchase.entered_purity}K but valued at 916K (22K standard) for inventory purposes
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Total Amount Card */}
+                <div className="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 rounded-xl p-5 shadow-xl border-2 border-amber-400">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-amber-100 text-xs font-medium uppercase mb-1">Total Purchase Amount</div>
+                      <div className="font-mono font-black text-4xl text-white">
+                        {(viewPurchase.amount_total || 0).toFixed(2)} <span className="text-xl text-amber-200">OMR</span>
+                      </div>
+                    </div>
+                    <svg className="w-16 h-16 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Breakdown Section */}
+              <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 border-2 border-green-300 rounded-xl p-5 shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-lg text-green-900 flex items-center gap-2">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Payment Breakdown
+                  </h3>
+                  <Badge className="bg-green-100 text-green-800 px-3 py-1">Financial Details</Badge>
+                </div>
+
+                {/* Payment Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-white rounded-lg p-4 border-2 border-blue-200 shadow-sm">
+                    <div className="text-xs text-blue-700 font-medium uppercase mb-1">Total Amount</div>
+                    <div className="font-mono font-bold text-2xl text-blue-900">
+                      {(viewPurchase.amount_total || 0).toFixed(2)} OMR
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">Purchase value</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-4 border-2 border-green-200 shadow-sm">
+                    <div className="text-xs text-green-700 font-medium uppercase mb-1">Paid Amount</div>
+                    <div className="font-mono font-bold text-2xl text-green-900">
+                      {(viewPurchase.paid_amount_money || 0).toFixed(2)} OMR
+                    </div>
+                    <div className="text-xs text-green-600 mt-1">Payment made</div>
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-4 border-2 border-red-200 shadow-sm">
+                    <div className="text-xs text-red-700 font-medium uppercase mb-1">Balance Due</div>
+                    <div className="font-mono font-bold text-2xl text-red-900">
+                      {(viewPurchase.balance_due_money || 0).toFixed(2)} OMR
+                    </div>
+                    <div className="text-xs text-red-600 mt-1">Outstanding to vendor</div>
+                  </div>
+                </div>
+
+                {/* Payment Mode & Account */}
+                <div className="bg-white rounded-lg p-4 border border-green-200">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-green-700 font-medium">Payment Mode:</span>
+                      <span className="ml-2 font-mono">{viewPurchase.payment_mode || 'Cash'}</span>
+                    </div>
+                    {viewPurchase.account_id && (
+                      <div>
+                        <span className="text-green-700 font-medium">Account Used:</span>
+                        <span className="ml-2 font-mono">{accounts.find(a => a.id === viewPurchase.account_id)?.name || 'N/A'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Gold Settlement Section (if applicable) */}
+              {(viewPurchase.advance_in_gold_grams || viewPurchase.exchange_in_gold_grams) && (
+                <div className="bg-gradient-to-br from-purple-50 via-indigo-50 to-purple-50 border-2 border-purple-300 rounded-xl p-5 shadow-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-lg text-purple-900 flex items-center gap-2">
+                      <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      </svg>
+                      Gold Settlement
+                    </h3>
+                    <Badge className="bg-purple-100 text-purple-800 px-3 py-1">Gold Exchange</Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {viewPurchase.advance_in_gold_grams > 0 && (
+                      <div className="bg-white rounded-lg p-4 border-2 border-purple-200 shadow-sm">
+                        <div className="text-xs text-purple-700 font-medium uppercase mb-1">Advance Gold Returned</div>
+                        <div className="font-mono font-bold text-xl text-purple-900">
+                          {(viewPurchase.advance_in_gold_grams || 0).toFixed(3)} g
+                        </div>
+                        <div className="text-xs text-purple-600 mt-1">Gold given back to vendor</div>
+                      </div>
+                    )}
+                    
+                    {viewPurchase.exchange_in_gold_grams > 0 && (
+                      <div className="bg-white rounded-lg p-4 border-2 border-indigo-200 shadow-sm">
+                        <div className="text-xs text-indigo-700 font-medium uppercase mb-1">Exchange Gold</div>
+                        <div className="font-mono font-bold text-xl text-indigo-900">
+                          {(viewPurchase.exchange_in_gold_grams || 0).toFixed(3)} g
+                        </div>
+                        <div className="text-xs text-indigo-600 mt-1">Gold exchanged</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowViewDialog(false)}
+                  className="flex-1"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={showDeleteConfirm}
