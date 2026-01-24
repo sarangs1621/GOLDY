@@ -957,7 +957,7 @@ class ComprehensiveBackendTester:
         print(f"⚠️ Errors: {error_tests}")
         
         # Performance analysis
-        response_times = [r["response_time"] for r in self.test_results if r.get("response_time")]
+        response_times = [r["response_time"] for r in self.test_results if r.get("response_time") is not None]
         if response_times:
             avg_response_time = sum(response_times) / len(response_times)
             max_response_time = max(response_times)
@@ -965,7 +965,7 @@ class ComprehensiveBackendTester:
             print(f"Average Response Time: {avg_response_time:.3f}s")
             print(f"Maximum Response Time: {max_response_time:.3f}s")
             
-            slow_tests = [r for r in self.test_results if r.get("response_time", 0) > 2.0]
+            slow_tests = [r for r in self.test_results if r.get("response_time") is not None and r.get("response_time") > 2.0]
             if slow_tests:
                 print(f"Slow Tests (>2s): {len(slow_tests)}")
                 for test in slow_tests:
