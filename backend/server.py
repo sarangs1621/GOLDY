@@ -1622,44 +1622,51 @@ async def get_party_summary(party_id: str, current_user: User = Depends(get_curr
 # ===========================
 
 @api_router.post("/purchases", response_model=Purchase)
-async def create_purchase(purchase: Purchase, current_user: User = Depends(get_current_user)):
+async def create_purchase(purchase_data: dict, current_user: User = Depends(get_current_user)):
     """Create a new purchase in draft status"""
     # Validate vendor exists and is vendor type
-    vendor = await db.parties.find_one({"id": purchase.vendor_party_id, "is_deleted": False})
+    vendor = await db.parties.find_one({"id": purchase_data.get("vendor_party_id"), "is_deleted": False})
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     if vendor.get("party_type") != "vendor":
         raise HTTPException(status_code=400, detail="Party must be a vendor type")
     
-    # Round to proper precision
-    purchase.weight_grams = round(purchase.weight_grams, 3)
-    purchase.rate_per_gram = round(purchase.rate_per_gram, 2)
-    purchase.amount_total = round(purchase.amount_total, 2)
+    # Round numeric fields to proper precision
+    if "weight_grams" in purchase_data:
+        purchase_data["weight_grams"] = round(float(purchase_data["weight_grams"]), 3)
+    if "rate_per_gram" in purchase_data:
+        purchase_data["rate_per_gram"] = round(float(purchase_data["rate_per_gram"]), 2)
+    if "amount_total" in purchase_data:
+        purchase_data["amount_total"] = round(float(purchase_data["amount_total"]), 2)
     
     # MODULE 4: Handle payment and gold settlement fields
-    purchase.paid_amount_money = round(purchase.paid_amount_money, 2)
-    purchase.balance_due_money = round(purchase.amount_total - purchase.paid_amount_money, 2)
+    paid_amount = purchase_data.get("paid_amount_money", 0.0)
+    purchase_data["paid_amount_money"] = round(float(paid_amount), 2)
+    purchase_data["balance_due_money"] = round(purchase_data["amount_total"] - purchase_data["paid_amount_money"], 2)
     
     # Round gold settlement fields to 3 decimals
-    if purchase.advance_in_gold_grams is not None:
-        purchase.advance_in_gold_grams = round(purchase.advance_in_gold_grams, 3)
-    if purchase.exchange_in_gold_grams is not None:
-        purchase.exchange_in_gold_grams = round(purchase.exchange_in_gold_grams, 3)
+    if purchase_data.get("advance_in_gold_grams") is not None:
+        purchase_data["advance_in_gold_grams"] = round(float(purchase_data["advance_in_gold_grams"]), 3)
+    if purchase_data.get("exchange_in_gold_grams") is not None:
+        purchase_data["exchange_in_gold_grams"] = round(float(purchase_data["exchange_in_gold_grams"]), 3)
     
     # Validate account exists if payment made
-    if purchase.paid_amount_money > 0:
-        if not purchase.account_id:
+    if purchase_data["paid_amount_money"] > 0:
+        if not purchase_data.get("account_id"):
             raise HTTPException(status_code=400, detail="account_id is required when paid_amount_money > 0")
-        account = await db.accounts.find_one({"id": purchase.account_id, "is_deleted": False})
+        account = await db.accounts.find_one({"id": purchase_data["account_id"], "is_deleted": False})
         if not account:
             raise HTTPException(status_code=404, detail="Payment account not found")
     
     # Ensure valuation purity is always 916
-    purchase.valuation_purity_fixed = 916
+    purchase_data["valuation_purity_fixed"] = 916
     
     # Set creation metadata
-    purchase.created_by = current_user.username
-    purchase.status = "draft"
+    purchase_data["created_by"] = current_user.username
+    purchase_data["status"] = "draft"
+    
+    # Create Purchase model instance
+    purchase = Purchase(**purchase_data)
     
     # Insert purchase
     await db.purchases.insert_one(purchase.model_dump())
