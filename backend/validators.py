@@ -232,6 +232,22 @@ class UserUpdateValidator(BaseModel):
     full_name: Optional[str] = Field(None, min_length=1, max_length=100)
     role: Optional[str] = Field(None, pattern="^(admin|manager|staff)$")
     is_active: Optional[bool] = None
+    
+    @validator('username')
+    def sanitize_username(cls, v):
+        if v:
+            # Remove HTML but keep alphanumeric and basic chars
+            v = sanitize_html(v)
+            v = re.sub(r'[^\w\-\.]', '', v)
+        return v
+    
+    @validator('email')
+    def sanitize_email_field(cls, v):
+        return sanitize_email(v) if v else None
+    
+    @validator('full_name')
+    def sanitize_full_name(cls, v):
+        return sanitize_text_field(v, max_length=100)
 
 class PasswordChangeValidator(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=100)
