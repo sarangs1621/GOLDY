@@ -209,6 +209,22 @@ class TransactionValidator(BaseModel):
     amount: float = Field(..., gt=0, le=1000000)
     category: str = Field(..., max_length=50)
     notes: Optional[str] = Field(None, max_length=500)
+    
+    @validator('party_name')
+    def sanitize_party_name(cls, v):
+        return sanitize_text_field(v, max_length=100)
+    
+    @validator('category')
+    def sanitize_category(cls, v):
+        return sanitize_text_field(v, max_length=50)
+    
+    @validator('notes')
+    def sanitize_notes(cls, v):
+        return sanitize_text_field(v, max_length=500)
+    
+    @validator('amount')
+    def validate_amount_range(cls, v):
+        return validate_amount(v, min_val=0.01, max_val=1000000)
 
 class UserUpdateValidator(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=50)
