@@ -1,5 +1,6 @@
 import React from 'react';
-import { usePermission, useAnyPermission } from '../hooks/usePermission';
+import { useAuth } from '../contexts/AuthContext';
+import { usePermission, useAnyPermission, useAllPermissions } from '../hooks/usePermission';
 
 /**
  * Component to conditionally render children based on user permissions
