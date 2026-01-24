@@ -600,10 +600,10 @@ export default function InvoicesPage() {
                       />
                       <button
                         type="button"
-                        onClick={() => setPaymentData({...paymentData, amount: selectedInvoice.balance_due.toFixed(3)})}
+                        onClick={() => setPaymentData({...paymentData, amount: safeToFixed(selectedInvoice.balance_due, 3)})}
                         className="text-xs text-blue-600 hover:text-blue-700"
                       >
-                        Set to full balance ({selectedInvoice.balance_due.toFixed(3)} OMR)
+                        Set to full balance ({safeToFixed(selectedInvoice.balance_due, 3)} OMR)
                       </button>
                     </div>
 
