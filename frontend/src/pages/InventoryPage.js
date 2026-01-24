@@ -150,7 +150,14 @@ export default function InventoryPage() {
           <p className="text-muted-foreground">Manage stock categories and movements</p>
         </div>
         <div className="flex gap-3">
-          <Dialog open={showAddHeader} onOpenChange={setShowAddHeader}>
+          <Dialog open={showAddHeader} onOpenChange={(open) => {
+            setShowAddHeader(open);
+            if (!open) {
+              // Clear form and errors when dialog closes
+              setNewHeader('');
+              setCategoryNameError('');
+            }
+          }}>
             <DialogTrigger asChild>
               <Button data-testid="add-category-button" variant="outline">
                 <Package className="w-4 h-4 mr-2" /> Add Category
