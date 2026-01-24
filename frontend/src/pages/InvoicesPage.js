@@ -11,8 +11,7 @@ import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { FileText, Printer, CheckCircle, Lock, DollarSign, AlertTriangle, Eye, Trash2 } from 'lucide-react';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { downloadProfessionalInvoicePDF } from '../utils/professionalInvoicePDF';
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState([]);
