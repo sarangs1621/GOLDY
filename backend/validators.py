@@ -153,6 +153,18 @@ class StockMovementValidator(BaseModel):
     weight_delta: float = Field(..., ge=-10000, le=10000)
     purity: int = Field(..., ge=1, le=999)
     notes: Optional[str] = Field(None, max_length=500)
+    
+    @validator('description')
+    def sanitize_description(cls, v):
+        return sanitize_text_field(v, max_length=200)
+    
+    @validator('notes')
+    def sanitize_notes(cls, v):
+        return sanitize_text_field(v, max_length=500)
+    
+    @validator('purity')
+    def validate_purity_range(cls, v):
+        return validate_purity(v)
 
 class JobCardValidator(BaseModel):
     card_type: str = Field(..., pattern="^(repair|custom|polish|resize)$")
