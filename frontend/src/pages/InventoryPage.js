@@ -80,16 +80,34 @@ export default function InventoryPage() {
   };
 
   const handleAddMovement = async () => {
+    // Validation
+    if (!movementForm.header_id) {
+      toast.error('Please select a category');
+      return;
+    }
+    if (!movementForm.description.trim()) {
+      toast.error('Please enter a description');
+      return;
+    }
+    if (!movementForm.confirmation_reason.trim()) {
+      toast.error('Confirmation reason is required for all manual inventory adjustments');
+      return;
+    }
+    if (parseFloat(movementForm.qty_delta) <= 0 || parseFloat(movementForm.weight_delta) <= 0) {
+      toast.error('Quantity and weight must be positive values');
+      return;
+    }
+
     try {
       const data = {
-        ...movementForm,
-        qty_delta: movementForm.movement_type.includes('OUT') || movementForm.movement_type.includes('Adjustment OUT') 
-          ? -Math.abs(parseFloat(movementForm.qty_delta)) 
-          : Math.abs(parseFloat(movementForm.qty_delta)),
-        weight_delta: movementForm.movement_type.includes('OUT') || movementForm.movement_type.includes('Adjustment OUT')
-          ? -Math.abs(parseFloat(movementForm.weight_delta))
-          : Math.abs(parseFloat(movementForm.weight_delta)),
-        purity: parseInt(movementForm.purity)
+        movement_type: movementForm.movement_type,
+        header_id: movementForm.header_id,
+        description: movementForm.description,
+        qty_delta: Math.abs(parseFloat(movementForm.qty_delta)),
+        weight_delta: Math.abs(parseFloat(movementForm.weight_delta)),
+        purity: parseInt(movementForm.purity),
+        notes: movementForm.notes,
+        confirmation_reason: movementForm.confirmation_reason
       };
 
       await axios.post(`${API}/inventory/movements`, data);
@@ -102,11 +120,13 @@ export default function InventoryPage() {
         qty_delta: 0,
         weight_delta: 0,
         purity: 916,
-        notes: ''
+        notes: '',
+        confirmation_reason: ''
       });
       loadInventoryData();
     } catch (error) {
-      toast.error('Failed to add movement');
+      const errorMsg = error.response?.data?.detail || 'Failed to add movement';
+      toast.error(errorMsg);
     }
   };
 
