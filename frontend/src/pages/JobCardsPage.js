@@ -427,6 +427,11 @@ export default function JobCardsPage() {
     setShowDialog(true);
   };
 
+  const handleViewJobCard = (jobcard) => {
+    setViewJobCard(jobcard);
+    setShowViewDialog(true);
+  };
+
   const handleDeleteJobCard = async (jobcardId, jobcardNumber) => {
     // Load impact data first
     try {
