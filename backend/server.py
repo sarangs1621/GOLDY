@@ -32,6 +32,100 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production'
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24
 
+# ============================================================================
+# PERMISSION SYSTEM - RBAC Configuration
+# ============================================================================
+
+# Define all permissions in the system
+PERMISSIONS = {
+    # User Management
+    'users.view': 'View users',
+    'users.create': 'Create users',
+    'users.update': 'Update users',
+    'users.delete': 'Delete users',
+    
+    # Party Management
+    'parties.view': 'View parties',
+    'parties.create': 'Create parties',
+    'parties.update': 'Update parties',
+    'parties.delete': 'Delete parties',
+    
+    # Invoice Management
+    'invoices.view': 'View invoices',
+    'invoices.create': 'Create invoices',
+    'invoices.finalize': 'Finalize invoices',
+    'invoices.delete': 'Delete invoices',
+    
+    # Purchase Management
+    'purchases.view': 'View purchases',
+    'purchases.create': 'Create purchases',
+    'purchases.finalize': 'Finalize purchases',
+    'purchases.delete': 'Delete purchases',
+    
+    # Finance Management
+    'finance.view': 'View finance data',
+    'finance.create': 'Create financial transactions',
+    'finance.delete': 'Delete financial transactions',
+    
+    # Inventory Management
+    'inventory.view': 'View inventory',
+    'inventory.adjust': 'Adjust inventory',
+    
+    # Job Cards
+    'jobcards.view': 'View job cards',
+    'jobcards.create': 'Create job cards',
+    'jobcards.update': 'Update job cards',
+    'jobcards.delete': 'Delete job cards',
+    
+    # Reports
+    'reports.view': 'View reports',
+    
+    # Audit Logs
+    'audit.view': 'View audit logs',
+}
+
+# Role-Permission Mappings
+ROLE_PERMISSIONS = {
+    'admin': [
+        # Admin has all permissions
+        'users.view', 'users.create', 'users.update', 'users.delete',
+        'parties.view', 'parties.create', 'parties.update', 'parties.delete',
+        'invoices.view', 'invoices.create', 'invoices.finalize', 'invoices.delete',
+        'purchases.view', 'purchases.create', 'purchases.finalize', 'purchases.delete',
+        'finance.view', 'finance.create', 'finance.delete',
+        'inventory.view', 'inventory.adjust',
+        'jobcards.view', 'jobcards.create', 'jobcards.update', 'jobcards.delete',
+        'reports.view',
+        'audit.view',
+    ],
+    'manager': [
+        # Manager has most permissions except user deletion and audit logs
+        'users.view', 'users.create', 'users.update',
+        'parties.view', 'parties.create', 'parties.update', 'parties.delete',
+        'invoices.view', 'invoices.create', 'invoices.finalize',
+        'purchases.view', 'purchases.create', 'purchases.finalize',
+        'finance.view', 'finance.create',
+        'inventory.view', 'inventory.adjust',
+        'jobcards.view', 'jobcards.create', 'jobcards.update', 'jobcards.delete',
+        'reports.view',
+    ],
+    'staff': [
+        # Staff has limited permissions - mostly view and create
+        'parties.view',
+        'invoices.view', 'invoices.create',
+        'purchases.view', 'purchases.create',
+        'finance.view',
+        'inventory.view',
+        'jobcards.view', 'jobcards.create', 'jobcards.update',
+        'reports.view',
+    ],
+}
+
+# Security Configuration
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION_MINUTES = 30
+PASSWORD_MIN_LENGTH = 12
+
 def decimal_to_float(obj):
     """Convert Decimal128, datetime, and ObjectId objects to JSON-serializable types"""
     if isinstance(obj, dict):
