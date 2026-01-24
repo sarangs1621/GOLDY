@@ -81,7 +81,7 @@ export default function Dashboard() {
             <Users className="w-5 h-5 text-destructive" strokeWidth={1.5} />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-mono font-semibold text-gray-900">{(stats.totalOutstanding || 0).toFixed(3)}<span className="text-sm ml-1">OMR</span></div>
+            <div className="text-3xl font-mono font-semibold text-gray-900">{formatCurrency(stats.totalOutstanding)}<span className="text-sm ml-1">OMR</span></div>
           </CardContent>
         </Card>
 
