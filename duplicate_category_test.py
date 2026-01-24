@@ -53,7 +53,7 @@ class DuplicateCategoryTester:
         print(f"{status_symbol} {test_name}: {details}")
         
     def authenticate(self):
-        """Authenticate and get JWT token"""
+        """Authenticate and get JWT token and CSRF token"""
         try:
             response = self.session.post(f"{BASE_URL}/auth/login", json={
                 "username": USERNAME,
@@ -63,8 +63,16 @@ class DuplicateCategoryTester:
             if response.status_code == 200:
                 data = response.json()
                 self.token = data.get("access_token")
+                self.csrf_token = data.get("csrf_token")
+                
+                # Set Authorization header
                 self.session.headers.update({"Authorization": f"Bearer {self.token}"})
-                self.log_result("Authentication", "PASS", f"Successfully authenticated as {USERNAME}")
+                
+                # Set CSRF token header for all future requests
+                if self.csrf_token:
+                    self.session.headers.update({"X-CSRF-Token": self.csrf_token})
+                
+                self.log_result("Authentication", "PASS", f"Successfully authenticated as {USERNAME} with CSRF token")
                 return True
             else:
                 self.log_result("Authentication", "FAIL", f"Failed to authenticate: {response.status_code} - {response.text}")
