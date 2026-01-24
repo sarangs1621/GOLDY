@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { useSearchParams } from 'react-router-dom';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -13,10 +14,11 @@ import { Plus, Users as UsersIcon, Edit, Trash2, Eye, TrendingUp, TrendingDown, 
 import Pagination from '../components/Pagination';
 
 export default function PartiesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [parties, setParties] = useState([]);
   const [pagination, setPagination] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(50);
+  const currentPage = parseInt(searchParams.get('page') || '1', 10);
+  const [perPage, setPerPage] = useState(10);
   const [showDialog, setShowDialog] = useState(false);
   const [showLedgerDialog, setShowLedgerDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
