@@ -20,7 +20,7 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 # Configuration
-BASE_URL = "https://invoice-param-fix.preview.emergentagent.com/api"
+BASE_URL = "https://charge-calc-fix.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 class CriticalBugFixTester:
