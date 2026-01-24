@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 import sys
 
 # Configuration
-BACKEND_URL = "https://token-fortress.preview.emergentagent.com"
+BACKEND_URL = "https://secure-state-tokens.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

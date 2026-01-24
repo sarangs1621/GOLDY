@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import time
 
 # Configuration
-BASE_URL = "https://token-fortress.preview.emergentagent.com/api"
+BASE_URL = "https://secure-state-tokens.preview.emergentagent.com/api"
 
 # Test credentials from review request
 TEST_CREDENTIALS = [
