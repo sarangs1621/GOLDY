@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://nodupes-catalog.preview.emergentagent.com"
+    BASE_URL = "https://category-id-system.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     

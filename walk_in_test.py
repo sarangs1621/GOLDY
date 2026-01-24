@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 
 class WalkInInvoiceTransactionTester:
-    def __init__(self, base_url="https://nodupes-catalog.preview.emergentagent.com"):
+    def __init__(self, base_url="https://category-id-system.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0

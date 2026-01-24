@@ -20,7 +20,7 @@ import uuid
 from decimal import Decimal
 
 # Configuration
-BASE_URL = "https://nodupes-catalog.preview.emergentagent.com/api"
+BASE_URL = "https://category-id-system.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
