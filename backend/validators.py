@@ -4,6 +4,120 @@ import re
 import bleach
 import html
 
+
+# ============================================================================
+# INPUT SANITIZATION UTILITIES
+# ============================================================================
+
+def sanitize_html(text: Optional[str]) -> Optional[str]:
+    """
+    Remove all HTML tags and script content from text input.
+    Prevents XSS attacks by stripping dangerous HTML/JavaScript.
+    """
+    if text is None:
+        return None
+    # Remove all HTML tags including scripts
+    cleaned = bleach.clean(text, tags=[], strip=True)
+    return cleaned.strip()
+
+def sanitize_text_field(text: Optional[str], max_length: int = None) -> Optional[str]:
+    """
+    Sanitize general text field by:
+    1. Removing HTML/script tags
+    2. Escaping special characters
+    3. Trimming whitespace
+    4. Enforcing max length
+    """
+    if text is None:
+        return None
+    
+    # Remove HTML tags
+    cleaned = sanitize_html(text)
+    
+    # Escape HTML entities
+    cleaned = html.escape(cleaned)
+    
+    # Trim whitespace
+    cleaned = cleaned.strip()
+    
+    # Enforce max length
+    if max_length and len(cleaned) > max_length:
+        cleaned = cleaned[:max_length]
+    
+    return cleaned if cleaned else None
+
+def sanitize_email(email: Optional[str]) -> Optional[str]:
+    """
+    Sanitize and validate email address.
+    """
+    if email is None:
+        return None
+    
+    email = email.strip().lower()
+    
+    # Basic email validation pattern
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, email):
+        raise ValueError('Invalid email format')
+    
+    return email
+
+def sanitize_phone(phone: Optional[str]) -> Optional[str]:
+    """
+    Sanitize phone number by allowing only digits, spaces, +, -, (, )
+    """
+    if phone is None:
+        return None
+    
+    # Remove HTML tags first
+    phone = sanitize_html(phone)
+    
+    # Allow only valid phone characters
+    phone = re.sub(r'[^\d\s\-\+\(\)]', '', phone)
+    
+    return phone.strip() if phone else None
+
+def sanitize_numeric_string(value: str) -> str:
+    """
+    Sanitize numeric string inputs (amounts, weights, etc.)
+    Removes non-numeric characters except decimal point and minus sign.
+    """
+    if value is None:
+        return None
+    
+    # Remove HTML tags
+    value = sanitize_html(str(value))
+    
+    # Keep only numbers, decimal point, and minus sign
+    value = re.sub(r'[^\d\.\-]', '', value)
+    
+    return value
+
+def validate_amount(amount: float, min_val: float = -1000000, max_val: float = 1000000) -> float:
+    """
+    Validate numeric amount is within acceptable range.
+    """
+    if amount < min_val or amount > max_val:
+        raise ValueError(f'Amount must be between {min_val} and {max_val}')
+    return amount
+
+def validate_percentage(percentage: float) -> float:
+    """
+    Validate percentage is between 0 and 100.
+    """
+    if percentage < 0 or percentage > 100:
+        raise ValueError('Percentage must be between 0 and 100')
+    return percentage
+
+def validate_purity(purity: int) -> int:
+    """
+    Validate gold purity is within acceptable range (1-999).
+    """
+    if purity < 1 or purity > 999:
+        raise ValueError('Purity must be between 1 and 999')
+    return purity
+
+
 class PartyValidator(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     phone: Optional[str] = Field(None, max_length=20)
