@@ -342,7 +342,7 @@ def create_job_cards(customers, categories, user_id):
                     'category': category['name'],
                     'qty': qty,
                     'weight': weight,
-                    'purity': category['purity'],
+                    'purity': random.choice([999, 916, 750, 585]),
                     'rate': rate,
                     'amount': amount,
                     'making_charge_type': making_type,
