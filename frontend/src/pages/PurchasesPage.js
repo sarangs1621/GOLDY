@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useSearchParams } from 'react-router-dom';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -23,9 +24,12 @@ import {
 import { FormErrorMessage } from '../components/FormErrorMessage';
 import { PageLoadingSpinner, TableLoadingSpinner, ButtonLoadingSpinner } from '../components/LoadingSpinner';
 import { TableEmptyState } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
 
 export default function PurchasesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [purchases, setPurchases] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [showDialog, setShowDialog] = useState(false);
