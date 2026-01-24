@@ -667,8 +667,27 @@ def require_permission(permission: str):
         return current_user
     return permission_checker
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
-    token = credentials.credentials
+async def get_current_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> User:
+    """
+    Get current user from JWT token - supports both cookie and Authorization header.
+    Cookie-based auth is preferred for security (HttpOnly + Secure cookies).
+    """
+    # Try to get token from cookie first (preferred method)
+    token = request.cookies.get("access_token")
+    
+    # Fallback to Authorization header for backward compatibility
+    if not token and credentials:
+        token = credentials.credentials
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get('user_id')
