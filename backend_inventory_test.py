@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 # Configuration
-BASE_URL = "https://rbac-system-7.preview.emergentagent.com/api"
+BASE_URL = "https://auth-control-8.preview.emergentagent.com/api"
 USERNAME = "admin@goldshop.com"
 PASSWORD = "admin123"
 

@@ -10,7 +10,7 @@ from datetime import datetime
 import uuid
 
 # Configuration
-BASE_URL = "https://rbac-system-7.preview.emergentagent.com/api"
+BASE_URL = "https://auth-control-8.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
