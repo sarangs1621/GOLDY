@@ -629,8 +629,14 @@ export default function PurchasesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Vendor *</Label>
-                  <Select value={formData.vendor_party_id} onValueChange={(value) => setFormData({...formData, vendor_party_id: value})}>
-                    <SelectTrigger>
+                  <Select 
+                    value={formData.vendor_party_id} 
+                    onValueChange={(value) => {
+                      setFormData({...formData, vendor_party_id: value});
+                      validateField('vendor_party_id', value);
+                    }}
+                  >
+                    <SelectTrigger className={errors.vendor_party_id ? 'border-red-500' : ''}>
                       <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
                     <SelectContent>
@@ -639,6 +645,7 @@ export default function PurchasesPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormErrorMessage error={errors.vendor_party_id} />
                 </div>
 
                 <div className="space-y-2">
