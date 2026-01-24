@@ -5124,7 +5124,7 @@ async def get_outstanding_report(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     include_paid: bool = False,  # Include fully paid invoices
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission('reports.view'))
 ):
     """
     Get outstanding report with overdue buckets
