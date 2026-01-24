@@ -1044,10 +1044,7 @@ async def change_password(user_id: str, password_data: dict, current_user: User 
     return {"message": "Password changed successfully"}
 
 @api_router.get("/inventory/headers", response_model=List[InventoryHeader])
-async def get_inventory_headers(current_user: User = Depends(get_current_user)):
-    if not user_has_permission(current_user, 'inventory.view'):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view inventory")
-    
+async def get_inventory_headers(current_user: User = Depends(require_permission('inventory.view'))):
     headers = await db.inventory_headers.find({"is_deleted": False}, {"_id": 0}).to_list(1000)
     return headers
 
