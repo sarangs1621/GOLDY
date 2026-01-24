@@ -2695,6 +2695,425 @@ agent_communication:
       🎯 CRITICAL SUCCESS METRICS:
       - Total Test Scenarios: 9/9 COMPLETED ✅
       - Success Rate: 100% (9/9 PASSED) ✅
+
+
+user_problem_statement: "MODULE 7 — DAILY CLOSING & REPORTS: Execute the daily closing process and explore all available reports, filters, summaries, and exports; verify whether totals appear consistent across modules, whether reports respond accurately to filters and date ranges, and whether closing actions feel safe and deliberate; identify any discrepancies, missing data, or unclear presentations; and assess whether reporting supports decision-making and end-of-day confidence."
+
+backend:
+  - task: "Daily Closing - Create Closing Record"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test POST /api/daily-closings endpoint. Verify: 1) Auto-calculation from transactions works, 2) Expected closing = opening + credit - debit, 3) Difference calculation accurate, 4) Record created with all fields, 5) Status is unlocked by default"
+
+  - task: "Daily Closing - List and View Closings"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/daily-closings endpoint. Verify: 1) All closing records returned, 2) Fields include date, opening_cash, total_credit, total_debit, expected_closing, actual_closing, difference, is_locked, 3) Proper date sorting, 4) Pagination if applicable"
+
+  - task: "Daily Closing - Edit Closing Record"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test PATCH /api/daily-closings/{id} endpoint. Verify: 1) Can update actual_closing and notes, 2) Cannot edit locked closings, 3) Difference recalculated automatically, 4) Error handling for invalid data"
+
+  - task: "Daily Closing - Lock/Unlock Functionality"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test locking/unlocking daily closings. Verify: 1) Admin can lock/unlock, 2) Non-admin cannot lock/unlock, 3) Locked closings cannot be edited, 4) Status updates correctly"
+
+  - task: "Daily Closing - Auto-Calculate from Transactions"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/daily-closings/calculate/{date} endpoint. Verify: 1) Sums all transactions for the date, 2) Gets opening cash from previous closing, 3) Returns transaction_count, credit_count, debit_count, 4) Accurate totals"
+
+  - task: "Reports - Financial Summary (Overview)"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/reports/financial-summary endpoint. Verify: 1) Returns total revenue, expenses, profit, 2) Date range filtering works, 3) Calculations accurate, 4) Consistent with invoices and transactions data"
+
+  - task: "Reports - Outstanding Report"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/reports/outstanding endpoint. Verify: 1) Lists parties with outstanding balances, 2) Shows days overdue, 3) Party type filter works, 4) Only includes finalized invoices, 5) Date range filter works, 6) Calculations match party summary endpoint"
+
+  - task: "Reports - Invoices Report"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/reports/invoices-view endpoint. Verify: 1) Date range filtering works, 2) Payment status filter works (paid, unpaid, partial), 3) Party filter works, 4) Sorting works, 5) Totals accurate (count, sum of grand_total, sum of paid_amount, sum of balance_due)"
+
+  - task: "Reports - Sales History Report"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/reports/sales-history endpoint. Verify: 1) Shows finalized invoices only, 2) Date range filter works, 3) Search filter works, 4) Party filter works, 5) Totals include: invoice_count, total_weight, total_amount"
+
+  - task: "Reports - Purchase History Report"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/reports/purchase-history endpoint. Verify: 1) Shows finalized purchases only, 2) Date range filter works, 3) Search filter works, 4) Vendor filter works, 5) Totals include: purchase_count, total_weight, total_amount, total_paid, total_outstanding"
+
+  - task: "Reports - Parties Report"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/reports/parties-view endpoint. Verify: 1) Party type filter works (customer, vendor, worker), 2) Shows gold balances and money balances, 3) Sorting works, 4) Data consistent with party summary endpoint"
+
+  - task: "Reports - Transactions Report"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/reports/transactions-view endpoint. Verify: 1) Date range filter works, 2) Transaction type filter works (credit/debit), 3) Party filter works, 4) Sorting works, 5) Totals accurate (count, sum of debits, sum of credits)"
+
+  - task: "Reports - Inventory Report"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test GET /api/reports/inventory-view endpoint. Verify: 1) Shows stock by category, 2) Movement type filter works (Stock IN, Stock OUT, Adjustment IN, Adjustment OUT), 3) Category filter works, 4) Date range filter works, 5) Totals consistent with inventory headers"
+
+  - task: "Reports - Excel Export Functionality"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Excel export endpoints: 1) /api/reports/sales-history-export, 2) /api/reports/purchase-history-export, 3) /api/reports/inventory-export, 4) /api/reports/invoices-export, 5) /api/reports/parties-export. Verify: Filters applied correctly, file downloaded, proper Excel format"
+
+  - task: "Reports - PDF Export Functionality"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test PDF export endpoints: 1) /api/reports/outstanding-pdf, 2) /api/reports/inventory-pdf, 3) /api/reports/invoices-pdf, 4) /api/reports/parties-pdf, 5) /api/reports/transactions-pdf. Verify: Filters applied correctly, file downloaded, proper PDF format"
+
+  - task: "Cross-Module Data Consistency Check"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Verify data consistency across modules: 1) Sales total in reports matches sum of finalized invoices, 2) Purchase total matches sum of finalized purchases, 3) Outstanding balances match party summary endpoint, 4) Transaction totals match daily closing calculations, 5) Inventory totals match inventory headers, 6) Account balances consistent across finance and reports"
+
+frontend:
+  - task: "Daily Closing - Create and View UI"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/DailyClosingPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Daily Closing page. Verify: 1) Create closing dialog shows all fields, 2) Auto-calculate button works, 3) Calculation summary displayed, 4) Expected closing calculated correctly, 5) Difference shown with color coding (green=match, yellow=small diff, red=large diff), 6) Can save closing record"
+
+  - task: "Daily Closing - Edit and Lock UI"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/DailyClosingPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test editing and locking functionality. Verify: 1) Edit button only shown for unlocked records, 2) Edit dialog allows updating actual_closing and notes, 3) Lock button only shown for admin users, 4) Can toggle lock status, 5) Locked records show red badge, 6) Cannot edit locked records"
+
+  - task: "Reports - Overview Tab UI"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Overview/Financial Summary tab. Verify: 1) Shows revenue, expenses, profit cards, 2) Date filter affects the summary, 3) Data loads correctly, 4) Visual presentation clear"
+
+  - task: "Reports - Outstanding Tab UI with Filters"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Outstanding report tab. Verify: 1) Lists parties with outstanding balances, 2) Date filter works, 3) Party type filter works, 4) Party filter works, 5) Shows days overdue, 6) Data accurate and consistent"
+
+  - task: "Reports - Invoices Tab with All Filters"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Invoices report tab. Verify: 1) Date range filter works, 2) Payment status filter works, 3) Party filter works, 4) Sorting works, 5) Shows totals at bottom, 6) Export buttons work"
+
+  - task: "Reports - Sales History Tab with Search"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Sales History report tab. Verify: 1) Shows finalized invoices, 2) Date filter works, 3) Search works, 4) Party filter works, 5) Totals shown (count, weight, amount), 6) Excel export works"
+
+  - task: "Reports - Purchase History Tab with Search"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Purchase History report tab. Verify: 1) Shows finalized purchases, 2) Date filter works, 3) Search works, 4) Vendor filter works, 5) Totals shown (count, weight, amount, paid, outstanding), 6) Excel export works"
+
+  - task: "Reports - Parties Tab"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Parties report tab. Verify: 1) Party type filter works, 2) Shows gold and money balances, 3) Sorting works, 4) Data displays correctly"
+
+  - task: "Reports - Transactions Tab"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Transactions report tab. Verify: 1) Date filter works, 2) Transaction type filter works, 3) Party filter works, 4) Totals shown, 5) Export works"
+
+  - task: "Reports - Inventory Tab"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test Inventory report tab. Verify: 1) Movement type filter works, 2) Category filter works, 3) Date filter works, 4) Shows stock levels, 5) Export works"
+
+  - task: "Reports - Export Buttons Functionality"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReportsPageEnhanced.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Test export functionality across all report tabs. Verify: 1) Excel export button triggers download, 2) PDF export button triggers download, 3) Exported files contain filtered data, 4) Success toast shown, 5) Error handling for failed exports"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Daily Closing - All functionality (create, list, edit, lock, auto-calculate)"
+    - "Reports - All 8 report tabs with filters and exports"
+    - "Cross-Module Data Consistency Check - CRITICAL"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "critical_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      🎯 STARTING MODULE 7 COMPREHENSIVE TESTING - DAILY CLOSING & REPORTS
+      
+      TESTING SCOPE:
+      This is a comprehensive end-to-end testing of the Daily Closing and Reports modules to verify:
+      1. Daily closing process works correctly with auto-calculation
+      2. All 8 report tabs function properly
+      3. Filters work accurately (date ranges, party filters, type filters, etc.)
+      4. Summaries and totals are calculated correctly
+      5. Export functionality works (Excel and PDF)
+      6. Data consistency across modules (invoices, purchases, transactions, inventory, parties)
+      7. Closing actions are safe and deliberate
+      8. Reports support decision-making
+      
+      BACKEND TESTING TASKS (16 tasks):
+      ✅ Daily Closing:
+         - Create closing record (with auto-calculate)
+         - List and view closings
+         - Edit closing record
+         - Lock/unlock functionality
+         - Auto-calculate from transactions
+      
+      ✅ Reports (8 types):
+         1. Financial Summary (Overview)
+         2. Outstanding Report
+         3. Invoices Report
+         4. Sales History Report
+         5. Purchase History Report
+         6. Parties Report
+         7. Transactions Report
+         8. Inventory Report
+      
+      ✅ Exports:
+         - Excel export (5 endpoints)
+         - PDF export (5 endpoints)
+      
+      ✅ CRITICAL: Cross-Module Data Consistency Check
+      
+      FRONTEND TESTING TASKS (12 tasks):
+      ✅ Daily Closing Page:
+         - Create and view UI
+         - Edit and lock UI
+      
+      ✅ Reports Page (8 tabs):
+         - Overview Tab
+         - Outstanding Tab with filters
+         - Invoices Tab with all filters
+         - Sales History Tab with search
+         - Purchase History Tab with search
+         - Parties Tab
+         - Transactions Tab
+         - Inventory Tab
+      
+      ✅ Export buttons functionality
+      
+      AUTHENTICATION:
+      Username: admin
+      Password: admin123
+      
+      BACKEND URL:
+      Available in /app/frontend/.env as REACT_APP_BACKEND_URL
+      
+      CRITICAL FOCUS AREAS:
+      1. Data consistency across modules (verify totals match)
+      2. Filter accuracy (date ranges, party filters, etc.)
+      3. Export functionality (Excel and PDF downloads)
+      4. Daily closing calculations (opening + credit - debit = expected)
+      5. Outstanding balances match party summaries
+      6. Sales/Purchase totals match invoices/purchases endpoints
+      
+      Ready to start comprehensive backend testing!
+
       - Critical Steps Passed: 6/6 ✅
       - Production Readiness: ✅ CONFIRMED ✅
       - Security Verification: ✅ PASSED ✅
