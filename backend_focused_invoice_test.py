@@ -19,7 +19,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://rapid-ux-hardening.preview.emergentagent.com/api"
+BACKEND_URL = "https://ux-hardening-1.preview.emergentagent.com/api"
 
 # Test credentials
 USERNAME = "admin"

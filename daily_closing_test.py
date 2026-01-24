@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://rapid-ux-hardening.preview.emergentagent.com"
+    BASE_URL = "https://ux-hardening-1.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     

@@ -20,7 +20,7 @@ from datetime import datetime
 import uuid
 
 # Configuration
-BASE_URL = "https://rapid-ux-hardening.preview.emergentagent.com/api"
+BASE_URL = "https://ux-hardening-1.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

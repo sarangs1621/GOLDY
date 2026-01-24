@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 import sys
 
 # Configuration
-BACKEND_URL = "https://rapid-ux-hardening.preview.emergentagent.com"
+BACKEND_URL = "https://ux-hardening-1.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

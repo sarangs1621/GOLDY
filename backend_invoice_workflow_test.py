@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://rapid-ux-hardening.preview.emergentagent.com/api"
+BACKEND_URL = "https://ux-hardening-1.preview.emergentagent.com/api"
 
 # Test credentials
 USERNAME = "admin"
