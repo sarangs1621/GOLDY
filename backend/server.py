@@ -1069,7 +1069,9 @@ async def delete_user(request: Request, user_id: str, current_user: User = Depen
     return {"message": "User deleted successfully"}
 
 @api_router.get("/auth/audit-logs")
+@limiter.limit("50/minute")  # Audit logs rate limit: 50 requests per minute
 async def get_auth_audit_logs(
+    request: Request,
     limit: int = 100,
     skip: int = 0,
     current_user: User = Depends(require_permission('audit.view'))
