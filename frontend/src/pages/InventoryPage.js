@@ -290,7 +290,7 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {stockTotals.map((item, idx) => (
+                  {Array.isArray(stockTotals) && stockTotals.map((item, idx) => (
                     <tr key={idx} className="border-t hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{item.header_name}</td>
                       <td className="px-4 py-3 text-right font-mono">{item.total_qty}</td>
