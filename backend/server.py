@@ -1014,7 +1014,10 @@ async def login(request: Request, credentials: UserLogin, response: Response):
         algorithm=JWT_ALGORITHM
     )
     
-    # Set HttpOnly + Secure cookie for XSS protection
+    # Generate CSRF token for double-submit cookie pattern
+    csrf_token = generate_csrf_token()
+    
+    # Set HttpOnly + Secure cookie for JWT (XSS protection)
     response.set_cookie(
         key="access_token",
         value=token,
@@ -1025,6 +1028,17 @@ async def login(request: Request, credentials: UserLogin, response: Response):
         path="/"        # Available to all routes
     )
     
+    # Set CSRF token cookie (readable by JavaScript for double-submit pattern)
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,  # Must be readable by JavaScript
+        secure=True,     # Only sent over HTTPS
+        samesite="lax",  # CSRF protection
+        max_age=JWT_EXPIRATION_HOURS * 3600,  # Same lifetime as JWT
+        path="/"
+    )
+    
     # Log successful login
     await create_auth_audit_log(
         username=credentials.username,
@@ -1033,7 +1047,7 @@ async def login(request: Request, credentials: UserLogin, response: Response):
         user_id=user.id
     )
     
-    return TokenResponse(access_token=token, user=user)
+    return TokenResponse(access_token=token, user=user, csrf_token=csrf_token)
 
 @api_router.get("/auth/me", response_model=User)
 @limiter.limit("1000/hour")  # General authenticated rate limit: 1000 requests per hour
