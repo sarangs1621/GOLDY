@@ -2302,7 +2302,9 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
     return purchase
 
 @api_router.get("/purchases")
+@limiter.limit("1000/hour")  # General authenticated rate limit: 1000 requests per hour
 async def get_purchases(
+    request: Request,
     vendor_party_id: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
