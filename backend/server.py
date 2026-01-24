@@ -1653,6 +1653,9 @@ async def get_parties(
     current_user: User = Depends(get_current_user)
 ):
     """Get parties with pagination support"""
+    if not user_has_permission(current_user, 'parties.view'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view parties")
+    
     query = {"is_deleted": False}
     if party_type:
         query['party_type'] = party_type
