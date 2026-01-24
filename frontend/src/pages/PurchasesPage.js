@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
-import { Package, CheckCircle, Lock, Edit, ShoppingCart, Calendar, Trash2 } from 'lucide-react';
+import { Package, CheckCircle, Lock, Edit, ShoppingCart, Calendar, Trash2, Eye } from 'lucide-react';
 import { extractErrorMessage } from '../utils/errorHandler';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
 
@@ -20,6 +20,10 @@ export default function PurchasesPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState(null);
   const [finalizing, setFinalizing] = useState(null);
+  
+  // View dialog state
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [viewPurchase, setViewPurchase] = useState(null);
   
   // Confirmation Dialogs
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
