@@ -853,6 +853,20 @@ class Purchase(BaseModel):
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
 
+class ShopSettings(BaseModel):
+    """Shop/Company settings for invoice printing"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    shop_name: str = "Gold Jewellery ERP"
+    address: str = "123 Main Street, City, Country"
+    phone: str = "+968 1234 5678"
+    email: str = "contact@goldjewellery.com"
+    gstin: str = "GST1234567890"
+    logo_url: Optional[str] = None
+    terms_and_conditions: str = "1. Goods once sold cannot be returned.\n2. Gold purity as per invoice.\n3. Making charges are non-refundable."
+    authorized_signatory: str = "Authorized Signatory"
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: Optional[str] = None
 
 async def create_audit_log(user_id: str, user_name: str, module: str, record_id: str, action: str, changes: Optional[Dict] = None):
     log = AuditLog(
