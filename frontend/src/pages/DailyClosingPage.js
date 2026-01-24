@@ -38,9 +38,10 @@ export default function DailyClosingPage() {
   const loadClosings = async () => {
     try {
       const response = await axios.get(`${API}/daily-closings`);
-      setClosings(response.data);
+      setClosings(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       toast.error('Failed to load daily closings');
+      setClosings([]);
     }
   };
 
