@@ -1031,7 +1031,7 @@ export default function JobCardsPage() {
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {inventoryHeaders.map(header => (
+                        {Array.isArray(inventoryHeaders) && inventoryHeaders.map(header => (
                           <SelectItem key={header.id} value={header.name}>
                             {header.name}
                           </SelectItem>
