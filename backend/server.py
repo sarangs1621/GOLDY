@@ -1733,7 +1733,8 @@ async def get_parties(
     return create_pagination_response(parties, total_count, page, per_page)
 
 @api_router.post("/parties", response_model=Party)
-async def create_party(party_data: dict, current_user: User = Depends(require_permission('parties.create'))):
+@limiter.limit("1000/hour")  # General authenticated rate limit: 1000 requests per hour
+async def create_party(request: Request, party_data: dict, current_user: User = Depends(require_permission('parties.create'))):
     if not user_has_permission(current_user, 'parties.create'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to create parties")
     
