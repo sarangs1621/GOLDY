@@ -652,29 +652,20 @@ def user_has_permission(user: User, required_permission: str) -> bool:
 
 def require_permission(permission: str):
     """
-    Decorator to require a specific permission for an endpoint
-    Usage: @require_permission('users.create')
+    Create a FastAPI dependency that checks for a specific permission
+    Usage: 
+    @api_router.get("/endpoint")
+    async def endpoint(current_user: User = Depends(require_permission('permission.name'))):
+        ...
     """
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
-            # Extract current_user from kwargs
-            current_user = kwargs.get('current_user')
-            if not current_user:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Authentication dependency not properly configured"
-                )
-            
-            # Check permission
-            if not user_has_permission(current_user, permission):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"You don't have permission to perform this action. Required: {permission}"
-                )
-            
-            return await func(*args, **kwargs)
-        return wrapper
-    return decorator
+    async def permission_checker(current_user: User = Depends(get_current_user)) -> User:
+        if not user_has_permission(current_user, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You don't have permission to perform this action. Required: {permission}"
+            )
+        return current_user
+    return permission_checker
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     token = credentials.credentials
