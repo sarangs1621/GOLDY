@@ -254,26 +254,13 @@ export default function PurchasesPage() {
   };
 
   const handleSavePurchase = async () => {
-    if (!formData.vendor_party_id) {
-      toast.error('Please select a vendor');
+    // Validate form before submission
+    if (!validateForm()) {
+      toast.error('Please fix the errors in the form');
       return;
     }
 
-    if (!formData.weight_grams || parseFloat(formData.weight_grams) <= 0) {
-      toast.error('Please enter a valid weight');
-      return;
-    }
-
-    if (!formData.rate_per_gram || parseFloat(formData.rate_per_gram) <= 0) {
-      toast.error('Please enter a valid rate per gram');
-      return;
-    }
-
-    if (!formData.amount_total || parseFloat(formData.amount_total) <= 0) {
-      toast.error('Please enter a valid total amount');
-      return;
-    }
-
+    setIsSubmitting(true);
     try {
       const payload = {
         vendor_party_id: formData.vendor_party_id,
@@ -299,11 +286,14 @@ export default function PurchasesPage() {
       }
 
       setShowDialog(false);
+      setErrors({}); // Clear errors on success
       loadPurchases();
     } catch (error) {
       console.error('Error saving purchase:', error);
       const errorMsg = extractErrorMessage(error, 'Failed to save purchase');
       toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
