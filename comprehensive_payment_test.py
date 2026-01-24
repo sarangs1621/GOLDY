@@ -7,7 +7,7 @@ Verifies all critical scenarios for the bug fix
 import requests
 import json
 
-BASE_URL = "https://ux-hardening-1.preview.emergentagent.com/api"
+BASE_URL = "https://edge-case-hunter-1.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 def authenticate():
