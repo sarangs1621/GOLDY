@@ -12,20 +12,69 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [csrfToken, setCsrfToken] = useState(null);
+
+  // Function to get CSRF token from cookie
+  const getCsrfTokenFromCookie = () => {
+    const name = 'csrf_token=';
+    const decodedCookie = decodeURIComponent(document.cookie);
+    const cookieArray = decodedCookie.split(';');
+    for (let i = 0; i < cookieArray.length; i++) {
+      let cookie = cookieArray[i].trim();
+      if (cookie.indexOf(name) === 0) {
+        return cookie.substring(name.length, cookie.length);
+      }
+    }
+    return null;
+  };
+
+  // Setup axios interceptor to add CSRF token to state-changing requests
+  useEffect(() => {
+    const requestInterceptor = axios.interceptors.request.use(
+      (config) => {
+        // Add CSRF token header for state-changing methods
+        if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase())) {
+          // Get token from state or cookie
+          const token = csrfToken || getCsrfTokenFromCookie();
+          if (token) {
+            config.headers['X-CSRF-Token'] = token;
+          }
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Cleanup interceptor on unmount
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+    };
+  }, [csrfToken]);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/auth/me`);
       setUser(response.data);
       setIsAuthenticated(true);
+      
+      // Try to get CSRF token from cookie if not in state
+      if (!csrfToken) {
+        const tokenFromCookie = getCsrfTokenFromCookie();
+        if (tokenFromCookie) {
+          setCsrfToken(tokenFromCookie);
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch user:', error);
       setUser(null);
       setIsAuthenticated(false);
+      setCsrfToken(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [csrfToken]);
 
   useEffect(() => {
     // Try to fetch user on mount (will use cookie if exists)
@@ -34,21 +83,23 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     const response = await axios.post(`${API}/auth/login`, { username, password });
-    const { user: userData } = response.data;
+    const { user: userData, csrf_token } = response.data;
     setUser(userData);
     setIsAuthenticated(true);
+    setCsrfToken(csrf_token);
     return userData;
   };
 
   const logout = async () => {
     try {
-      // Call backend logout to clear cookie
+      // Call backend logout to clear cookies
       await axios.post(`${API}/auth/logout`);
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
       setIsAuthenticated(false);
+      setCsrfToken(null);
     }
   };
 
@@ -87,7 +138,8 @@ export const AuthProvider = ({ children }) => {
       loading,
       hasPermission,
       hasAnyPermission,
-      hasAllPermissions
+      hasAllPermissions,
+      csrfToken
     }}>
       {children}
     </AuthContext.Provider>
