@@ -105,6 +105,7 @@ class InvoiceWorkflowTester:
             
             # Step 1: Create a job card with specific making charges
             jobcard_data = {
+                "card_type": "custom",  # Required field
                 "customer_type": "saved",
                 "customer_id": customer["id"],
                 "customer_name": customer["name"],
