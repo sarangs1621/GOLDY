@@ -3769,7 +3769,7 @@ async def add_payment_to_invoice(
 
 
 @api_router.get("/invoices/{invoice_id}/impact")
-async def get_invoice_impact(invoice_id: str, current_user: User = Depends(get_current_user)):
+async def get_invoice_impact(invoice_id: str, current_user: User = Depends(require_permission('invoices.view'))):
     """
     Get impact summary for invoice actions (finalization or deletion).
     Shows decision-critical data: items, totals, linked data, what will be locked.
