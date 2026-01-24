@@ -1052,7 +1052,8 @@ async def update_user(request: Request, user_id: str, update_data: dict, current
     return {"message": "User updated successfully"}
 
 @api_router.delete("/users/{user_id}")
-async def delete_user(user_id: str, current_user: User = Depends(require_permission('users.delete'))):
+@limiter.limit("30/minute")  # Sensitive operation: 30 user deletions per minute
+async def delete_user(request: Request, user_id: str, current_user: User = Depends(require_permission('users.delete'))):
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
     
