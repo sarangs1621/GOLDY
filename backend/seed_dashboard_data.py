@@ -105,35 +105,66 @@ async def seed_comprehensive_dashboard_data():
     purities = [916, 875, 999, 750]  # Different gold purities
     movement_count = 0
     
+    # Track totals per header for updating
+    header_totals = {hid: {'qty': 0.0, 'weight': 0.0} for hid in header_ids}
+    
     for header_id in header_ids[:8]:  # First 8 headers get stock
         # Create 5-15 movements per header
         num_movements = random.randint(5, 15)
         for _ in range(num_movements):
             movement_id = generate_id()
             purity = random.choice(purities)
+            qty = random.randint(1, 10)
             weight = round(random.uniform(5.0, 150.0), 3)
+            
+            # Random IN or OUT movement
+            movement_type = random.choice(["IN", "OUT"])
+            
+            # Calculate deltas based on movement type
+            if movement_type == "IN":
+                qty_delta = qty
+                weight_delta = weight
+            else:
+                qty_delta = -qty
+                weight_delta = -weight
+            
+            # Update running totals
+            header_totals[header_id]['qty'] += qty_delta
+            header_totals[header_id]['weight'] += weight_delta
             
             movement = {
                 "id": movement_id,
+                "date": get_random_date(60),
+                "movement_type": movement_type,
                 "header_id": header_id,
-                "transaction_type": random.choice(["in", "out"]),
-                "gross_weight": weight,
-                "stone_weight": round(random.uniform(0.0, weight * 0.1), 3),
-                "net_weight": round(weight - random.uniform(0.0, weight * 0.1), 3),
-                "purity": purity,
-                "quantity": random.randint(1, 10),
-                "rate_per_gram": round(random.uniform(45.0, 65.0), 2),
+                "header_name": header_names[header_id],
                 "description": f"Stock movement for {random.choice(['purchase', 'sale', 'adjustment', 'return'])}",
-                "notes": f"Test stock data - purity {purity}",
-                "date": get_random_date(60).isoformat(),
-                "created_at": get_random_date(60).isoformat(),
+                "qty_delta": qty_delta,
+                "weight_delta": round(weight_delta, 3),
+                "purity": purity,
                 "created_by": admin_id,
+                "notes": f"Test stock data - purity {purity}",
                 "is_deleted": False
             }
             await db.stock_movements.insert_one(movement)
             movement_count += 1
     
+    # Update inventory headers with calculated totals
     print(f"  ✓ Created {movement_count} stock movements across {len(header_ids[:8])} categories")
+    print("  ✓ Updating inventory headers with stock totals...")
+    
+    for header_id, totals in header_totals.items():
+        if header_id in header_ids[:8]:  # Only update headers that got movements
+            await db.inventory_headers.update_one(
+                {"id": header_id},
+                {
+                    "$set": {
+                        "current_qty": max(0, totals['qty']),  # Ensure non-negative
+                        "current_weight": max(0, round(totals['weight'], 3))  # Ensure non-negative
+                    }
+                }
+            )
+    print("  ✓ Updated inventory header totals")
     
     # ==================== 3. PARTIES (Customers & Vendors) ====================
     print("\n[3/8] Creating Parties...")
