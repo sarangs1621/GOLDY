@@ -137,15 +137,18 @@ backend:
   
   - task: "Job Card validation - Block completion without worker"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "needs_testing"
         agent: "main"
         comment: "Added validation in update_jobcard endpoint. When status changes to 'completed', checks if worker_id exists. Returns HTTP 422 error with message 'Please assign a worker before completing the job card' if worker not assigned."
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE TESTING COMPLETED - Job Card Completion Validation VERIFIED WORKING. Tested 4 scenarios with 100% success: (1) Job card creation without worker - SUCCESS, (2) Job card moved to in_progress status - SUCCESS, (3) Completion attempt without worker correctly blocked with HTTP 422 and proper error message 'Please assign a worker before completing the job card' - SUCCESS, (4) Worker assignment and subsequent completion - SUCCESS. Validation is production ready."
   
   - task: "Invoice model - Add worker fields"
     implemented: true
