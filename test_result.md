@@ -103,13 +103,24 @@
 #====================================================================================================
 
 user_problem_statement: |
-  Fix 6 critical failures in Gold Inventory Management System:
-  1. Inventory Page - JavaScript Error: "headers.map is not a function"
-  2. Job Cards Page - JavaScript Error: "inventoryHeaders.map is not a function"
-  3. Finance Page - API Error: HTTP 520 on /api/transactions/summary
-  4. Daily Closing Page - API Error: HTTP 520 on /api/daily-closings
-  5. Reports Page - JavaScript Error: "categories.map is not a function"
-  6. Audit Logs Page - JavaScript Error: "Cannot read properties of undefined (reading 'slice')"
+  Implement Worker Management Feature for Gold Inventory Management System:
+  
+  Phase 1: Backend Implementation
+  1. Create Worker Model & Collection with fields: id, name, phone, role, active status
+  2. Create full CRUD API endpoints for Workers management (/api/workers)
+  3. Job Card Validation - Block status change to "completed" if worker_id is null (HTTP 422 error)
+  4. Invoice Integration - Carry forward worker_id and worker_name from job card to invoice
+  
+  Phase 2: Frontend Implementation
+  1. Workers Management Page - Full CRUD interface
+  2. Add Worker dropdown in Create/Edit Job Card form
+  3. Worker field: Optional at "Created" stage, Editable in "Created" and "In Progress", Read-only once "Completed"
+  4. Show validation error if trying to complete without worker
+  5. Display assigned worker in job card views
+  
+  Phase 3: Testing
+  - Backend API testing
+  - Frontend workflow testing
 
 backend:
   - task: "Fix /api/transactions/summary endpoint HTTP 520 error"
