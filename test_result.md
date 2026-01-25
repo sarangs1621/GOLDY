@@ -1075,7 +1075,7 @@ backend:
         comment: "❌ CRITICAL INFRASTRUCTURE FAILURE - Backend and Frontend services were completely STOPPED. Application returning 'Web server returned an unknown error' with HTTP 520 errors. Complete system unavailability detected during stress testing."
       - working: true
         agent: "testing"
-        comment: "✅ INFRASTRUCTURE ISSUES RESOLVED - Restarted all services successfully. Backend now running on port 8001, Frontend compiled and serving. Application accessible at https://api-axios-cleanup.preview.emergentagent.com with HTTP 200 responses."
+        comment: "✅ INFRASTRUCTURE ISSUES RESOLVED - Restarted all services successfully. Backend now running on port 8001, Frontend compiled and serving. Application accessible at https://react-jwt-repair.preview.emergentagent.com with HTTP 200 responses."
       - working: true
         agent: "main"
         comment: "✅ ALL SERVICES RUNNING - After dependency fixes, all services restarted successfully. Backend running on port 8001, Frontend compiled without errors, MongoDB running. Application fully operational."
@@ -2834,7 +2834,7 @@ backend:
           IMPLEMENTATION DETAILS:
           - Changed CORS configuration from wildcard "*" to strict allowlist
           - Updated CORS_ORIGINS environment variable in backend/.env
-          - Configured single allowed origin: https://api-axios-cleanup.preview.emergentagent.com
+          - Configured single allowed origin: https://react-jwt-repair.preview.emergentagent.com
           - Maintained allow_credentials=True for cookie-based authentication
           - Fixed missing 'deprecated' dependency (required by limits/slowapi)
           
@@ -2847,7 +2847,7 @@ backend:
           ✗ No origin validation
           
           AFTER (SECURE):
-          ✅ allow_origins=["https://api-axios-cleanup.preview.emergentagent.com"]
+          ✅ allow_origins=["https://react-jwt-repair.preview.emergentagent.com"]
           ✅ Strict origin validation enforced by browser
           ✅ Only specified domain can make cross-origin requests
           ✅ allow_credentials=True (required for HttpOnly cookies)
@@ -2879,7 +2879,7 @@ backend:
           ================================================================================
           
           ✅ TEST 1: Allowed Origin (PASS)
-             - Origin: https://api-axios-cleanup.preview.emergentagent.com
+             - Origin: https://react-jwt-repair.preview.emergentagent.com
              - Preflight OPTIONS request: HTTP 200
              - Access-Control-Allow-Origin header: Set correctly
              - Access-Control-Allow-Credentials: true
@@ -2897,7 +2897,7 @@ backend:
              - API responds normally for non-browser clients
           
           ✅ TEST 4: GET Request with Allowed Origin (PASS)
-             - Origin: https://api-axios-cleanup.preview.emergentagent.com
+             - Origin: https://react-jwt-repair.preview.emergentagent.com
              - Request: HTTP 200
              - CORS headers correctly set
              - Credentials allowed in response
@@ -2913,7 +2913,7 @@ backend:
           ================================================================================
           1. backend/.env:
              - Changed: CORS_ORIGINS="*"
-             - To: CORS_ORIGINS="https://api-axios-cleanup.preview.emergentagent.com"
+             - To: CORS_ORIGINS="https://react-jwt-repair.preview.emergentagent.com"
           
           2. backend/requirements.txt:
              - Added: deprecated==1.3.1
@@ -2928,7 +2928,7 @@ backend:
           app.add_middleware(
               CORSMiddleware,
               allow_credentials=True,  # Required for cookie-based auth
-              allow_origins=["https://api-axios-cleanup.preview.emergentagent.com"],
+              allow_origins=["https://react-jwt-repair.preview.emergentagent.com"],
               allow_methods=["*"],  # GET, POST, PUT, DELETE, PATCH, OPTIONS
               allow_headers=["*"],  # Common headers allowed
           )
@@ -2975,7 +2975,7 @@ agent_communication:
       IMPLEMENTATION SUMMARY:
       - Removed wildcard CORS configuration ("*")
       - Configured strict origin allowlist
-      - Set single allowed origin: https://api-axios-cleanup.preview.emergentagent.com
+      - Set single allowed origin: https://react-jwt-repair.preview.emergentagent.com
       - Maintained cookie credential support
       - Fixed dependency issue (deprecated package)
       
@@ -2997,7 +2997,7 @@ agent_communication:
       ================================================================================
       
       Allowed Origin:
-      • https://api-axios-cleanup.preview.emergentagent.com
+      • https://react-jwt-repair.preview.emergentagent.com
       
       CORS Headers Set:
       • Access-Control-Allow-Origin: <allowed-origin>

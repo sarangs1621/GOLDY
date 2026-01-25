@@ -11,7 +11,7 @@ Test Script for comprehensive testing of:
 6. Error handling
 
 Authentication: admin/admin123
-Backend URL: https://api-axios-cleanup.preview.emergentagent.com/api
+Backend URL: https://react-jwt-repair.preview.emergentagent.com/api
 """
 
 import requests
@@ -22,7 +22,7 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://api-axios-cleanup.preview.emergentagent.com/api"
+BASE_URL = "https://react-jwt-repair.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

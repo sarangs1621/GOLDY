@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import time
 
 # Configuration
-BASE_URL = "https://api-axios-cleanup.preview.emergentagent.com/api"
+BASE_URL = "https://react-jwt-repair.preview.emergentagent.com/api"
 
 # Test credentials from review request
 TEST_CREDENTIALS = [

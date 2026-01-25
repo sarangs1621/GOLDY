@@ -28,8 +28,8 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://api-axios-cleanup.preview.emergentagent.com/api"
-FRONTEND_URL = "https://api-axios-cleanup.preview.emergentagent.com"
+BASE_URL = "https://react-jwt-repair.preview.emergentagent.com/api"
+FRONTEND_URL = "https://react-jwt-repair.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
