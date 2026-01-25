@@ -2259,6 +2259,140 @@ async def delete_party(party_id: str, current_user: User = Depends(require_permi
     await create_audit_log(current_user.id, current_user.full_name, "party", party_id, "delete")
     return {"message": "Party deleted successfully"}
 
+# ============================================================================
+# WORKER MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@api_router.get("/workers")
+@limiter.limit("1000/hour")
+async def get_workers(
+    request: Request,
+    active: Optional[bool] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Get all workers with optional active filter"""
+    query = {"is_deleted": False}
+    if active is not None:
+        query['active'] = active
+    
+    workers = await db.workers.find(query, {"_id": 0}).sort("name", 1).to_list(None)
+    return {"items": workers}
+
+@api_router.post("/workers", response_model=Worker)
+@limiter.limit("1000/hour")
+async def create_worker(request: Request, worker_data: dict, current_user: User = Depends(get_current_user)):
+    """Create a new worker"""
+    # Validate duplicate name
+    name = worker_data.get('name')
+    if not name or not name.strip():
+        raise HTTPException(status_code=400, detail="Worker name is required")
+    
+    existing_name = await db.workers.find_one({
+        "name": name.strip(),
+        "is_deleted": False
+    })
+    if existing_name:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Worker with name '{name}' already exists"
+        )
+    
+    # Validate duplicate phone if provided
+    phone = worker_data.get('phone')
+    if phone and phone.strip():
+        existing_phone = await db.workers.find_one({
+            "phone": phone.strip(),
+            "is_deleted": False
+        })
+        if existing_phone:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Phone number {phone} is already registered with another worker: {existing_phone.get('name', 'Unknown')}"
+            )
+    
+    worker = Worker(**worker_data, created_by=current_user.id)
+    await db.workers.insert_one(worker.model_dump())
+    await create_audit_log(current_user.id, current_user.full_name, "worker", worker.id, "create")
+    return worker
+
+@api_router.get("/workers/{worker_id}", response_model=Worker)
+async def get_worker(worker_id: str, current_user: User = Depends(get_current_user)):
+    """Get a specific worker by ID"""
+    worker = await db.workers.find_one({"id": worker_id, "is_deleted": False}, {"_id": 0})
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    return Worker(**worker)
+
+@api_router.patch("/workers/{worker_id}")
+async def update_worker(worker_id: str, update_data: dict, current_user: User = Depends(get_current_user)):
+    """Update a worker"""
+    existing = await db.workers.find_one({"id": worker_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    # Validate duplicate name if name is being changed
+    if 'name' in update_data:
+        name = update_data['name']
+        if not name or not name.strip():
+            raise HTTPException(status_code=400, detail="Worker name cannot be empty")
+        
+        existing_name = await db.workers.find_one({
+            "name": name.strip(),
+            "is_deleted": False,
+            "id": {"$ne": worker_id}
+        })
+        if existing_name:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Worker with name '{name}' already exists"
+            )
+    
+    # Validate duplicate phone if phone is being changed
+    if 'phone' in update_data:
+        phone = update_data['phone']
+        if phone and phone.strip():
+            existing_phone = await db.workers.find_one({
+                "phone": phone.strip(),
+                "is_deleted": False,
+                "id": {"$ne": worker_id}
+            })
+            if existing_phone:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Phone number {phone} is already registered with another worker: {existing_phone.get('name', 'Unknown')}"
+                )
+    
+    await db.workers.update_one({"id": worker_id}, {"$set": update_data})
+    await create_audit_log(current_user.id, current_user.full_name, "worker", worker_id, "update", update_data)
+    return {"message": "Worker updated successfully"}
+
+@api_router.delete("/workers/{worker_id}")
+async def delete_worker(worker_id: str, current_user: User = Depends(get_current_user)):
+    """Soft delete a worker"""
+    existing = await db.workers.find_one({"id": worker_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    # Check if worker is assigned to any active job cards
+    active_jobcards = await db.jobcards.count_documents({
+        "worker_id": worker_id,
+        "is_deleted": False,
+        "status": {"$in": ["created", "in_progress"]}
+    })
+    
+    if active_jobcards > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete worker. {active_jobcards} active job card(s) are assigned to this worker. Please reassign or complete them first."
+        )
+    
+    await db.workers.update_one(
+        {"id": worker_id},
+        {"$set": {"is_deleted": True, "deleted_at": datetime.now(timezone.utc), "deleted_by": current_user.id}}
+    )
+    await create_audit_log(current_user.id, current_user.full_name, "worker", worker_id, "delete")
+    return {"message": "Worker deleted successfully"}
+
 @api_router.get("/parties/{party_id}/ledger")
 async def get_party_ledger(party_id: str, current_user: User = Depends(require_permission('parties.view'))):
     invoices = await db.invoices.find({"customer_id": party_id, "is_deleted": False}, {"_id": 0}).to_list(1000)
