@@ -682,7 +682,7 @@ export default function InvoicesPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Date</p>
-                    <p className="font-medium">{new Date(viewInvoice.date).toLocaleDateString()}</p>
+                    <p className="font-medium">{formatDate(viewInvoice.date)}</p>
                   </div>
                 </div>
                 <div className="space-y-2">
