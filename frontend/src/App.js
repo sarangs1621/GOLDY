@@ -156,6 +156,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/workers"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <WorkersPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
