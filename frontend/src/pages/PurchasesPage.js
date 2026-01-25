@@ -1403,7 +1403,7 @@ export default function PurchasesPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Finalized At</p>
                       <p className="font-mono text-sm">
-                        {new Date(viewPurchase.finalized_at).toLocaleString()}
+                        {formatDateTime(viewPurchase.finalized_at)}
                       </p>
                     </div>
                   )}
