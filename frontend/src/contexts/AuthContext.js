@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       // Call backend logout to clear cookies
-      await API.post('/auth/logout');
+      await API.post('/api/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
