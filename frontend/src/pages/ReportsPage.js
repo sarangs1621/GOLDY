@@ -16,7 +16,7 @@ export default function ReportsPage() {
 
   const loadFinancialSummary = async () => {
     try {
-      const response = await API.get(`/api/reports/financial-summary`);
+      const response = await API.get('/reports/financial-summary');
       setFinancialSummary(response.data);
     } catch (error) {
       console.error('Failed to load financial summary');
@@ -32,7 +32,7 @@ export default function ReportsPage() {
         invoices: '/reports/invoices-export'
       };
 
-      const response = await axios.get(`${API}${endpoints[type]}`, {
+      const response = await API.get(endpoints[type], {
         responseType: 'blob'
       });
 
