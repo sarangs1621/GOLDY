@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     // Await POST /api/auth/login
-    const response = await API.post('/auth/login', { username, password });
+    const response = await API.post('/api/auth/login', { username, password });
     const { access_token, user: userData } = response.data;
     
     // Store token FIRST using localStorage
