@@ -1375,7 +1375,7 @@ export default function PurchasesPage() {
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs text-muted-foreground">Purchase Date</p>
-                    <p className="font-medium">{new Date(viewPurchase.date).toLocaleDateString()}</p>
+                    <p className="font-medium">{formatDate(viewPurchase.date)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Vendor</p>
