@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://react-jwt-repair.preview.emergentagent.com/api"
+BACKEND_URL = "https://axios-harmony.preview.emergentagent.com/api"
 
 # Test credentials
 USERNAME = "admin"

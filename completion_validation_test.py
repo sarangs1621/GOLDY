@@ -12,7 +12,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://react-jwt-repair.preview.emergentagent.com/api"
+BASE_URL = "https://axios-harmony.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
