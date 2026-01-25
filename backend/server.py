@@ -3613,6 +3613,8 @@ async def convert_jobcard_to_invoice(jobcard_id: str, invoice_data: dict, curren
         "grand_total": grand_total,
         "balance_due": grand_total,
         "jobcard_id": jobcard_id,
+        "worker_id": jobcard.get("worker_id"),  # Carry forward worker_id from job card
+        "worker_name": jobcard.get("worker_name"),  # Carry forward worker_name from job card
         "created_by": current_user.id
     }
     
