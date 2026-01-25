@@ -488,7 +488,7 @@ export default function FinancePageEnhanced() {
                   {transactions.map((txn) => (
                     <tr key={txn.id} className="border-t hover:bg-muted/30">
                       <td className="px-4 py-3 font-mono text-sm">{txn.transaction_number}</td>
-                      <td className="px-4 py-3 text-sm">{new Date(txn.date).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-sm">{formatDate(txn.date)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {txn.transaction_type === 'credit' ? (
