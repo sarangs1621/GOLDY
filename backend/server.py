@@ -618,7 +618,8 @@ class InventoryHeader(BaseModel):
 class StockMovement(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))  # Alias for created_at
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))  # ISO 8601 UTC timestamp
     movement_type: str
     header_id: str
     header_name: str
