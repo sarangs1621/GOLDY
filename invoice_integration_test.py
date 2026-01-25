@@ -132,7 +132,11 @@ def test_invoice_worker_integration():
     invoice_id = None
     if jobcard_id:
         try:
-            response = session.post(f"{BASE_URL}/jobcards/{jobcard_id}/convert-to-invoice")
+            # The endpoint expects invoice_data in the request body
+            invoice_data = {
+                "notes": "Invoice created from job card with worker integration test"
+            }
+            response = session.post(f"{BASE_URL}/jobcards/{jobcard_id}/convert-to-invoice", json=invoice_data)
             
             if response.status_code == 200:
                 invoice = response.json()
