@@ -736,7 +736,7 @@ export default function FinancePageEnhanced() {
                   <div>
                     <span className="text-muted-foreground">Date:</span>
                     <p className="font-semibold mt-1">
-                      {new Date(transactionToDelete.date).toLocaleDateString('en-GB', {
+                      {formatDate(transactionToDelete.date)}
                         day: '2-digit',
                         month: 'short',
                         year: 'numeric'
