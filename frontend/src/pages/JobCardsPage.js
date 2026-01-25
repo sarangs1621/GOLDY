@@ -409,7 +409,7 @@ export default function JobCardsPage() {
       }
 
       const response = await API.post(
-        `/jobcards/${convertingJobCard.id}/convert-to-invoice`, 
+        `/api/jobcards/${convertingJobCard.id}/convert-to-invoice`, 
         payload
       );
       
