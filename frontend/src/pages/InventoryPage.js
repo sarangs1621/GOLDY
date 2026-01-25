@@ -328,7 +328,7 @@ export default function InventoryPage() {
                           {item.status === 'low_stock' ? 'Low Stock' : 'In Stock'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm">{new Date(item.created_at).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-sm">{formatDate(item.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>
