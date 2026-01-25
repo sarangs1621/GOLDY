@@ -1070,7 +1070,7 @@ export default function PurchasesPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-slate-600">Date</p>
-                    <p className="text-lg font-semibold">{new Date(confirmPurchase.date).toLocaleDateString()}</p>
+                    <p className="text-lg font-semibold">{formatDate(confirmPurchase.date)}</p>
                   </div>
                 </div>
                 {confirmPurchase.description && (
