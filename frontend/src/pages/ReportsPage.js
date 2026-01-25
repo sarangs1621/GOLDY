@@ -27,9 +27,9 @@ export default function ReportsPage() {
     try {
       setLoading(true);
       const endpoints = {
-        inventory: '/reports/inventory-export',
-        parties: '/reports/parties-export',
-        invoices: '/reports/invoices-export'
+        inventory: '/api/reports/inventory-export',
+        parties: '/api/reports/parties-export',
+        invoices: '/api/reports/invoices-export'
       };
 
       const response = await API.get(endpoints[type], {
