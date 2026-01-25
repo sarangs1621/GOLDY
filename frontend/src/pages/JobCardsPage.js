@@ -1011,6 +1011,48 @@ export default function JobCardsPage() {
                   Optional: This rate will auto-fill when converting to invoice
                 </p>
               </div>
+              
+              {/* Worker Assignment */}
+              {!saveAsTemplate && !editingTemplate && (
+                <div>
+                  <Label>
+                    Assign Worker 
+                    {formData.status === 'completed' && <span className="text-red-500"> *</span>}
+                  </Label>
+                  <Select 
+                    value={formData.worker_id} 
+                    onValueChange={(val) => {
+                      const selectedWorker = workers.find(w => w.id === val);
+                      setFormData({
+                        ...formData, 
+                        worker_id: val,
+                        worker_name: selectedWorker?.name || ''
+                      });
+                    }}
+                    disabled={formData.status === 'completed'}
+                  >
+                    <SelectTrigger data-testid="worker-select">
+                      <SelectValue placeholder="Select worker (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {workers.map(w => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.name}{w.role ? ` - ${w.role}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.status === 'completed' 
+                      ? '✓ Worker assignment locked (job completed)' 
+                      : formData.status === 'created' 
+                        ? 'Optional at creation, required before completion' 
+                        : 'Editable until job is completed'
+                    }
+                  </p>
+                </div>
+              )}
             </div>
             
             <div>
