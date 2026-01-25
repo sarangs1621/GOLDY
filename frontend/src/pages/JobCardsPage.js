@@ -20,6 +20,7 @@ export default function JobCardsPage() {
   const { currentPage, setPage, pagination, setPagination } = useURLPagination();
   const [jobcards, setJobcards] = useState([]);
   const [parties, setParties] = useState([]);
+  const [workers, setWorkers] = useState([]);
   const [inventoryHeaders, setInventoryHeaders] = useState([]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingJobCard, setEditingJobCard] = useState(null);
