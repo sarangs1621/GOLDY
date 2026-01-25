@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { History } from 'lucide-react';
@@ -17,7 +16,7 @@ export default function AuditLogsPage() {
 
   const loadLogs = async () => {
     try {
-      const response = await axios.get(`${API}/audit-logs`, {
+      const response = await API.get(`/api/audit-logs`, {
         params: { page: currentPage, page_size: 10 }
       });
       setLogs(Array.isArray(response.data.items) ? response.data.items : []);

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { formatWeight, formatCurrency, safeToFixed } from '../utils/numberFormat';
-import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -62,7 +61,7 @@ export default function PartiesPage() {
   const loadParties = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API}/parties`, {
+      const response = await API.get(`/api/parties`, {
         params: {
           page: currentPage,
           page_size: perPage
@@ -94,10 +93,10 @@ export default function PartiesPage() {
 
     try {
       if (editingParty) {
-        await axios.patch(`${API}/parties/${editingParty.id}`, formData);
+        await API.patch(`/api/parties/${editingParty.id}`, formData);
         toast.success('Party updated successfully');
       } else {
-        await axios.post(`${API}/parties`, formData);
+        await API.post(`/api/parties`, formData);
         toast.success('Party created successfully');
       }
       
@@ -132,7 +131,7 @@ export default function PartiesPage() {
     try {
       setDeleteingParty(party);
       // Fetch delete impact before showing dialog
-      const response = await axios.get(`${API}/parties/${party.id}/delete-impact`);
+      const response = await API.get(`/api/parties/${party.id}/delete-impact`);
       setDeleteImpact(response.data);
       setShowDeleteDialog(true);
     } catch (error) {
@@ -143,7 +142,7 @@ export default function PartiesPage() {
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`${API}/parties/${deletingParty.id}`);
+      await API.delete(`/api/parties/${deletingParty.id}`);
       toast.success('Party deleted successfully');
       setShowDeleteDialog(false);
       setDeleteingParty(null);
@@ -157,15 +156,15 @@ export default function PartiesPage() {
   const handleViewLedger = async (party) => {
     try {
       // Fetch comprehensive summary
-      const summaryResponse = await axios.get(`${API}/parties/${party.id}/summary`);
+      const summaryResponse = await API.get(`/api/parties/${party.id}/summary`);
       setLedgerData(summaryResponse.data);
       
       // Fetch gold ledger entries
-      const goldResponse = await axios.get(`${API}/gold-ledger?party_id=${party.id}`);
+      const goldResponse = await API.get(`/api/gold-ledger?party_id=${party.id}`);
       setGoldEntries(goldResponse.data.items || []);
       
       // Fetch invoices and transactions for money ledger
-      const ledgerResponse = await axios.get(`${API}/parties/${party.id}/ledger`);
+      const ledgerResponse = await API.get(`/api/parties/${party.id}/ledger`);
       
       // Combine invoices and transactions into a unified money ledger
       const combinedLedger = [];
@@ -245,14 +244,14 @@ export default function PartiesPage() {
         notes: depositFormData.notes || undefined
       };
 
-      await axios.post(`${API}/gold-deposits`, depositPayload);
+      await API.post(`/api/gold-deposits`, depositPayload);
       toast.success('Gold deposit recorded successfully');
       
       // Reload gold entries and summary
-      const goldResponse = await axios.get(`${API}/gold-ledger?party_id=${ledgerData.party.id}`);
+      const goldResponse = await API.get(`/api/gold-ledger?party_id=${ledgerData.party.id}`);
       setGoldEntries(goldResponse.data.items || []);
       
-      const summaryResponse = await axios.get(`${API}/parties/${ledgerData.party.id}/summary`);
+      const summaryResponse = await API.get(`/api/parties/${ledgerData.party.id}/summary`);
       setLedgerData(summaryResponse.data);
       
       // Close dialog and reset form

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatWeight, formatCurrency, safeToFixed } from '../utils/numberFormat';
 import { formatDateTime, formatDate, formatDateOnly, displayDateOnly } from '../utils/dateTimeUtils';
-import axios from 'axios';
 import { API, useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -95,12 +94,12 @@ export default function JobCardsPage() {
   const loadData = async () => {
     try {
       const [jobcardsRes, partiesRes, headersRes, workersRes] = await Promise.all([
-        axios.get(`${API}/jobcards`, {
+        API.get(`/api/jobcards`, {
           params: { page: currentPage, page_size: 10 }
         }),
-        axios.get(`${API}/parties?party_type=customer`),
-        axios.get(`${API}/inventory/headers`),
-        axios.get(`${API}/workers?active=true`)
+        API.get(`/api/parties?party_type=customer`),
+        API.get(`/api/inventory/headers`),
+        API.get(`/api/workers?active=true`)
       ]);
       setJobcards(jobcardsRes.data.items || []);
       setPagination(jobcardsRes.data.pagination);
@@ -119,7 +118,7 @@ export default function JobCardsPage() {
 
   const loadTemplates = async () => {
     try {
-      const response = await axios.get(`${API}/jobcard-templates`);
+      const response = await API.get(`/api/jobcard-templates`);
       setTemplates(response.data.items || []);
     } catch (error) {
       console.error('Failed to load templates:', error);
@@ -183,7 +182,7 @@ export default function JobCardsPage() {
             (newNormalized === 'delivered' && oldNormalized !== 'delivered')) {
           
           // Load impact data
-          const impactRes = await axios.get(`${API}/jobcards/${editingJobCard.id}/impact`);
+          const impactRes = await API.get(`/api/jobcards/${editingJobCard.id}/impact`);
           const impact = impactRes.data;
           
           return new Promise((resolve) => {
@@ -230,11 +229,11 @@ export default function JobCardsPage() {
     try {
       if (jobcardId) {
         // Update existing job card
-        await axios.patch(`${API}/jobcards/${jobcardId}`, data);
+        await API.patch(`/api/jobcards/${jobcardId}`, data);
         toast.success('Job card updated successfully');
       } else {
         // Create new job card
-        await axios.post(`${API}/jobcards`, data);
+        await API.post(`/api/jobcards`, data);
         toast.success('Job card created successfully');
       }
       
@@ -272,10 +271,10 @@ export default function JobCardsPage() {
       };
 
       if (editingTemplate) {
-        await axios.patch(`${API}/jobcard-templates/${editingTemplate.id}`, templateData);
+        await API.patch(`/api/jobcard-templates/${editingTemplate.id}`, templateData);
         toast.success('Template updated successfully');
       } else {
-        await axios.post(`${API}/jobcard-templates`, templateData);
+        await API.post(`/api/jobcard-templates`, templateData);
         toast.success('Template saved successfully');
       }
       
@@ -342,7 +341,7 @@ export default function JobCardsPage() {
     }
 
     try {
-      await axios.delete(`${API}/jobcard-templates/${templateId}`);
+      await API.delete(`/api/jobcard-templates/${templateId}`);
       toast.success('Template deleted successfully');
       loadTemplates();
     } catch (error) {
@@ -458,7 +457,7 @@ export default function JobCardsPage() {
   const handleDeleteJobCard = async (jobcardId, jobcardNumber) => {
     // Load impact data first
     try {
-      const impactRes = await axios.get(`${API}/jobcards/${jobcardId}/delete-impact`);
+      const impactRes = await API.get(`/api/jobcards/${jobcardId}/delete-impact`);
       const impact = impactRes.data;
       
       setConfirmDialog({
@@ -470,7 +469,7 @@ export default function JobCardsPage() {
         action: async () => {
           try {
             setConfirmDialog(prev => ({ ...prev, loading: true }));
-            await axios.delete(`${API}/jobcards/${jobcardId}`);
+            await API.delete(`/api/jobcards/${jobcardId}`);
             toast.success('Job card deleted successfully');
             setConfirmDialog(prev => ({ ...prev, open: false, loading: false }));
             loadData();
@@ -490,7 +489,7 @@ export default function JobCardsPage() {
   const handleCompleteJobCard = async (jobcardId, jobcardNumber) => {
     // Load impact data first
     try {
-      const impactRes = await axios.get(`${API}/jobcards/${jobcardId}/complete-impact`);
+      const impactRes = await API.get(`/api/jobcards/${jobcardId}/complete-impact`);
       const impact = impactRes.data;
       
       setConfirmDialog({
@@ -502,7 +501,7 @@ export default function JobCardsPage() {
         action: async () => {
           try {
             setConfirmDialog(prev => ({ ...prev, loading: true }));
-            await axios.patch(`${API}/jobcards/${jobcardId}`, { status: 'completed' });
+            await API.patch(`/api/jobcards/${jobcardId}`, { status: 'completed' });
             toast.success('Job card marked as completed');
             setConfirmDialog(prev => ({ ...prev, open: false, loading: false }));
             loadData();
@@ -522,7 +521,7 @@ export default function JobCardsPage() {
   const handleDeliverJobCard = async (jobcardId, jobcardNumber) => {
     // Load impact data first
     try {
-      const impactRes = await axios.get(`${API}/jobcards/${jobcardId}/deliver-impact`);
+      const impactRes = await API.get(`/api/jobcards/${jobcardId}/deliver-impact`);
       const impact = impactRes.data;
       
       setConfirmDialog({
@@ -534,7 +533,7 @@ export default function JobCardsPage() {
         action: async () => {
           try {
             setConfirmDialog(prev => ({ ...prev, loading: true }));
-            await axios.patch(`${API}/jobcards/${jobcardId}`, { status: 'delivered' });
+            await API.patch(`/api/jobcards/${jobcardId}`, { status: 'delivered' });
             toast.success('Job card marked as delivered');
             setConfirmDialog(prev => ({ ...prev, open: false, loading: false }));
             loadData();

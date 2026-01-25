@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { formatWeight, formatCurrency, safeToFixed } from '../utils/numberFormat';
-import axios from 'axios';
 import { API, useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -38,7 +37,7 @@ export default function DailyClosingPage() {
 
   const loadClosings = async () => {
     try {
-      const response = await axios.get(`${API}/daily-closings`);
+      const response = await API.get(`/api/daily-closings`);
       setClosings(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       toast.error('Failed to load daily closings');
@@ -49,7 +48,7 @@ export default function DailyClosingPage() {
   const autoCalculateFromTransactions = async () => {
     setIsCalculating(true);
     try {
-      const response = await axios.get(`${API}/daily-closings/calculate/${formData.date}`);
+      const response = await API.get(`/api/daily-closings/calculate/${formData.date}`);
       const data = response.data;
       
       setCalculationData(data);
@@ -98,7 +97,7 @@ export default function DailyClosingPage() {
         notes: formData.notes
       };
       
-      await axios.post(`${API}/daily-closings`, data);
+      await API.post(`/api/daily-closings`, data);
       toast.success('Daily closing created successfully');
       setShowDialog(false);
       setCalculationData(null);
@@ -134,7 +133,7 @@ export default function DailyClosingPage() {
         notes: editFormData.notes
       };
       
-      await axios.patch(`${API}/daily-closings/${editingClosing.id}`, updateData);
+      await API.patch(`/api/daily-closings/${editingClosing.id}`, updateData);
       toast.success('Daily closing updated successfully');
       setShowEditDialog(false);
       setEditingClosing(null);
@@ -156,7 +155,7 @@ export default function DailyClosingPage() {
     const action = newLockStatus ? 'lock' : 'unlock';
     
     try {
-      await axios.patch(`${API}/daily-closings/${closing.id}`, { is_locked: newLockStatus });
+      await API.patch(`/api/daily-closings/${closing.id}`, { is_locked: newLockStatus });
       toast.success(`Daily closing ${action}ed successfully`);
       loadClosings();
     } catch (error) {
@@ -205,7 +204,7 @@ export default function DailyClosingPage() {
     setTimeout(() => {
       if (showDialog) return; // Prevent double call
       setIsCalculating(true);
-      axios.get(`${API}/daily-closings/calculate/${today}`)
+      API.get(`/api/daily-closings/calculate/${today}`)
         .then(response => {
           const data = response.data;
           setCalculationData(data);

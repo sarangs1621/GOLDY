@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatWeight, formatCurrency, safeToFixed } from '../utils/numberFormat';
 import { formatDate } from '../utils/dateTimeUtils';
-import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -42,10 +41,10 @@ export default function InventoryPage() {
   const loadInventoryData = async () => {
     try {
       const [headersRes, movementsRes, totalsRes, inventoryRes] = await Promise.all([
-        axios.get(`${API}/inventory/headers`),
-        axios.get(`${API}/inventory/movements`),
-        axios.get(`${API}/inventory/stock-totals`),
-        axios.get(`${API}/inventory`, {
+        API.get(`/api/inventory/headers`),
+        API.get(`/api/inventory/movements`),
+        API.get(`/api/inventory/stock-totals`),
+        API.get(`/api/inventory`, {
           params: { page: currentPage, page_size: 10 }
         })
       ]);
@@ -75,7 +74,7 @@ export default function InventoryPage() {
 
     try {
       setCategoryNameError(''); // Clear any previous errors
-      await axios.post(`${API}/inventory/headers`, { name: newHeader });
+      await API.post(`/api/inventory/headers`, { name: newHeader });
       toast.success('Category added successfully');
       setNewHeader('');
       setShowAddHeader(false);
@@ -123,7 +122,7 @@ export default function InventoryPage() {
         confirmation_reason: movementForm.confirmation_reason
       };
 
-      await axios.post(`${API}/inventory/movements`, data);
+      await API.post(`/api/inventory/movements`, data);
       toast.success('Stock movement added successfully');
       setShowAddMovement(false);
       setMovementForm({

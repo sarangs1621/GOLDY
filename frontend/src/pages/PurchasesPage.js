@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -111,7 +110,7 @@ export default function PurchasesPage() {
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
       
-      const response = await axios.get(`${API}/purchases?${params.toString()}`);
+      const response = await API.get(`/api/purchases?${params.toString()}`);
       setPurchases(response.data.items || []);
       setPagination(response.data.pagination);
     } catch (error) {
@@ -121,7 +120,7 @@ export default function PurchasesPage() {
 
   const loadVendors = async () => {
     try {
-      const response = await axios.get(`${API}/parties?party_type=vendor&page_size=1000`);
+      const response = await API.get(`/api/parties?party_type=vendor&page_size=1000`);
       setVendors(response.data.items || []);
     } catch (error) {
       console.error('Failed to load vendors:', error);
@@ -130,7 +129,7 @@ export default function PurchasesPage() {
 
   const loadAccounts = async () => {
     try {
-      const response = await axios.get(`${API}/accounts`);
+      const response = await API.get(`/api/accounts`);
       setAccounts(response.data);
     } catch (error) {
       console.error('Failed to load accounts:', error);
@@ -294,10 +293,10 @@ export default function PurchasesPage() {
       };
 
       if (editingPurchase) {
-        await axios.patch(`${API}/purchases/${editingPurchase.id}`, payload);
+        await API.patch(`/api/purchases/${editingPurchase.id}`, payload);
         toast.success('Purchase updated successfully');
       } else {
-        await axios.post(`${API}/purchases`, payload);
+        await API.post(`/api/purchases`, payload);
         toast.success('Purchase created successfully');
       }
 
@@ -317,7 +316,7 @@ export default function PurchasesPage() {
     setConfirmPurchase(purchase);
     setConfirmLoading(true);
     try {
-      const response = await axios.get(`${API}/purchases/${purchase.id}/finalize-impact`);
+      const response = await API.get(`/api/purchases/${purchase.id}/finalize-impact`);
       setImpactData(response.data);
       setShowFinalizeConfirm(true);
     } catch (error) {
@@ -334,7 +333,7 @@ export default function PurchasesPage() {
     setConfirmLoading(true);
     setFinalizing(confirmPurchase.id);
     try {
-      await axios.post(`${API}/purchases/${confirmPurchase.id}/finalize`);
+      await API.post(`/api/purchases/${confirmPurchase.id}/finalize`);
       toast.success('Purchase finalized successfully!');
       setShowFinalizeConfirm(false);
       setConfirmPurchase(null);
@@ -354,7 +353,7 @@ export default function PurchasesPage() {
     setConfirmPurchase(purchase);
     setConfirmLoading(true);
     try {
-      const response = await axios.get(`${API}/purchases/${purchase.id}/delete-impact`);
+      const response = await API.get(`/api/purchases/${purchase.id}/delete-impact`);
       setImpactData(response.data);
       setShowDeleteConfirm(true);
     } catch (error) {
@@ -370,7 +369,7 @@ export default function PurchasesPage() {
     
     setConfirmLoading(true);
     try {
-      await axios.delete(`${API}/purchases/${confirmPurchase.id}`);
+      await API.delete(`/api/purchases/${confirmPurchase.id}`);
       toast.success('Purchase deleted successfully!');
       setShowDeleteConfirm(false);
       setConfirmPurchase(null);

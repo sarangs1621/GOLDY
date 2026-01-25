@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { formatWeight, formatCurrency, safeToFixed } from '../utils/numberFormat';
-import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -128,7 +127,7 @@ export default function ReportsPageEnhanced() {
 
   const loadParties = async () => {
     try {
-      const response = await axios.get(`${API}/parties`);
+      const response = await API.get(`/api/parties`);
       setParties(response.data.items || []);
     } catch (error) {
       console.error('Failed to load parties');
@@ -141,7 +140,7 @@ export default function ReportsPageEnhanced() {
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
       
-      const response = await axios.get(`${API}/reports/financial-summary`, { params });
+      const response = await API.get(`/api/reports/financial-summary`, { params });
       setFinancialSummary(response.data);
     } catch (error) {
       console.error('Failed to load financial summary');
@@ -157,7 +156,7 @@ export default function ReportsPageEnhanced() {
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
       
-      const response = await axios.get(`${API}/reports/outstanding`, { params });
+      const response = await API.get(`/api/reports/outstanding`, { params });
       setOutstandingData(response.data);
     } catch (error) {
       toast.error('Failed to load outstanding report');
@@ -168,7 +167,7 @@ export default function ReportsPageEnhanced() {
 
   const loadCategories = async () => {
     try {
-      const response = await axios.get(`${API}/inventory/headers`);
+      const response = await API.get(`/api/inventory/headers`);
       setCategories(response.data?.items || []);
     } catch (error) {
       console.error('Failed to load categories');
@@ -178,7 +177,7 @@ export default function ReportsPageEnhanced() {
 
   const loadAccounts = async () => {
     try {
-      const response = await axios.get(`${API}/accounts`);
+      const response = await API.get(`/api/accounts`);
       setAccounts(response.data);
     } catch (error) {
       console.error('Failed to load accounts');
@@ -195,7 +194,7 @@ export default function ReportsPageEnhanced() {
       if (category && category !== 'all') params.category = category;
       if (sortBy) params.sort_by = sortBy;
       
-      const response = await axios.get(`${API}/reports/inventory-view`, { params });
+      const response = await API.get(`/api/reports/inventory-view`, { params });
       setInventoryData(response.data);
     } catch (error) {
       toast.error('Failed to load inventory report');
@@ -211,7 +210,7 @@ export default function ReportsPageEnhanced() {
       if (partyType && partyType !== 'all') params.party_type = partyType;
       if (sortBy) params.sort_by = sortBy;
       
-      const response = await axios.get(`${API}/reports/parties-view`, { params });
+      const response = await API.get(`/api/reports/parties-view`, { params });
       setPartiesData(response.data);
     } catch (error) {
       toast.error('Failed to load parties report');
@@ -231,7 +230,7 @@ export default function ReportsPageEnhanced() {
       if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (sortBy) params.sort_by = sortBy;
       
-      const response = await axios.get(`${API}/reports/invoices-view`, { params });
+      const response = await API.get(`/api/reports/invoices-view`, { params });
       setInvoicesData(response.data);
     } catch (error) {
       toast.error('Failed to load invoices report');
@@ -250,7 +249,7 @@ export default function ReportsPageEnhanced() {
       if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (sortBy) params.sort_by = sortBy;
       
-      const response = await axios.get(`${API}/reports/transactions-view`, { params });
+      const response = await API.get(`/api/reports/transactions-view`, { params });
       setTransactionsData(response.data);
     } catch (error) {
       toast.error('Failed to load transactions report');
@@ -268,7 +267,7 @@ export default function ReportsPageEnhanced() {
       if (selectedPartyId && selectedPartyId !== 'all') params.party_id = selectedPartyId;
       if (searchQuery) params.search = searchQuery;
       
-      const response = await axios.get(`${API}/reports/sales-history`, { params });
+      const response = await API.get(`/api/reports/sales-history`, { params });
       setSalesHistoryData(response.data);
     } catch (error) {
       toast.error('Failed to load sales history report');
@@ -286,7 +285,7 @@ export default function ReportsPageEnhanced() {
       if (selectedPartyId && selectedPartyId !== 'all') params.vendor_id = selectedPartyId;
       if (purchaseSearchQuery) params.search = purchaseSearchQuery;
       
-      const response = await axios.get(`${API}/reports/purchase-history`, { params });
+      const response = await API.get(`/api/reports/purchase-history`, { params });
       setPurchaseHistoryData(response.data);
     } catch (error) {
       toast.error('Failed to load purchase history report');
@@ -310,7 +309,7 @@ export default function ReportsPageEnhanced() {
       if (category && category !== 'all') params.category = category;
       if (transactionType && transactionType !== 'all') params.transaction_type = transactionType;
       
-      const response = await axios.get(`${API}/reports/${reportType}-pdf`, {
+      const response = await API.get(`/api/reports/${reportType}-pdf`, {
         params,
         responseType: 'blob'
       });
@@ -357,7 +356,7 @@ export default function ReportsPageEnhanced() {
         if (purchaseSearchQuery) params.search = purchaseSearchQuery;
       }
       
-      const response = await axios.get(`${API}/reports/${reportType}-export`, {
+      const response = await API.get(`/api/reports/${reportType}-export`, {
         params,
         responseType: 'blob'
       });

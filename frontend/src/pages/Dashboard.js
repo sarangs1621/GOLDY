@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Package, AlertTriangle, Users, TrendingUp } from 'lucide-react';
@@ -21,9 +20,9 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     try {
       const [headersRes, stockRes, outstandingRes] = await Promise.all([
-        axios.get(`${API}/inventory/headers`),
-        axios.get(`${API}/inventory/stock-totals`),
-        axios.get(`${API}/parties/outstanding-summary`)
+        API.get(`/api/inventory/headers`),
+        API.get(`/api/inventory/stock-totals`),
+        API.get(`/api/parties/outstanding-summary`)
       ]);
 
       setStats({

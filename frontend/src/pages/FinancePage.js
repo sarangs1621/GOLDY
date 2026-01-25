@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -80,9 +79,9 @@ export default function FinancePageEnhanced() {
       if (filters.end_date) params.end_date = filters.end_date;
       
       const [accountsRes, transactionsRes, summaryRes] = await Promise.all([
-        axios.get(`${API}/accounts`),
-        axios.get(`${API}/transactions`, { params }),
-        axios.get(`${API}/transactions/summary`, { params })
+        API.get(`/api/accounts`),
+        API.get(`/api/transactions`, { params }),
+        API.get(`/api/transactions/summary`, { params })
       ]);
       
       setAccounts(Array.isArray(accountsRes.data) ? accountsRes.data : []);
@@ -126,7 +125,7 @@ export default function FinancePageEnhanced() {
         opening_balance: parseFloat(accountForm.opening_balance),
         current_balance: parseFloat(accountForm.opening_balance)
       };
-      await axios.post(`${API}/accounts`, data);
+      await API.post(`/api/accounts`, data);
       toast.success('Account created successfully');
       setShowAccountDialog(false);
       setAccountForm({ name: '', account_type: 'cash', opening_balance: 0 });
@@ -152,7 +151,7 @@ export default function FinancePageEnhanced() {
         ...transactionForm,
         amount: parseFloat(transactionForm.amount)
       };
-      await axios.post(`${API}/transactions`, data);
+      await API.post(`/api/transactions`, data);
       toast.success('Transaction recorded successfully');
       setShowTransactionDialog(false);
       setTransactionForm({
@@ -182,7 +181,7 @@ export default function FinancePageEnhanced() {
     }
 
     try {
-      await axios.delete(`${API}/transactions/${transactionToDelete.id}`, {
+      await API.delete(`/api/transactions/${transactionToDelete.id}`, {
         data: { reason: deleteReason }
       });
       toast.success('Transaction deleted successfully');

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatWeight, formatCurrency, safeToFixed } from '../utils/numberFormat';
 import { formatDateTime, formatDate } from '../utils/dateTimeUtils';
-import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -55,7 +54,7 @@ export default function InvoicesPage() {
 
   const loadInvoices = async () => {
     try {
-      const response = await axios.get(`${API}/invoices`, {
+      const response = await API.get(`/api/invoices`, {
         params: { page: currentPage, page_size: 10 }
       });
       setInvoices(response.data.items || []);
@@ -71,7 +70,7 @@ export default function InvoicesPage() {
 
   const loadAccounts = async () => {
     try {
-      const response = await axios.get(`${API}/accounts`);
+      const response = await API.get(`/api/accounts`);
       setAccounts(response.data);
     } catch (error) {
       console.error('Failed to load accounts:', error);
@@ -97,7 +96,7 @@ export default function InvoicesPage() {
     setConfirmInvoice(invoice);
     setConfirmLoading(true);
     try {
-      const response = await axios.get(`${API}/invoices/${invoice.id}/finalize-impact`);
+      const response = await API.get(`/api/invoices/${invoice.id}/finalize-impact`);
       setImpactData(response.data);
       setShowFinalizeConfirm(true);
     } catch (error) {
@@ -114,7 +113,7 @@ export default function InvoicesPage() {
     setConfirmLoading(true);
     setFinalizing(confirmInvoice.id);
     try {
-      await axios.post(`${API}/invoices/${confirmInvoice.id}/finalize`);
+      await API.post(`/api/invoices/${confirmInvoice.id}/finalize`);
       toast.success('Invoice finalized successfully! Stock has been deducted.');
       setShowFinalizeConfirm(false);
       setConfirmInvoice(null);
@@ -134,7 +133,7 @@ export default function InvoicesPage() {
     setConfirmInvoice(invoice);
     setConfirmLoading(true);
     try {
-      const response = await axios.get(`${API}/invoices/${invoice.id}/delete-impact`);
+      const response = await API.get(`/api/invoices/${invoice.id}/delete-impact`);
       setImpactData(response.data);
       setShowDeleteConfirm(true);
     } catch (error) {
@@ -150,7 +149,7 @@ export default function InvoicesPage() {
     
     setConfirmLoading(true);
     try {
-      await axios.delete(`${API}/invoices/${confirmInvoice.id}`);
+      await API.delete(`/api/invoices/${confirmInvoice.id}`);
       toast.success('Invoice deleted successfully!');
       setShowDeleteConfirm(false);
       setConfirmInvoice(null);

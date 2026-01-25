@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { formatWeight, formatCurrency, safeToFixed } from '../utils/numberFormat';
-import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -17,7 +16,7 @@ export default function ReportsPage() {
 
   const loadFinancialSummary = async () => {
     try {
-      const response = await axios.get(`${API}/reports/financial-summary`);
+      const response = await API.get(`/api/reports/financial-summary`);
       setFinancialSummary(response.data);
     } catch (error) {
       console.error('Failed to load financial summary');

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
 import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -36,7 +35,7 @@ export default function WorkersPage() {
   const loadWorkers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API}/workers`);
+      const response = await API.get(`/api/workers`);
       setWorkers(response.data.items || []);
     } catch (error) {
       toast.error('Failed to load workers');
@@ -54,10 +53,10 @@ export default function WorkersPage() {
 
     try {
       if (editingWorker) {
-        await axios.patch(`${API}/workers/${editingWorker.id}`, formData);
+        await API.patch(`/api/workers/${editingWorker.id}`, formData);
         toast.success('Worker updated successfully');
       } else {
-        await axios.post(`${API}/workers`, formData);
+        await API.post(`/api/workers`, formData);
         toast.success('Worker created successfully');
       }
       
@@ -95,7 +94,7 @@ export default function WorkersPage() {
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`${API}/workers/${deletingWorker.id}`);
+      await API.delete(`/api/workers/${deletingWorker.id}`);
       toast.success('Worker deleted successfully');
       setShowDeleteDialog(false);
       setDeletingWorker(null);

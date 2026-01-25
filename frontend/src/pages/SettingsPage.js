@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { API, useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -37,7 +36,7 @@ export default function SettingsPage() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API}/users`);
+      const response = await API.get(`/api/users`);
       setUsers(response.data);
     } catch (error) {
       toast.error('Failed to load users');
@@ -60,10 +59,10 @@ export default function SettingsPage() {
     try {
       if (editingUser) {
         const { password, ...updateData } = formData;
-        await axios.patch(`${API}/users/${editingUser.id}`, updateData);
+        await API.patch(`/api/users/${editingUser.id}`, updateData);
         toast.success('User updated successfully');
       } else {
-        await axios.post(`${API}/auth/register`, formData);
+        await API.post(`/api/auth/register`, formData);
         toast.success('User created successfully');
       }
       
@@ -96,7 +95,7 @@ export default function SettingsPage() {
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`${API}/users/${deletingUser.id}`);
+      await API.delete(`/api/users/${deletingUser.id}`);
       toast.success('User deleted successfully');
       setShowDeleteDialog(false);
       setDeletingUser(null);
@@ -113,7 +112,7 @@ export default function SettingsPage() {
     }
 
     try {
-      await axios.post(`${API}/users/${passwordUser.id}/change-password`, passwordData);
+      await API.post(`/api/users/${passwordUser.id}/change-password`, passwordData);
       toast.success('Password changed successfully');
       setShowPasswordDialog(false);
       setPasswordUser(null);
