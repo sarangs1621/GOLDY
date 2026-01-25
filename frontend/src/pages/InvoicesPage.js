@@ -717,14 +717,14 @@ export default function InvoicesPage() {
                   <div>
                     <p className="text-blue-700">Created At:</p>
                     <p className="font-mono text-blue-900">
-                      {viewInvoice.created_at ? new Date(viewInvoice.created_at).toLocaleString() : 'N/A'}
+                      {formatDateTime(viewInvoice.created_at)}
                     </p>
                   </div>
                   {viewInvoice.finalized_at && (
                     <div>
                       <p className="text-blue-700">Finalized At:</p>
                       <p className="font-mono text-blue-900">
-                        {new Date(viewInvoice.finalized_at).toLocaleString()}
+                        {formatDateTime(viewInvoice.finalized_at)}
                       </p>
                     </div>
                   )}
