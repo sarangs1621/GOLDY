@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import Pagination from '../components/Pagination';
 import { useURLPagination } from '../hooks/useURLPagination';
+import { formatDate } from '../utils/dateTimeUtils';
 
 export default function FinancePageEnhanced() {
   const { currentPage, setPage, pagination, setPagination } = useURLPagination();
