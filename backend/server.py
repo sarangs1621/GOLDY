@@ -3683,7 +3683,18 @@ async def finalize_invoice(invoice_id: str, current_user: User = Depends(require
     
     # Parse invoice data
     invoice = Invoice(**decimal_to_float(existing))
-    
+
+    # VALIDATION: Calculate total weight and ensure it's valid
+    # This prevents inventory integrity issues from deducting 0g stock
+    items = existing.get("items", [])
+    total_weight = sum(item.get("weight", 0) * item.get("qty", 1) for item in items)
+
+    if total_weight <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot finalize invoice with total weight {round(total_weight, 3)}g. Invoice must have valid item weights for stock deduction."
+        )
+
     # ATOMIC OPERATION: Finalize invoice with all required operations
     finalized_at = datetime.now(timezone.utc)
     
@@ -6980,7 +6991,9 @@ async def get_invoice_finalize_impact(invoice_id: str, current_user: User = Depe
         raise HTTPException(status_code=404, detail="Invoice not found")
     
     items = invoice.get("items", [])
-    total_weight = sum(item.get("weight_in", 0) for item in items)
+    # FIX: Invoice items use "weight" field, not "weight_in"
+    # Compute total_weight by summing (item.weight * item.qty) for all items
+    total_weight = sum(item.get("weight", 0) * item.get("qty", 1) for item in items)
     
     return {
         "action": "Finalize Invoice",
@@ -7003,7 +7016,9 @@ async def get_invoice_delete_impact(invoice_id: str, current_user: User = Depend
         raise HTTPException(status_code=404, detail="Invoice not found")
     
     items = invoice.get("items", [])
-    total_weight = sum(item.get("weight_in", 0) for item in items)
+    # FIX: Invoice items use "weight" field, not "weight_in"
+    # Compute total_weight by summing (item.weight * item.qty) for all items
+    total_weight = sum(item.get("weight", 0) * item.get("qty", 1) for item in items)
     is_finalized = invoice.get("status") == "finalized"
     
     # Check for linked payments
