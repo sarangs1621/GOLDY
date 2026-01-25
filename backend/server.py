@@ -3336,6 +3336,9 @@ async def update_jobcard(jobcard_id: str, update_data: dict, current_user: User 
     if not existing:
         raise HTTPException(status_code=404, detail="Job card not found")
     
+    # Always update updated_at timestamp (audit safety - backend controlled)
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
     # Validate status transition if status is being changed
     if "status" in update_data:
         current_status = existing.get("status", "created")
@@ -3354,6 +3357,27 @@ async def update_jobcard(jobcard_id: str, update_data: dict, current_user: User 
                     status_code=422, 
                     detail="Please assign a worker before completing the job card"
                 )
+            
+            # Set completed_at timestamp ONLY if not already set (immutability)
+            if not existing.get("completed_at"):
+                update_data["completed_at"] = datetime.now(timezone.utc)
+        
+        # Set delivered_at timestamp when status changes to delivered
+        if new_status == "delivered":
+            # Set delivered_at timestamp ONLY if not already set (immutability)
+            if not existing.get("delivered_at"):
+                update_data["delivered_at"] = datetime.now(timezone.utc)
+    
+    # Prevent modification of immutable timestamp fields (audit safety)
+    # Remove these from update_data if client tries to modify them
+    if "completed_at" in update_data and existing.get("completed_at"):
+        update_data["completed_at"] = existing.get("completed_at")  # Keep original
+    if "delivered_at" in update_data and existing.get("delivered_at"):
+        update_data["delivered_at"] = existing.get("delivered_at")  # Keep original
+    if "created_at" in update_data:
+        update_data.pop("created_at", None)  # Never allow modification
+    if "date_created" in update_data:
+        update_data.pop("date_created", None)  # Never allow modification
     
     # Check if job card is locked (linked to finalized invoice)
     if existing.get("locked", False):
