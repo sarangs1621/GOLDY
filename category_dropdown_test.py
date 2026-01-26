@@ -28,8 +28,8 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://atomic-returns.preview.emergentagent.com/api"
-FRONTEND_URL = "https://atomic-returns.preview.emergentagent.com"
+BASE_URL = "https://decimal-precision.preview.emergentagent.com/api"
+FRONTEND_URL = "https://decimal-precision.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

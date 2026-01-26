@@ -7,7 +7,7 @@ Verifies all critical scenarios for the bug fix
 import requests
 import json
 
-BASE_URL = "https://atomic-returns.preview.emergentagent.com/api"
+BASE_URL = "https://decimal-precision.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 def authenticate():

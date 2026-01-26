@@ -481,7 +481,7 @@ class DailyClosingTester:
 def main():
     """Main execution function"""
     # Configuration
-    BASE_URL = "https://atomic-returns.preview.emergentagent.com"
+    BASE_URL = "https://decimal-precision.preview.emergentagent.com"
     USERNAME = "admin"
     PASSWORD = "admin123"
     

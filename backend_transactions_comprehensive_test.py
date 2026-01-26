@@ -20,7 +20,7 @@ import uuid
 from decimal import Decimal
 
 # Configuration
-BASE_URL = "https://atomic-returns.preview.emergentagent.com/api"
+BASE_URL = "https://decimal-precision.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
