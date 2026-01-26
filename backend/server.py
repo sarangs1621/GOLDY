@@ -457,6 +457,7 @@ STATUS_TRANSITIONS = {
         "created": ["in_progress", "cancelled"],
         "in_progress": ["completed", "cancelled"],
         "completed": ["delivered", "cancelled"],
+        "invoiced": ["delivered"],  # Can be delivered after invoice is fully paid
         "delivered": [],  # Terminal state
         "cancelled": []  # Terminal state
     },
@@ -3545,7 +3546,7 @@ async def update_jobcard(jobcard_id: str, update_data: dict, current_user: User 
             if not existing.get("completed_at"):
                 update_data["completed_at"] = datetime.now(timezone.utc)
         
-        # INVOICE VALIDATION: Block delivery without invoice
+        # INVOICE VALIDATION: Block delivery without FULLY PAID invoice
         if new_status == "delivered":
             # Check if job card has been converted to invoice
             if not existing.get("is_invoiced"):
@@ -3554,6 +3555,39 @@ async def update_jobcard(jobcard_id: str, update_data: dict, current_user: User 
                     detail="Please convert this job card to an invoice before delivery."
                 )
             
+            # CRITICAL: Fetch the linked invoice and validate payment status
+            invoice = await db.invoices.find_one({"jobcard_id": jobcard_id, "is_deleted": False})
+            if not invoice:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot deliver job card. Invoice not found."
+                )
+            
+            # BUSINESS RULE ENFORCEMENT: Invoice MUST be fully paid before delivery
+            # Check 1: Invoice must be finalized
+            if invoice.get("status") != "finalized":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot deliver job card. Invoice is not finalized yet."
+                )
+            
+            # Check 2: Invoice must have ZERO balance due (fully paid)
+            balance_due = invoice.get("balance_due", 0)
+            if balance_due > 0:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Cannot deliver job card. Invoice has outstanding balance of {balance_due:.2f}. Full payment required before delivery."
+                )
+            
+            # Check 3: Payment status must be "paid"
+            payment_status = invoice.get("payment_status", "unpaid")
+            if payment_status != "paid":
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Cannot deliver job card. Invoice payment status is '{payment_status}'. Full payment required before delivery."
+                )
+            
+            # All checks passed - allow delivery
             # Set delivered_at timestamp ONLY if not already set (immutability)
             if not existing.get("delivered_at"):
                 update_data["delivered_at"] = datetime.now(timezone.utc)
