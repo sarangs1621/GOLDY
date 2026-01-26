@@ -1195,20 +1195,35 @@ test_plan:
   test_all: false
   test_priority: "completed"
 
-user_problem_statement: "Test the Inventory Headers API endpoint to verify it returns the correct paginated structure with categories that can be used in the stock movement dropdown."
+user_problem_statement: "Fix login 404 error - services were stopped and need to be restarted to restore authentication functionality."
 
 backend:
-  - task: "Inventory Headers API Endpoint - Paginated Structure Testing"
+  - task: "Authentication Service Restoration"
     implemented: true
     working: true
     file: "backend/server.py"
     stuck_count: 0
-    priority: "high"
-    needs_retesting: false
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ CRITICAL ISSUE - Not able to login, error 404. Services appear to be stopped."
+      - working: true
+        agent: "main"
+        comment: "✅ FIXED - Backend and frontend services were stopped. Backend failed due to slowapi module runtime issue. Restarted all services successfully. Backend running on port 8001, Frontend running on port 3000, MongoDB running. Verified login endpoint /api/auth/login working correctly with test credentials admin/admin123."
+  
+  - task: "Login API Endpoint - Authentication Flow"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
     status_history:
       - working: true
-        agent: "testing"
-        comment: "✅ COMPREHENSIVE TESTING COMPLETED - Inventory Headers API endpoint VERIFIED FULLY FUNCTIONAL. Tested 16 scenarios with 100% success rate: (1) GET /api/inventory/headers returns correct paginated structure {items: [...], pagination: {...}} - SUCCESS, (2) Items array contains 3 inventory headers with proper id and name fields - SUCCESS, (3) Each header has all required fields: id, name, current_qty, current_weight - SUCCESS, (4) Pagination parameters (page=1, page_size=10) work correctly - SUCCESS, (5) Custom pagination (page_size=5, page_size=2) tested successfully - SUCCESS, (6) Category dropdown compatibility verified - can generate dropdown options for Add Stock Movement dialog - SUCCESS, (7) Authentication properly protects endpoint - SUCCESS. Sample headers: 'Gold Chains' (qty: 15, weight: 250.5g), 'Gold Rings' (qty: 25, weight: 180.75g), 'Gold Earrings' (qty: 12, weight: 95.25g). Category dropdown in Add Stock Movement dialog will populate correctly."
+        agent: "main"
+        comment: "✅ VERIFIED - Login endpoint /api/auth/login tested and working. Successfully authenticated with admin/admin123 credentials. Returns proper JWT token, user data with all permissions, and CSRF token. Response structure correct with access_token, token_type, user object, and csrf_token."
 
 frontend:
   - task: "Job Cards Page - Category Dropdown Fix"
