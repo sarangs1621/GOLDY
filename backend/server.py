@@ -1013,14 +1013,14 @@ class Return(BaseModel):
     party_type: str  # "customer" or "vendor"
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     items: List[ReturnItem] = []
-    total_weight_grams: float = 0.0  # Total weight being returned (3 decimals)
-    total_amount: float = 0.0  # Total monetary value being returned (2 decimals)
+    total_weight_grams: float = 0.0  # Input as float, stored as Decimal128 with 3 decimals
+    total_amount: float = 0.0  # Input as float, stored as Decimal128 with 2 decimals
     reason: Optional[str] = None  # Return reason
     
     # Refund details
     refund_mode: str  # "money" | "gold" | "mixed"
-    refund_money_amount: float = 0.0  # Money refund amount (2 decimals)
-    refund_gold_grams: float = 0.0  # Gold refund amount in grams (3 decimals)
+    refund_money_amount: float = 0.0  # Input as float, stored as Decimal128 with 2 decimals
+    refund_gold_grams: float = 0.0  # Input as float, stored as Decimal128 with 3 decimals
     refund_gold_purity: Optional[int] = None  # Purity of gold being refunded
     
     # Payment details for money refund
