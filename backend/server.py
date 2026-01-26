@@ -8672,6 +8672,26 @@ async def update_return(
             total_amount = sum(item.amount for item in items)
             update_fields['total_weight_grams'] = round(total_weight, 3)
             update_fields['total_amount'] = round(total_amount, 2)
+            
+            # Validate updated return amount doesn't exceed original
+            reference_type = existing_return.get('reference_type')
+            reference_id = existing_return.get('reference_id')
+            
+            # Fetch reference document
+            if reference_type == 'invoice':
+                reference_doc = await db.invoices.find_one({"id": reference_id, "is_deleted": False})
+            else:  # purchase
+                reference_doc = await db.purchases.find_one({"id": reference_id, "is_deleted": False})
+            
+            if reference_doc:
+                await validate_return_against_original(
+                    db=db,
+                    reference_type=reference_type,
+                    reference_id=reference_id,
+                    reference_doc=reference_doc,
+                    return_total_amount=total_amount,
+                    current_return_id=return_id  # Exclude current return from calculation
+                )
         
         # Update other fields
         if 'reason' in return_data:
