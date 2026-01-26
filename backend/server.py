@@ -8687,8 +8687,12 @@ async def create_return(
             notes=return_data.get('notes')
         )
         
+        # Convert float values to Decimal128 for precise storage
+        return_dict = return_obj.model_dump()
+        return_dict = convert_return_to_decimal(return_dict)
+        
         # Insert into database
-        await db.returns.insert_one(return_obj.model_dump())
+        await db.returns.insert_one(return_dict)
         
         # Create audit log
         await create_audit_log(
