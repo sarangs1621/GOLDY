@@ -5396,14 +5396,33 @@ async def add_payment_to_invoice(
             {"$set": update_data}
         )
         
-        # Create audit logs
+        # Create audit logs for both transactions (double-entry)
         await create_audit_log(
             current_user.id,
             current_user.full_name,
             "transaction",
-            transaction.id,
+            debit_transaction.id,
             "create",
-            {"invoice_id": invoice_id, "payment_amount": payment_amount}
+            {
+                "invoice_id": invoice_id, 
+                "payment_amount": payment_amount,
+                "transaction_type": "debit",
+                "account": account['name']
+            }
+        )
+        
+        await create_audit_log(
+            current_user.id,
+            current_user.full_name,
+            "transaction",
+            credit_transaction.id,
+            "create",
+            {
+                "invoice_id": invoice_id, 
+                "payment_amount": payment_amount,
+                "transaction_type": "credit",
+                "account": "Sales Income"
+            }
         )
         
         await create_audit_log(
@@ -5416,15 +5435,18 @@ async def add_payment_to_invoice(
                 "amount": payment_amount,
                 "new_paid_amount": new_paid_amount,
                 "new_balance_due": max(0, new_balance_due),
-                "payment_mode": payment_data['payment_mode']
+                "payment_mode": payment_data['payment_mode'],
+                "double_entry": True
             }
         )
         
         # Return success response with updated invoice details
         return {
-            "message": "Payment added successfully",
-            "transaction_id": transaction.id,
-            "transaction_number": transaction_number,
+            "message": "Payment added successfully (double-entry recorded)",
+            "debit_transaction_id": debit_transaction.id,
+            "credit_transaction_id": credit_transaction.id,
+            "debit_transaction_number": debit_txn_number,
+            "credit_transaction_number": credit_txn_number,
             "new_paid_amount": new_paid_amount,
             "new_balance_due": max(0, new_balance_due),
             "payment_status": new_payment_status,
