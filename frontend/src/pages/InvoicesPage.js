@@ -403,13 +403,25 @@ export default function InvoicesPage() {
                             <Lock className="w-3 h-3 mr-1" /> Locked
                           </Badge>
                         )}
-                        {inv.balance_due > 0 && (
+                        {inv.balance_due > 0 && inv.status === 'finalized' && (
                           <Button
                             data-testid={`payment-${inv.invoice_number}`}
                             size="sm"
                             variant="outline"
                             className="text-blue-600 hover:text-blue-700"
                             onClick={() => handleOpenPaymentDialog(inv)}
+                          >
+                            <DollarSign className="w-4 h-4 mr-1" /> Add Payment
+                          </Button>
+                        )}
+                        {inv.balance_due > 0 && inv.status === 'draft' && (
+                          <Button
+                            data-testid={`payment-disabled-${inv.invoice_number}`}
+                            size="sm"
+                            variant="outline"
+                            className="text-gray-400 cursor-not-allowed"
+                            disabled
+                            title="Finalize invoice before accepting payment"
                           >
                             <DollarSign className="w-4 h-4 mr-1" /> Add Payment
                           </Button>

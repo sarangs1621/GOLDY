@@ -4580,6 +4580,205 @@ async def add_payment_to_invoice(
         if new_payment_status == "paid" and not existing.get("paid_at"):
             update_data["paid_at"] = datetime.now(timezone.utc)
         
+        # AUTO-FINALIZE: If invoice is draft and becomes fully paid, auto-finalize it
+        # This prevents the "draft + paid" state which breaks delivery rules
+        current_status = existing.get("status", "draft")
+        if new_payment_status == "paid" and current_status == "draft":
+            finalized_at = datetime.now(timezone.utc)
+            update_data["status"] = "finalized"
+            update_data["finalized_at"] = finalized_at
+            update_data["finalized_by"] = current_user.id
+            
+            # Perform finalization operations atomically
+            # 1. Lock the linked job card (if exists)
+            if invoice.jobcard_id:
+                jobcard = await db.jobcards.find_one({"id": invoice.jobcard_id, "is_deleted": False})
+                if jobcard:
+                    await db.jobcards.update_one(
+                        {"id": invoice.jobcard_id},
+                        {
+                            "$set": {
+                                "status": "invoiced",
+                                "locked": True,
+                                "locked_at": finalized_at,
+                                "locked_by": current_user.id
+                            }
+                        }
+                    )
+                    await create_audit_log(
+                        current_user.id,
+                        current_user.full_name,
+                        "jobcard",
+                        invoice.jobcard_id,
+                        "lock",
+                        {"locked": True, "reason": f"Invoice {invoice.invoice_number} auto-finalized due to full gold exchange payment"}
+                    )
+            
+            # 2. Perform stock deduction for SALE invoices
+            is_sale_invoice = invoice.invoice_type == "sale"
+            gold_stock_errors = []
+            
+            if is_sale_invoice:
+                for item in invoice.items:
+                    if item.weight > 0 and item.category:
+                        # Find the inventory header by category name
+                        header = await db.inventory_headers.find_one(
+                            {"name": item.category, "is_deleted": False}, 
+                            {"_id": 0}
+                        )
+                        
+                        if header:
+                            # Calculate new stock values
+                            current_qty = header.get('current_qty', 0)
+                            current_weight = header.get('current_weight', 0)
+                            new_qty = current_qty - item.qty
+                            new_weight = current_weight - item.weight
+                            
+                            # Check for insufficient stock
+                            if new_qty < 0 or new_weight < 0:
+                                gold_stock_errors.append(
+                                    f"{item.category}: Need {item.qty} qty/{item.weight}g, but only {current_qty} qty/{current_weight}g available"
+                                )
+                                continue
+                            
+                            # DIRECT UPDATE: Reduce from inventory header
+                            await db.inventory_headers.update_one(
+                                {"id": header['id']},
+                                {"$set": {"current_qty": new_qty, "current_weight": new_weight}}
+                            )
+                            
+                            # Create stock movement for audit trail
+                            movement = StockMovement(
+                                movement_type="Stock OUT",
+                                header_id=header['id'],
+                                header_name=header['name'],
+                                description=f"Invoice {invoice.invoice_number} - Auto-finalized (Gold Exchange Payment)",
+                                qty_delta=-item.qty,
+                                weight_delta=-item.weight,
+                                purity=item.purity,
+                                reference_type="invoice",
+                                reference_id=invoice.id,
+                                created_by=current_user.id
+                            )
+                            await db.stock_movements.insert_one(movement.model_dump())
+            
+            # If stock errors occurred, rollback finalization but keep payment
+            if gold_stock_errors:
+                # Rollback finalization status but keep payment information
+                update_data["status"] = "draft"
+                del update_data["finalized_at"]
+                del update_data["finalized_by"]
+                
+                # Unlock the job card if it was locked
+                if invoice.jobcard_id:
+                    await db.jobcards.update_one(
+                        {"id": invoice.jobcard_id},
+                        {
+                            "$set": {
+                                "locked": False,
+                                "locked_at": None,
+                                "locked_by": None
+                            }
+                        }
+                    )
+                
+                # Log the stock error but don't fail the payment
+                await create_audit_log(
+                    current_user.id,
+                    current_user.full_name,
+                    "invoice",
+                    invoice_id,
+                    "auto_finalize_failed",
+                    {
+                        "reason": "insufficient_stock",
+                        "errors": gold_stock_errors,
+                        "payment_applied": True,
+                        "payment_mode": "GOLD_EXCHANGE"
+                    }
+                )
+            else:
+                # 3. Create customer ledger entry (Transaction) - only if finalization succeeded
+                if invoice.grand_total > 0:
+                    # Generate transaction number for ledger entry
+                    year = datetime.now(timezone.utc).year
+                    count = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{year}"}})
+                    ledger_transaction_number = f"TXN-{year}-{str(count + 1).zfill(4)}"
+                    
+                    # Get or create a default sales account
+                    sales_account = await db.accounts.find_one({"name": "Sales"})
+                    if not sales_account:
+                        # Create default sales account if it doesn't exist
+                        default_account = {
+                            "id": str(uuid.uuid4()),
+                            "name": "Sales",
+                            "account_type": "asset",
+                            "opening_balance": 0,
+                            "current_balance": 0,
+                            "created_by": current_user.id,
+                            "created_at": finalized_at,
+                            "is_deleted": False
+                        }
+                        await db.accounts.insert_one(default_account)
+                        sales_account = default_account
+                    
+                    # Determine transaction type based on invoice type
+                    transaction_type = "debit" if invoice.invoice_type in ["sale", "service"] else "credit"
+                    
+                    # For gold exchange, party details
+                    ledger_party_id = invoice.customer_id
+                    ledger_party_name = invoice.customer_name or "Unknown Customer"
+                    ledger_notes = f"Invoice {invoice.invoice_number} auto-finalized (full gold exchange payment received)"
+                    
+                    # Create ledger entry as a transaction with invoice reference
+                    ledger_entry = Transaction(
+                        transaction_number=ledger_transaction_number,
+                        transaction_type=transaction_type,
+                        mode="invoice",
+                        account_id=sales_account["id"],
+                        account_name=sales_account["name"],
+                        party_id=ledger_party_id,
+                        party_name=ledger_party_name,
+                        amount=invoice.grand_total,
+                        category="Sales Invoice",
+                        notes=ledger_notes,
+                        reference_type="invoice",
+                        reference_id=invoice.id,
+                        created_by=current_user.id
+                    )
+                    await db.transactions.insert_one(ledger_entry.model_dump())
+                    
+                    await create_audit_log(
+                        current_user.id,
+                        current_user.full_name,
+                        "transaction",
+                        ledger_entry.id,
+                        "create",
+                        {
+                            "invoice_id": invoice.id, 
+                            "amount": invoice.grand_total,
+                            "customer_type": invoice.customer_type,
+                            "auto_finalized": True,
+                            "payment_mode": "GOLD_EXCHANGE"
+                        }
+                    )
+                
+                # Create audit log for auto-finalization
+                await create_audit_log(
+                    current_user.id,
+                    current_user.full_name,
+                    "invoice",
+                    invoice.id,
+                    "auto_finalize",
+                    {
+                        "status": "finalized",
+                        "finalized_at": finalized_at.isoformat(),
+                        "jobcard_locked": bool(invoice.jobcard_id),
+                        "ledger_entry_created": bool(invoice.grand_total > 0),
+                        "customer_type": invoice.customer_type,
+                        "trigger": "full_gold_exchange_payment_received"
+                    }
+                )
+        
         await db.invoices.update_one(
             {"id": invoice_id},
             {"$set": update_data}
@@ -4731,6 +4930,211 @@ async def add_payment_to_invoice(
         # Set paid_at timestamp when invoice becomes fully paid (immutability - set only once)
         if new_payment_status == "paid" and not existing.get("paid_at"):
             update_data["paid_at"] = datetime.now(timezone.utc)
+        
+        # AUTO-FINALIZE: If invoice is draft and becomes fully paid, auto-finalize it
+        # This prevents the "draft + paid" state which breaks delivery rules
+        current_status = existing.get("status", "draft")
+        if new_payment_status == "paid" and current_status == "draft":
+            finalized_at = datetime.now(timezone.utc)
+            update_data["status"] = "finalized"
+            update_data["finalized_at"] = finalized_at
+            update_data["finalized_by"] = current_user.id
+            
+            # Perform finalization operations atomically
+            # 1. Lock the linked job card (if exists)
+            if invoice.jobcard_id:
+                jobcard = await db.jobcards.find_one({"id": invoice.jobcard_id, "is_deleted": False})
+                if jobcard:
+                    await db.jobcards.update_one(
+                        {"id": invoice.jobcard_id},
+                        {
+                            "$set": {
+                                "status": "invoiced",
+                                "locked": True,
+                                "locked_at": finalized_at,
+                                "locked_by": current_user.id
+                            }
+                        }
+                    )
+                    await create_audit_log(
+                        current_user.id,
+                        current_user.full_name,
+                        "jobcard",
+                        invoice.jobcard_id,
+                        "lock",
+                        {"locked": True, "reason": f"Invoice {invoice.invoice_number} auto-finalized due to full payment"}
+                    )
+            
+            # 2. Perform stock deduction for SALE invoices
+            is_sale_invoice = invoice.invoice_type == "sale"
+            stock_errors = []
+            
+            if is_sale_invoice:
+                for item in invoice.items:
+                    if item.weight > 0 and item.category:
+                        # Find the inventory header by category name
+                        header = await db.inventory_headers.find_one(
+                            {"name": item.category, "is_deleted": False}, 
+                            {"_id": 0}
+                        )
+                        
+                        if header:
+                            # Calculate new stock values
+                            current_qty = header.get('current_qty', 0)
+                            current_weight = header.get('current_weight', 0)
+                            new_qty = current_qty - item.qty
+                            new_weight = current_weight - item.weight
+                            
+                            # Check for insufficient stock
+                            if new_qty < 0 or new_weight < 0:
+                                stock_errors.append(
+                                    f"{item.category}: Need {item.qty} qty/{item.weight}g, but only {current_qty} qty/{current_weight}g available"
+                                )
+                                continue
+                            
+                            # DIRECT UPDATE: Reduce from inventory header
+                            await db.inventory_headers.update_one(
+                                {"id": header['id']},
+                                {"$set": {"current_qty": new_qty, "current_weight": new_weight}}
+                            )
+                            
+                            # Create stock movement for audit trail
+                            from datetime import datetime, timezone
+                            movement = StockMovement(
+                                movement_type="Stock OUT",
+                                header_id=header['id'],
+                                header_name=header['name'],
+                                description=f"Invoice {invoice.invoice_number} - Auto-finalized (Payment)",
+                                qty_delta=-item.qty,
+                                weight_delta=-item.weight,
+                                purity=item.purity,
+                                reference_type="invoice",
+                                reference_id=invoice.id,
+                                created_by=current_user.id
+                            )
+                            await db.stock_movements.insert_one(movement.model_dump())
+            
+            # If stock errors occurred, rollback finalization but keep payment
+            if stock_errors:
+                # Rollback finalization status but keep payment information
+                update_data["status"] = "draft"
+                del update_data["finalized_at"]
+                del update_data["finalized_by"]
+                
+                # Unlock the job card if it was locked
+                if invoice.jobcard_id:
+                    await db.jobcards.update_one(
+                        {"id": invoice.jobcard_id},
+                        {
+                            "$set": {
+                                "locked": False,
+                                "locked_at": None,
+                                "locked_by": None
+                            }
+                        }
+                    )
+                
+                # Log the stock error but don't fail the payment
+                await create_audit_log(
+                    current_user.id,
+                    current_user.full_name,
+                    "invoice",
+                    invoice_id,
+                    "auto_finalize_failed",
+                    {
+                        "reason": "insufficient_stock",
+                        "errors": stock_errors,
+                        "payment_applied": True
+                    }
+                )
+            else:
+                # 3. Create customer ledger entry (Transaction) - only if finalization succeeded
+                if invoice.grand_total > 0:
+                    # Generate transaction number for ledger entry
+                    year = datetime.now(timezone.utc).year
+                    count = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{year}"}})
+                    ledger_transaction_number = f"TXN-{year}-{str(count + 1).zfill(4)}"
+                    
+                    # Get or create a default sales account
+                    sales_account = await db.accounts.find_one({"name": "Sales"})
+                    if not sales_account:
+                        # Create default sales account if it doesn't exist
+                        default_account = {
+                            "id": str(uuid.uuid4()),
+                            "name": "Sales",
+                            "account_type": "asset",
+                            "opening_balance": 0,
+                            "current_balance": 0,
+                            "created_by": current_user.id,
+                            "created_at": finalized_at,
+                            "is_deleted": False
+                        }
+                        await db.accounts.insert_one(default_account)
+                        sales_account = default_account
+                    
+                    # Determine transaction type based on invoice type
+                    transaction_type = "debit" if invoice.invoice_type in ["sale", "service"] else "credit"
+                    
+                    # Prepare party information based on customer type
+                    if invoice.customer_type == "walk_in":
+                        ledger_party_id = None
+                        ledger_party_name = None
+                        ledger_notes = f"Invoice {invoice.invoice_number} auto-finalized - Walk-in Customer: {invoice.walk_in_name or 'Unknown'}"
+                        if invoice.walk_in_phone:
+                            ledger_notes += f" (Ph: {invoice.walk_in_phone})"
+                    else:
+                        ledger_party_id = invoice.customer_id
+                        ledger_party_name = invoice.customer_name or "Unknown Customer"
+                        ledger_notes = f"Invoice {invoice.invoice_number} auto-finalized (full payment received)"
+                    
+                    # Create ledger entry as a transaction with invoice reference
+                    ledger_entry = Transaction(
+                        transaction_number=ledger_transaction_number,
+                        transaction_type=transaction_type,
+                        mode="invoice",
+                        account_id=sales_account["id"],
+                        account_name=sales_account["name"],
+                        party_id=ledger_party_id,
+                        party_name=ledger_party_name,
+                        amount=invoice.grand_total,
+                        category="Sales Invoice",
+                        notes=ledger_notes,
+                        reference_type="invoice",
+                        reference_id=invoice.id,
+                        created_by=current_user.id
+                    )
+                    await db.transactions.insert_one(ledger_entry.model_dump())
+                    
+                    await create_audit_log(
+                        current_user.id,
+                        current_user.full_name,
+                        "transaction",
+                        ledger_entry.id,
+                        "create",
+                        {
+                            "invoice_id": invoice.id, 
+                            "amount": invoice.grand_total,
+                            "customer_type": invoice.customer_type,
+                            "auto_finalized": True
+                        }
+                    )
+                
+                # Create audit log for auto-finalization
+                await create_audit_log(
+                    current_user.id,
+                    current_user.full_name,
+                    "invoice",
+                    invoice.id,
+                    "auto_finalize",
+                    {
+                        "status": "finalized",
+                        "finalized_at": finalized_at.isoformat(),
+                        "jobcard_locked": bool(invoice.jobcard_id),
+                        "ledger_entry_created": bool(invoice.grand_total > 0),
+                        "customer_type": invoice.customer_type,
+                        "trigger": "full_payment_received"
+                    }
+                )
         
         await db.invoices.update_one(
             {"id": invoice_id},
