@@ -1183,32 +1183,44 @@ async def validate_return_against_original(
     reference_type: str,
     reference_id: str,
     reference_doc: dict,
-    return_total_amount: float,
+    return_items: list,
     current_return_id: Optional[str] = None
 ) -> None:
     """
-    Validate that return amount doesn't exceed original invoice/purchase total.
+    Validate that return qty, weight, and amount don't exceed original invoice/purchase totals.
     
     Args:
         db: MongoDB database instance
         reference_type: 'invoice' or 'purchase'
         reference_id: ID of the invoice or purchase
         reference_doc: The invoice or purchase document
-        return_total_amount: Total amount of the current return being created/updated
+        return_items: List of return items with qty, weight_grams, and amount
         current_return_id: ID of current return (for update operations, to exclude it from calculation)
     
     Raises:
-        HTTPException: If return exceeds original amount
+        HTTPException: If return exceeds original qty, weight, or amount
     """
-    # Get original total
+    # Calculate current return totals
+    current_total_qty = sum(item.get('qty', 0) for item in return_items)
+    current_total_weight = sum(item.get('weight_grams', 0) for item in return_items)
+    current_total_amount = sum(item.get('amount', 0) for item in return_items)
+    
+    # Get original totals
     if reference_type == 'invoice':
-        original_total = reference_doc.get('grand_total', 0)
+        # For invoices, calculate from items
+        invoice_items = reference_doc.get('items', [])
+        original_total_qty = sum(item.get('qty', 0) for item in invoice_items)
+        original_total_weight = sum(item.get('net_gold_weight', 0) or item.get('weight', 0) for item in invoice_items)
+        original_total_amount = reference_doc.get('grand_total', 0)
         entity_name = f"Invoice {reference_doc.get('invoice_number')}"
     else:  # purchase
-        original_total = reference_doc.get('amount_total', 0)
+        # For purchases, single item structure
+        original_total_qty = 1  # Purchases are typically single transaction
+        original_total_weight = reference_doc.get('weight_grams', 0)
+        original_total_amount = reference_doc.get('amount_total', 0)
         entity_name = f"Purchase {reference_id[:8]}..."
     
-    # Calculate total already returned (finalized returns only)
+    # Calculate totals already returned (finalized returns only)
     query = {
         'reference_type': reference_type,
         'reference_id': reference_id,
@@ -1221,19 +1233,52 @@ async def validate_return_against_original(
         query['id'] = {'$ne': current_return_id}
     
     existing_returns = await db.returns.find(query).to_list(length=None)
-    total_already_returned = sum(r.get('total_amount', 0) for r in existing_returns)
     
-    # Check if new return would exceed original
-    total_with_new_return = total_already_returned + return_total_amount
+    # Sum up already returned quantities, weights, and amounts
+    already_returned_qty = 0
+    already_returned_weight = 0
+    already_returned_amount = 0
     
-    if total_with_new_return > original_total:
+    for ret in existing_returns:
+        ret_items = ret.get('items', [])
+        already_returned_qty += sum(item.get('qty', 0) for item in ret_items)
+        already_returned_weight += sum(item.get('weight_grams', 0) for item in ret_items)
+        already_returned_amount += ret.get('total_amount', 0)
+    
+    # Validate quantity
+    total_qty_with_new = already_returned_qty + current_total_qty
+    if total_qty_with_new > original_total_qty:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot return more than original {entity_name} total. "
-                   f"Original: {original_total:.2f} OMR, "
-                   f"Already returned: {total_already_returned:.2f} OMR, "
-                   f"Current return: {return_total_amount:.2f} OMR, "
-                   f"Total would be: {total_with_new_return:.2f} OMR"
+            detail=f"Cannot return more quantity than original {entity_name}. "
+                   f"Original qty: {original_total_qty}, "
+                   f"Already returned: {already_returned_qty}, "
+                   f"Current return: {current_total_qty}, "
+                   f"Total would be: {total_qty_with_new}"
+        )
+    
+    # Validate weight
+    total_weight_with_new = already_returned_weight + current_total_weight
+    if total_weight_with_new > original_total_weight * 1.001:  # Allow 0.1% tolerance for rounding
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot return more weight than original {entity_name}. "
+                   f"Original weight: {original_total_weight:.3f}g, "
+                   f"Already returned: {already_returned_weight:.3f}g, "
+                   f"Current return: {current_total_weight:.3f}g, "
+                   f"Total would be: {total_weight_with_new:.3f}g"
+        )
+    
+    # Validate amount
+    total_amount_with_new = already_returned_amount + current_total_amount
+    if total_amount_with_new > original_total_amount * 1.01:  # Allow 1% tolerance for rounding
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot return more amount than original {entity_name}. "
+                   f"Original: {original_total_amount:.2f} OMR, "
+                   f"Already returned: {already_returned_amount:.2f} OMR, "
+                   f"Current return: {current_total_amount:.2f} OMR, "
+                   f"Total would be: {total_amount_with_new:.2f} OMR"
         )
 
 # ============================================================================
