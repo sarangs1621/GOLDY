@@ -4752,32 +4752,43 @@ async def add_payment_to_invoice(
         count = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{year}"}})
         transaction_number = f"TXN-{year}-{str(count + 1).zfill(4)}"
         
-        # Create transaction record for financial trace
-        transaction = Transaction(
-            transaction_number=transaction_number,
-            transaction_type="credit",  # Money coming in (gold converted to money value)
+        # Generate transaction numbers for double-entry
+        year = datetime.now(timezone.utc).year
+        count = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{year}"}})
+        debit_txn_number = f"TXN-{year}-{str(count + 1).zfill(4)}"
+        credit_txn_number = f"TXN-{year}-{str(count + 2).zfill(4)}"
+        
+        # DOUBLE-ENTRY BOOKKEEPING FOR GOLD EXCHANGE:
+        # Note: Gold Exchange is tracked in Gold Ledger separately
+        # For financial accounting, we only record the money equivalent
+        
+        # For now, use a simplified approach: Credit Gold Exchange Income account
+        # In future, could track: Debit: Gold Asset, Credit: Gold Exchange Income
+        
+        # Transaction 1: CREDIT Gold Exchange Income (INCOME) - Revenue from gold received
+        credit_transaction = Transaction(
+            transaction_number=credit_txn_number,
+            transaction_type="credit",  # Credit increases income
             mode="GOLD_EXCHANGE",
             account_id=account_id,
             account_name=account_name,
             party_id=party_id,
             party_name=party_name,
             amount=payment_amount,
-            category="Invoice Payment",
-            notes=f"Gold exchange payment for {invoice.invoice_number}. {gold_weight_grams:.3f}g @ {rate_per_gram:.2f} OMR/g = {payment_amount:.2f} OMR. {payment_data.get('notes', '')}".strip(),
+            category="Invoice Payment - Gold Exchange Income (Credit)",
+            notes=f"Gold exchange revenue for {invoice.invoice_number}. {gold_weight_grams:.3f}g @ {rate_per_gram:.2f} OMR/g = {payment_amount:.2f} OMR. {payment_data.get('notes', '')}".strip(),
             reference_type="invoice",
             reference_id=invoice_id,
             created_by=current_user.id
         )
         
-        # Insert transaction
-        await db.transactions.insert_one(transaction.model_dump())
+        # Insert credit transaction
+        await db.transactions.insert_one(credit_transaction.model_dump())
         
-        # CRITICAL: Update account balance when payment is received
-        # Credit transaction means money coming in, so increase account balance
-        delta = transaction.amount if transaction.transaction_type == "credit" else -transaction.amount
+        # Update Gold Exchange Income account balance (increase for credit on income)
         await db.accounts.update_one(
             {"id": account_id},
-            {"$inc": {"current_balance": delta}}
+            {"$inc": {"current_balance": payment_amount}}
         )
         
         # Update invoice payment details
