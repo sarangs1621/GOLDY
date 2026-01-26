@@ -28,8 +28,8 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://return-tracker-12.preview.emergentagent.com/api"
-FRONTEND_URL = "https://return-tracker-12.preview.emergentagent.com"
+BASE_URL = "https://atomic-refund.preview.emergentagent.com/api"
+FRONTEND_URL = "https://atomic-refund.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

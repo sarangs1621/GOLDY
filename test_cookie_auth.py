@@ -7,7 +7,7 @@ Tests Phase 1 of Security Hardening
 import requests
 import sys
 
-BACKEND_URL = "https://return-tracker-12.preview.emergentagent.com"
+BACKEND_URL = "https://atomic-refund.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 def test_cookie_auth():

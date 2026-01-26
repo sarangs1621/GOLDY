@@ -10,7 +10,7 @@ from datetime import datetime
 import uuid
 
 # Configuration
-BASE_URL = "https://return-tracker-12.preview.emergentagent.com/api"
+BASE_URL = "https://atomic-refund.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

@@ -19,7 +19,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://return-tracker-12.preview.emergentagent.com/api"
+BACKEND_URL = "https://atomic-refund.preview.emergentagent.com/api"
 
 # Test credentials
 USERNAME = "admin"

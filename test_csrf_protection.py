@@ -5,7 +5,7 @@ Tests the double-submit cookie pattern implementation
 import requests
 import json
 
-BASE_URL = "https://return-tracker-12.preview.emergentagent.com/api"
+BASE_URL = "https://atomic-refund.preview.emergentagent.com/api"
 
 def print_test_header(test_name):
     print("\n" + "=" * 80)

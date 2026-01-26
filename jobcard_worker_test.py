@@ -11,7 +11,7 @@ Test Script for comprehensive testing of:
 6. Error handling
 
 Authentication: admin/admin123
-Backend URL: https://return-tracker-12.preview.emergentagent.com/api
+Backend URL: https://atomic-refund.preview.emergentagent.com/api
 """
 
 import requests
@@ -22,7 +22,7 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://return-tracker-12.preview.emergentagent.com/api"
+BASE_URL = "https://atomic-refund.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
