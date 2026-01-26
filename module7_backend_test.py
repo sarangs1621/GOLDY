@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 import sys
 
 # Configuration
-BACKEND_URL = "https://goldshop-erp-fix.preview.emergentagent.com"
+BACKEND_URL = "https://finance-model-fix.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

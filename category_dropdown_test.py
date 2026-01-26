@@ -28,8 +28,8 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://goldshop-erp-fix.preview.emergentagent.com/api"
-FRONTEND_URL = "https://goldshop-erp-fix.preview.emergentagent.com"
+BASE_URL = "https://finance-model-fix.preview.emergentagent.com/api"
+FRONTEND_URL = "https://finance-model-fix.preview.emergentagent.com"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

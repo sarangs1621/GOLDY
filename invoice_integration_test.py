@@ -11,7 +11,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://goldshop-erp-fix.preview.emergentagent.com/api"
+BASE_URL = "https://finance-model-fix.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
