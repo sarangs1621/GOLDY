@@ -388,6 +388,12 @@ PERMISSIONS = {
     
     # Audit Logs
     'audit.view': 'View audit logs',
+    
+    # Returns Management
+    'returns.view': 'View returns',
+    'returns.create': 'Create returns',
+    'returns.finalize': 'Finalize returns',
+    'returns.delete': 'Delete returns',
 }
 
 # Role-Permission Mappings
