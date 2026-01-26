@@ -6177,10 +6177,18 @@ async def export_invoices(
     payment_status: Optional[str] = None,
     current_user: User = Depends(require_permission('reports.view'))
 ):
+    """
+    Enhanced Excel Export with Multiple Sheets:
+    - Sheet 1: Invoice Summary
+    - Sheet 2: Line Items (detailed breakdown)
+    - Sheet 3: Totals & Statistics
+    
+    All numeric columns are proper numbers (not strings) for Excel calculations
+    """
     from fastapi.responses import StreamingResponse
     from io import BytesIO
     import openpyxl
-    from openpyxl.styles import Font, PatternFill
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     
     # Build query with filters
     query = {"is_deleted": False}
@@ -6200,28 +6208,162 @@ async def export_invoices(
     invoices = await db.invoices.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
     
     wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Invoices"
     
-    headers = ["Invoice #", "Date", "Customer", "Type", "Grand Total", "Paid", "Balance", "Status"]
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    # ===========================================================================
+    # SHEET 1: Invoice Summary
+    # ===========================================================================
+    ws1 = wb.active
+    ws1.title = "Invoice Summary"
     
+    # Headers with styling
+    summary_headers = [
+        "Invoice #", "Date", "Customer", "Customer Type", "Type", 
+        "Status", "Grand Total", "Paid Amount", "Balance Due", "Payment Status"
+    ]
+    
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    for col, header in enumerate(summary_headers, 1):
+        cell = ws1.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Data rows with proper data types
     for row_idx, inv in enumerate(invoices, 2):
-        ws.cell(row=row_idx, column=1, value=inv.get('invoice_number', ''))
-        ws.cell(row=row_idx, column=2, value=str(inv.get('date', ''))[:10])
-        ws.cell(row=row_idx, column=3, value=inv.get('customer_name', ''))
-        ws.cell(row=row_idx, column=4, value=inv.get('invoice_type', ''))
-        ws.cell(row=row_idx, column=5, value=inv.get('grand_total', 0))
-        ws.cell(row=row_idx, column=6, value=inv.get('paid_amount', 0))
-        ws.cell(row=row_idx, column=7, value=inv.get('balance_due', 0))
-        ws.cell(row=row_idx, column=8, value=inv.get('payment_status', ''))
+        ws1.cell(row=row_idx, column=1, value=inv.get('invoice_number', ''))
+        ws1.cell(row=row_idx, column=2, value=str(inv.get('date', ''))[:10])
+        
+        # Customer name (handle walk-in)
+        customer_name = inv.get('walk_in_name') or inv.get('customer_name', 'N/A')
+        ws1.cell(row=row_idx, column=3, value=customer_name)
+        ws1.cell(row=row_idx, column=4, value=inv.get('customer_type', 'walk_in'))
+        ws1.cell(row=row_idx, column=5, value=inv.get('invoice_type', ''))
+        ws1.cell(row=row_idx, column=6, value=inv.get('status', 'draft'))
+        
+        # Numeric columns (proper numbers, not strings)
+        ws1.cell(row=row_idx, column=7, value=float(inv.get('grand_total', 0)))
+        ws1.cell(row=row_idx, column=8, value=float(inv.get('paid_amount', 0)))
+        ws1.cell(row=row_idx, column=9, value=float(inv.get('balance_due', 0)))
+        ws1.cell(row=row_idx, column=10, value=inv.get('payment_status', ''))
     
-    for col in range(1, 9):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 18
+    # Set column widths
+    ws1.column_dimensions['A'].width = 15
+    ws1.column_dimensions['B'].width = 12
+    ws1.column_dimensions['C'].width = 25
+    ws1.column_dimensions['D'].width = 15
+    ws1.column_dimensions['E'].width = 10
+    ws1.column_dimensions['F'].width = 12
+    ws1.column_dimensions['G'].width = 15
+    ws1.column_dimensions['H'].width = 15
+    ws1.column_dimensions['I'].width = 15
+    ws1.column_dimensions['J'].width = 15
     
+    # ===========================================================================
+    # SHEET 2: Invoice Line Items (Detailed)
+    # ===========================================================================
+    ws2 = wb.create_sheet(title="Invoice Line Items")
+    
+    line_item_headers = [
+        "Invoice #", "Date", "Customer", "Item Category", "Description", 
+        "Qty", "Purity", "Weight (g)", "Gold Rate", "Gold Value", 
+        "Making Charge", "VAT %", "VAT Amount", "Line Total"
+    ]
+    
+    for col, header in enumerate(line_item_headers, 1):
+        cell = ws2.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Populate line items from all invoices
+    current_row = 2
+    for inv in invoices:
+        invoice_number = inv.get('invoice_number', '')
+        invoice_date = str(inv.get('date', ''))[:10]
+        customer_name = inv.get('walk_in_name') or inv.get('customer_name', 'N/A')
+        
+        for item in inv.get('items', []):
+            ws2.cell(row=current_row, column=1, value=invoice_number)
+            ws2.cell(row=current_row, column=2, value=invoice_date)
+            ws2.cell(row=current_row, column=3, value=customer_name)
+            ws2.cell(row=current_row, column=4, value=item.get('category', ''))
+            ws2.cell(row=current_row, column=5, value=item.get('description', ''))
+            
+            # Numeric values
+            ws2.cell(row=current_row, column=6, value=int(item.get('qty', 1)))
+            ws2.cell(row=current_row, column=7, value=int(item.get('purity', 916)))
+            ws2.cell(row=current_row, column=8, value=float(item.get('weight', 0)))
+            ws2.cell(row=current_row, column=9, value=float(item.get('metal_rate', 0)))
+            ws2.cell(row=current_row, column=10, value=float(item.get('gold_value', 0)))
+            ws2.cell(row=current_row, column=11, value=float(item.get('making_value', 0)))
+            ws2.cell(row=current_row, column=12, value=float(item.get('vat_percent', 5)))
+            ws2.cell(row=current_row, column=13, value=float(item.get('vat_amount', 0)))
+            ws2.cell(row=current_row, column=14, value=float(item.get('line_total', 0)))
+            
+            current_row += 1
+    
+    # Set column widths for line items
+    for col in ['A', 'B', 'C', 'D', 'E']:
+        ws2.column_dimensions[col].width = 15
+    for col in ['F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N']:
+        ws2.column_dimensions[col].width = 12
+    
+    # ===========================================================================
+    # SHEET 3: Totals & Statistics
+    # ===========================================================================
+    ws3 = wb.create_sheet(title="Totals")
+    
+    # Calculate totals
+    total_invoices = len(invoices)
+    metal_total = sum(
+        item.get('gold_value', 0) 
+        for inv in invoices 
+        for item in inv.get('items', [])
+    )
+    making_total = sum(
+        item.get('making_value', 0) 
+        for inv in invoices 
+        for item in inv.get('items', [])
+    )
+    vat_total = sum(inv.get('vat_total', 0) for inv in invoices)
+    grand_total = sum(inv.get('grand_total', 0) for inv in invoices)
+    paid_total = sum(inv.get('paid_amount', 0) for inv in invoices)
+    outstanding_total = sum(inv.get('balance_due', 0) for inv in invoices)
+    
+    # Style for totals sheet
+    title_font = Font(bold=True, size=14)
+    label_font = Font(bold=True)
+    
+    ws3['A1'] = 'INVOICE TOTALS SUMMARY'
+    ws3['A1'].font = title_font
+    
+    row = 3
+    totals_data = [
+        ('Total Invoices', total_invoices),
+        ('', ''),
+        ('Metal Total (OMR)', metal_total),
+        ('Making Charges Total (OMR)', making_total),
+        ('VAT Total (OMR)', vat_total),
+        ('', ''),
+        ('Grand Total (OMR)', grand_total),
+        ('Total Paid (OMR)', paid_total),
+        ('Total Outstanding (OMR)', outstanding_total),
+    ]
+    
+    for label, value in totals_data:
+        ws3.cell(row=row, column=1, value=label).font = label_font
+        if value != '':
+            # Make sure numeric values are stored as numbers
+            if isinstance(value, (int, float)):
+                ws3.cell(row=row, column=2, value=float(value))
+        row += 1
+    
+    ws3.column_dimensions['A'].width = 30
+    ws3.column_dimensions['B'].width = 20
+    
+    # Save to buffer
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
