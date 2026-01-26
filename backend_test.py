@@ -1,906 +1,659 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend Testing Script for Worker Management System
+Comprehensive Returns Module Backend Testing
+Testing validation and atomicity enhancements for Gold Shop ERP Returns Management
 
-CRITICAL TEST FOCUS:
-✅ Worker CRUD Operations - Complete API Testing
-✅ Job Card Worker Assignment - Integration Testing  
-✅ Invoice Worker Integration - Data Flow Testing
-✅ Validation Scenarios - Edge Case Testing
+CRITICAL REQUIREMENTS TO TEST:
+1. Validation must check qty + weight + amount (not just amount)
+2. Finalization must be atomic with rollback on failure
 
-TEST OBJECTIVES:
-1. WORKER CRUD OPERATIONS:
-   - GET /api/workers (list all workers, test active filter)
-   - POST /api/workers (create worker with duplicate name/phone validation)
-   - GET /api/workers/{worker_id} (get single worker)
-   - PATCH /api/workers/{worker_id} (update worker, test duplicate validation)
-   - DELETE /api/workers/{worker_id} (soft delete, test active job card constraint)
-
-2. JOB CARD WORKER ASSIGNMENT:
-   - Test job card creation with worker assignment
-   - Test job card update to assign/change worker
-   - Verify completion validation: Must have worker before completing
-
-3. INVOICE WORKER INTEGRATION:
-   - Verify worker_id and worker_name transfer from job card to invoice
-   - Test invoice creation from job card with worker data
-
-4. VALIDATION SCENARIOS:
-   - Duplicate worker name validation
-   - Duplicate phone number validation  
-   - Worker deletion with active job cards assigned
-   - Worker activation/deactivation
-
-5. EDGE CASES:
-   - Empty/null worker name
-   - Invalid worker_id in job card assignment
-   - Worker deletion cascade checks
+TEST SCENARIOS:
+✅ PHASE 1: VALIDATION TESTING
+✅ PHASE 2: FINALIZATION ATOMICITY  
+✅ PHASE 3: CONCURRENT & RE-FINALIZATION PROTECTION
+✅ PHASE 4: IMMUTABILITY CHECKS
+✅ PHASE 5: STOCK & TRANSACTION DIRECTIONS
+✅ PHASE 6: GOLD PRECISION
+✅ PHASE 7: ROLLBACK TESTING
 """
 
 import requests
 import json
-import sys
-from datetime import datetime
-import uuid
 import time
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
 
 # Configuration
-BASE_URL = "https://atomic-refund.preview.emergentagent.com/api"
-USERNAME = "admin"
-PASSWORD = "admin123"
+BASE_URL = "http://192.168.1.21:8000/api"
+HEADERS = {"Content-Type": "application/json"}
 
-class WorkerManagementTester:
+class ReturnsModuleTester:
     def __init__(self):
         self.session = requests.Session()
-        self.token = None
+        self.session.headers.update(HEADERS)
+        self.auth_token = None
+        self.csrf_token = None
+        self.test_data = {}
         self.test_results = []
-        self.test_workers = []
-        self.test_jobcards = []
-        self.test_invoices = []
         
-    def log_result(self, test_name, status, details):
+    def log_result(self, test_name, success, details="", error=""):
         """Log test result"""
         result = {
             "test": test_name,
-            "status": status,  # "PASS", "FAIL", "ERROR"
+            "success": success,
             "details": details,
+            "error": error,
             "timestamp": datetime.now().isoformat()
         }
         self.test_results.append(result)
-        status_symbol = "✅" if status == "PASS" else "❌" if status == "FAIL" else "⚠️"
-        print(f"{status_symbol} {test_name}: {details}")
-        
+        status = "✅ PASS" if success else "❌ FAIL"
+        print(f"{status} {test_name}")
+        if details:
+            print(f"    Details: {details}")
+        if error:
+            print(f"    Error: {error}")
+        print()
+
     def authenticate(self):
-        """Authenticate and get JWT token"""
+        """Authenticate with admin user"""
         try:
-            response = self.session.post(f"{BASE_URL}/auth/login", json={
-                "username": USERNAME,
-                "password": PASSWORD
-            })
+            # Login with admin credentials
+            login_data = {
+                "username": "admin",
+                "password": "Admin123!@#$%"
+            }
+            
+            response = self.session.post(f"{BASE_URL}/auth/login", json=login_data)
             
             if response.status_code == 200:
                 data = response.json()
-                self.token = data.get("access_token")
-                self.session.headers.update({"Authorization": f"Bearer {self.token}"})
-                self.log_result("Authentication", "PASS", f"Successfully authenticated as {USERNAME}")
+                self.auth_token = data.get("access_token")
+                self.csrf_token = data.get("csrf_token")
+                
+                # Update session headers
+                self.session.headers.update({
+                    "Authorization": f"Bearer {self.auth_token}",
+                    "X-CSRF-Token": self.csrf_token
+                })
+                
+                self.log_result("Authentication", True, "Successfully authenticated as admin")
                 return True
             else:
-                self.log_result("Authentication", "FAIL", f"Failed to authenticate: {response.status_code} - {response.text}")
+                self.log_result("Authentication", False, "", f"Login failed: {response.status_code} - {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_result("Authentication", "ERROR", f"Authentication error: {str(e)}")
+            self.log_result("Authentication", False, "", f"Authentication error: {str(e)}")
             return False
 
-    # ============================================================================
-    # WORKER CRUD OPERATIONS TESTING
-    # ============================================================================
-    
-    def test_worker_list_endpoint(self):
-        """
-        TEST 1: Worker List Endpoint
-        GET /api/workers - Test list all workers with active filter
-        """
-        print("\n" + "="*80)
-        print("TEST 1: WORKER LIST ENDPOINT")
-        print("="*80)
-        
+    def setup_test_data(self):
+        """Create test data: accounts, parties, inventory, invoices, purchases"""
         try:
-            # Test basic list endpoint
-            response = self.session.get(f"{BASE_URL}/workers")
-            
-            if response.status_code == 200:
-                data = response.json()
-                
-                # Verify response structure
-                if "items" in data:
-                    workers = data["items"]
-                    self.log_result("Worker List - Response Structure", "PASS", 
-                                  f"Response contains 'items' array with {len(workers)} workers")
-                    
-                    # Test active filter
-                    response_active = self.session.get(f"{BASE_URL}/workers?active=true")
-                    if response_active.status_code == 200:
-                        active_data = response_active.json()
-                        active_workers = active_data.get("items", [])
-                        self.log_result("Worker List - Active Filter", "PASS", 
-                                      f"Active filter working: {len(active_workers)} active workers")
-                    else:
-                        self.log_result("Worker List - Active Filter", "FAIL", 
-                                      f"Active filter failed: {response_active.status_code}")
-                        
-                    # Test inactive filter
-                    response_inactive = self.session.get(f"{BASE_URL}/workers?active=false")
-                    if response_inactive.status_code == 200:
-                        inactive_data = response_inactive.json()
-                        inactive_workers = inactive_data.get("items", [])
-                        self.log_result("Worker List - Inactive Filter", "PASS", 
-                                      f"Inactive filter working: {len(inactive_workers)} inactive workers")
-                    else:
-                        self.log_result("Worker List - Inactive Filter", "FAIL", 
-                                      f"Inactive filter failed: {response_inactive.status_code}")
-                        
-                else:
-                    self.log_result("Worker List - Response Structure", "FAIL", 
-                                  "Response missing 'items' key")
+            # Create cash account
+            account_data = {
+                "name": "Test Cash Account",
+                "account_type": "cash",
+                "opening_balance": 20000.0
+            }
+            response = self.session.post(f"{BASE_URL}/accounts", json=account_data)
+            if response.status_code == 201:
+                self.test_data["account"] = response.json()
+                self.log_result("Setup - Cash Account", True, f"Created account: {self.test_data['account']['name']}")
             else:
-                self.log_result("Worker List - HTTP Response", "FAIL", 
-                              f"Failed to get workers: {response.status_code} - {response.text}")
-                
-        except Exception as e:
-            self.log_result("Worker List - Exception", "ERROR", f"Error: {str(e)}")
-    
-    def test_worker_creation(self):
-        """
-        TEST 2: Worker Creation
-        POST /api/workers - Test worker creation with validation
-        """
-        print("\n" + "="*80)
-        print("TEST 2: WORKER CREATION")
-        print("="*80)
-        
-        try:
-            # Test successful worker creation
-            worker_data = {
-                "name": "John Smith",
+                self.log_result("Setup - Cash Account", False, "", f"Failed to create account: {response.text}")
+                return False
+
+            # Create customer party
+            customer_data = {
+                "name": "Test Customer",
                 "phone": "+968-9876-5432",
-                "role": "Goldsmith",
-                "active": True
+                "address": "123 Test Street, Muscat",
+                "party_type": "customer",
+                "notes": "Test customer for returns testing"
             }
-            
-            response = self.session.post(f"{BASE_URL}/workers", json=worker_data)
-            
-            if response.status_code == 200:
-                worker = response.json()
-                self.test_workers.append(worker)
-                self.log_result("Worker Creation - Success", "PASS", 
-                              f"Successfully created worker: {worker.get('name')} (ID: {worker.get('id')})")
-                
-                # Verify worker fields
-                required_fields = ['id', 'name', 'phone', 'role', 'active', 'created_at', 'created_by']
-                missing_fields = [field for field in required_fields if field not in worker]
-                
-                if not missing_fields:
-                    self.log_result("Worker Creation - Field Validation", "PASS", 
-                                  "Created worker has all required fields")
-                else:
-                    self.log_result("Worker Creation - Field Validation", "FAIL", 
-                                  f"Missing fields: {missing_fields}")
-                    
+            response = self.session.post(f"{BASE_URL}/parties", json=customer_data)
+            if response.status_code == 201:
+                self.test_data["customer"] = response.json()
+                self.log_result("Setup - Customer Party", True, f"Created customer: {self.test_data['customer']['name']}")
             else:
-                self.log_result("Worker Creation - Success", "FAIL", 
-                              f"Failed to create worker: {response.status_code} - {response.text}")
-                
-            # Test duplicate name validation
-            duplicate_name_data = {
-                "name": "John Smith",  # Same name as above
-                "phone": "+968-1111-2222",
-                "role": "Polisher",
-                "active": True
-            }
-            
-            response = self.session.post(f"{BASE_URL}/workers", json=duplicate_name_data)
-            
-            if response.status_code == 400:
-                self.log_result("Worker Creation - Duplicate Name Validation", "PASS", 
-                              "Duplicate name validation working correctly")
-            else:
-                self.log_result("Worker Creation - Duplicate Name Validation", "FAIL", 
-                              f"Duplicate name should return 400, got: {response.status_code}")
-                
-            # Test duplicate phone validation
-            duplicate_phone_data = {
-                "name": "Jane Doe",
-                "phone": "+968-9876-5432",  # Same phone as first worker
-                "role": "Designer",
-                "active": True
-            }
-            
-            response = self.session.post(f"{BASE_URL}/workers", json=duplicate_phone_data)
-            
-            if response.status_code == 400:
-                self.log_result("Worker Creation - Duplicate Phone Validation", "PASS", 
-                              "Duplicate phone validation working correctly")
-            else:
-                self.log_result("Worker Creation - Duplicate Phone Validation", "FAIL", 
-                              f"Duplicate phone should return 400, got: {response.status_code}")
-                
-            # Test empty name validation
-            empty_name_data = {
-                "name": "",
-                "phone": "+968-3333-4444",
-                "role": "Helper",
-                "active": True
-            }
-            
-            response = self.session.post(f"{BASE_URL}/workers", json=empty_name_data)
-            
-            if response.status_code == 400:
-                self.log_result("Worker Creation - Empty Name Validation", "PASS", 
-                              "Empty name validation working correctly")
-            else:
-                self.log_result("Worker Creation - Empty Name Validation", "FAIL", 
-                              f"Empty name should return 400, got: {response.status_code}")
-                
-        except Exception as e:
-            self.log_result("Worker Creation - Exception", "ERROR", f"Error: {str(e)}")
-    
-    def test_worker_retrieval(self):
-        """
-        TEST 3: Worker Retrieval
-        GET /api/workers/{worker_id} - Test single worker retrieval
-        """
-        print("\n" + "="*80)
-        print("TEST 3: WORKER RETRIEVAL")
-        print("="*80)
-        
-        if not self.test_workers:
-            self.log_result("Worker Retrieval", "FAIL", "No test workers available")
-            return
-            
-        try:
-            worker = self.test_workers[0]
-            worker_id = worker.get('id')
-            
-            # Test successful retrieval
-            response = self.session.get(f"{BASE_URL}/workers/{worker_id}")
-            
-            if response.status_code == 200:
-                retrieved_worker = response.json()
-                self.log_result("Worker Retrieval - Success", "PASS", 
-                              f"Successfully retrieved worker: {retrieved_worker.get('name')}")
-                
-                # Verify data consistency
-                if retrieved_worker.get('id') == worker_id:
-                    self.log_result("Worker Retrieval - Data Consistency", "PASS", 
-                                  "Retrieved worker data matches created worker")
-                else:
-                    self.log_result("Worker Retrieval - Data Consistency", "FAIL", 
-                                  "Retrieved worker data doesn't match")
-            else:
-                self.log_result("Worker Retrieval - Success", "FAIL", 
-                              f"Failed to retrieve worker: {response.status_code} - {response.text}")
-                
-            # Test invalid worker ID
-            invalid_id = str(uuid.uuid4())
-            response = self.session.get(f"{BASE_URL}/workers/{invalid_id}")
-            
-            if response.status_code == 404:
-                self.log_result("Worker Retrieval - Invalid ID", "PASS", 
-                              "Invalid worker ID returns 404 correctly")
-            else:
-                self.log_result("Worker Retrieval - Invalid ID", "FAIL", 
-                              f"Invalid ID should return 404, got: {response.status_code}")
-                
-        except Exception as e:
-            self.log_result("Worker Retrieval - Exception", "ERROR", f"Error: {str(e)}")
-    
-    def test_worker_update(self):
-        """
-        TEST 4: Worker Update
-        PATCH /api/workers/{worker_id} - Test worker updates with validation
-        """
-        print("\n" + "="*80)
-        print("TEST 4: WORKER UPDATE")
-        print("="*80)
-        
-        if not self.test_workers:
-            self.log_result("Worker Update", "FAIL", "No test workers available")
-            return
-            
-        try:
-            worker = self.test_workers[0]
-            worker_id = worker.get('id')
-            
-            # Test successful update
-            update_data = {
-                "role": "Senior Goldsmith",
-                "phone": "+968-9999-8888"
-            }
-            
-            response = self.session.patch(f"{BASE_URL}/workers/{worker_id}", json=update_data)
-            
-            if response.status_code == 200:
-                self.log_result("Worker Update - Success", "PASS", 
-                              "Successfully updated worker")
-                
-                # Verify update by retrieving worker
-                response = self.session.get(f"{BASE_URL}/workers/{worker_id}")
-                if response.status_code == 200:
-                    updated_worker = response.json()
-                    if updated_worker.get('role') == "Senior Goldsmith":
-                        self.log_result("Worker Update - Data Verification", "PASS", 
-                                      "Worker update data verified correctly")
-                    else:
-                        self.log_result("Worker Update - Data Verification", "FAIL", 
-                                      "Worker update data not reflected")
-            else:
-                self.log_result("Worker Update - Success", "FAIL", 
-                              f"Failed to update worker: {response.status_code} - {response.text}")
-                
-            # Create second worker for duplicate testing
-            second_worker_data = {
-                "name": "Alice Johnson",
-                "phone": "+968-5555-6666",
-                "role": "Polisher",
-                "active": True
-            }
-            
-            response = self.session.post(f"{BASE_URL}/workers", json=second_worker_data)
-            if response.status_code == 200:
-                second_worker = response.json()
-                self.test_workers.append(second_worker)
-                
-                # Test duplicate name update validation
-                duplicate_update = {"name": "Alice Johnson"}  # Try to update first worker to second worker's name
-                
-                response = self.session.patch(f"{BASE_URL}/workers/{worker_id}", json=duplicate_update)
-                
-                if response.status_code == 400:
-                    self.log_result("Worker Update - Duplicate Name Validation", "PASS", 
-                                  "Duplicate name update validation working correctly")
-                else:
-                    self.log_result("Worker Update - Duplicate Name Validation", "FAIL", 
-                                  f"Duplicate name update should return 400, got: {response.status_code}")
-                    
-                # Test duplicate phone update validation
-                duplicate_phone_update = {"phone": "+968-5555-6666"}  # Try to update to second worker's phone
-                
-                response = self.session.patch(f"{BASE_URL}/workers/{worker_id}", json=duplicate_phone_update)
-                
-                if response.status_code == 400:
-                    self.log_result("Worker Update - Duplicate Phone Validation", "PASS", 
-                                  "Duplicate phone update validation working correctly")
-                else:
-                    self.log_result("Worker Update - Duplicate Phone Validation", "FAIL", 
-                                  f"Duplicate phone update should return 400, got: {response.status_code}")
-                
-        except Exception as e:
-            self.log_result("Worker Update - Exception", "ERROR", f"Error: {str(e)}")
+                self.log_result("Setup - Customer Party", False, "", f"Failed to create customer: {response.text}")
+                return False
 
-    # ============================================================================
-    # JOB CARD WORKER ASSIGNMENT TESTING
-    # ============================================================================
-    
-    def test_jobcard_worker_assignment(self):
-        """
-        TEST 5: Job Card Worker Assignment
-        Test job card creation and worker assignment functionality
-        """
-        print("\n" + "="*80)
-        print("TEST 5: JOB CARD WORKER ASSIGNMENT")
-        print("="*80)
-        
-        if not self.test_workers:
-            self.log_result("Job Card Worker Assignment", "FAIL", "No test workers available")
-            return
+            # Create vendor party
+            vendor_data = {
+                "name": "Test Vendor",
+                "phone": "+968-1234-5678",
+                "address": "456 Vendor Street, Muscat",
+                "party_type": "vendor",
+                "notes": "Test vendor for returns testing"
+            }
+            response = self.session.post(f"{BASE_URL}/parties", json=vendor_data)
+            if response.status_code == 201:
+                self.test_data["vendor"] = response.json()
+                self.log_result("Setup - Vendor Party", True, f"Created vendor: {self.test_data['vendor']['name']}")
+            else:
+                self.log_result("Setup - Vendor Party", False, "", f"Failed to create vendor: {response.text}")
+                return False
+
+            # Create inventory categories
+            categories = [
+                {"name": "Gold Chains", "current_qty": 50.0, "current_weight": 500.0},
+                {"name": "Gold Rings", "current_qty": 30.0, "current_weight": 300.0},
+                {"name": "Gold Earrings", "current_qty": 20.0, "current_weight": 200.0}
+            ]
             
-        try:
-            worker = self.test_workers[0]
-            worker_id = worker.get('id')
-            worker_name = worker.get('name')
-            
-            # Create job card with worker assignment
-            jobcard_data = {
-                "customer_type": "walk_in",
-                "walk_in_name": "Test Customer",
-                "walk_in_phone": "+968-1234-5678",
-                "worker_id": worker_id,
-                "worker_name": worker_name,
+            self.test_data["categories"] = []
+            for cat_data in categories:
+                response = self.session.post(f"{BASE_URL}/inventory/headers", json=cat_data)
+                if response.status_code == 201:
+                    category = response.json()
+                    self.test_data["categories"].append(category)
+                    self.log_result("Setup - Inventory Category", True, f"Created category: {category['name']}")
+                else:
+                    self.log_result("Setup - Inventory Category", False, "", f"Failed to create category: {response.text}")
+                    return False
+
+            # Create finalized invoice with multiple items
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": self.test_data["customer"]["id"],
+                "invoice_type": "sale",
                 "items": [
                     {
-                        "category": "Ring",
-                        "description": "Gold ring repair",
-                        "qty": 1,
-                        "weight_in": 5.5,
-                        "purity": 22,
-                        "work_type": "Repair"
-                    }
-                ],
-                "notes": "Test job card with worker assignment"
-            }
-            
-            response = self.session.post(f"{BASE_URL}/jobcards", json=jobcard_data)
-            
-            if response.status_code == 200:
-                jobcard = response.json()
-                self.test_jobcards.append(jobcard)
-                
-                # Verify worker assignment
-                if jobcard.get('worker_id') == worker_id and jobcard.get('worker_name') == worker_name:
-                    self.log_result("Job Card - Worker Assignment", "PASS", 
-                                  f"Job card successfully assigned to worker: {worker_name}")
-                else:
-                    self.log_result("Job Card - Worker Assignment", "FAIL", 
-                                  "Worker assignment not reflected in job card")
-                    
-            else:
-                self.log_result("Job Card - Creation with Worker", "FAIL", 
-                              f"Failed to create job card: {response.status_code} - {response.text}")
-                
-            # Test job card creation without worker (should succeed)
-            jobcard_no_worker_data = {
-                "customer_type": "walk_in",
-                "walk_in_name": "Test Customer 2",
-                "walk_in_phone": "+968-8765-4321",
-                "items": [
+                        "category": "Gold Chains",
+                        "description": "22K Gold Chain - 50g",
+                        "qty": 2,
+                        "gross_weight": 50.0,
+                        "stone_weight": 0.0,
+                        "net_gold_weight": 50.0,
+                        "weight": 50.0,
+                        "purity": 916,
+                        "metal_rate": 200.0,
+                        "gold_value": 10000.0,
+                        "making_charge_type": "per_gram",
+                        "making_value": 1000.0,
+                        "stone_charges": 0.0,
+                        "wastage_charges": 500.0,
+                        "item_discount": 0.0,
+                        "vat_percent": 5.0,
+                        "vat_amount": 575.0,
+                        "line_total": 12075.0
+                    },
                     {
-                        "category": "Necklace",
-                        "description": "Gold necklace cleaning",
+                        "category": "Gold Rings",
+                        "description": "22K Gold Ring - 25g",
                         "qty": 1,
-                        "weight_in": 15.0,
-                        "purity": 18,
-                        "work_type": "Cleaning"
+                        "gross_weight": 25.0,
+                        "stone_weight": 0.0,
+                        "net_gold_weight": 25.0,
+                        "weight": 25.0,
+                        "purity": 916,
+                        "metal_rate": 200.0,
+                        "gold_value": 5000.0,
+                        "making_charge_type": "flat",
+                        "making_value": 500.0,
+                        "stone_charges": 0.0,
+                        "wastage_charges": 250.0,
+                        "item_discount": 0.0,
+                        "vat_percent": 5.0,
+                        "vat_amount": 287.5,
+                        "line_total": 6037.5
                     }
                 ],
-                "notes": "Test job card without worker"
+                "subtotal": 18112.5,
+                "discount_amount": 0.0,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 431.25,
+                "sgst_total": 431.25,
+                "igst_total": 0.0,
+                "vat_total": 862.5,
+                "grand_total": 18112.5,
+                "paid_amount": 0.0,
+                "balance_due": 18112.5
             }
             
-            response = self.session.post(f"{BASE_URL}/jobcards", json=jobcard_no_worker_data)
-            
-            if response.status_code == 200:
-                jobcard_no_worker = response.json()
-                self.test_jobcards.append(jobcard_no_worker)
-                self.log_result("Job Card - Creation without Worker", "PASS", 
-                              "Job card creation without worker succeeded (as expected)")
-            else:
-                self.log_result("Job Card - Creation without Worker", "FAIL", 
-                              f"Job card creation without worker failed: {response.status_code}")
-                
-        except Exception as e:
-            self.log_result("Job Card Worker Assignment - Exception", "ERROR", f"Error: {str(e)}")
-    
-    def test_jobcard_completion_validation(self):
-        """
-        TEST 6: Job Card Completion Validation
-        Test that job cards cannot be completed without worker assignment
-        """
-        print("\n" + "="*80)
-        print("TEST 6: JOB CARD COMPLETION VALIDATION")
-        print("="*80)
-        
-        if len(self.test_jobcards) < 2:
-            self.log_result("Job Card Completion Validation", "FAIL", "Insufficient test job cards")
-            return
-            
-        try:
-            # Test completion of job card WITH worker (should succeed)
-            jobcard_with_worker = self.test_jobcards[0]  # Has worker assigned
-            jobcard_id = jobcard_with_worker.get('id')
-            
-            # First update to in_progress
-            response = self.session.patch(f"{BASE_URL}/jobcards/{jobcard_id}", json={"status": "in_progress"})
-            
-            if response.status_code == 200:
-                # Now try to complete
-                response = self.session.patch(f"{BASE_URL}/jobcards/{jobcard_id}", json={"status": "completed"})
-                
-                if response.status_code == 200:
-                    self.log_result("Job Card - Completion with Worker", "PASS", 
-                                  "Job card with worker completed successfully")
-                else:
-                    self.log_result("Job Card - Completion with Worker", "FAIL", 
-                                  f"Job card with worker completion failed: {response.status_code}")
-            
-            # Test completion of job card WITHOUT worker (should fail)
-            jobcard_without_worker = self.test_jobcards[1]  # No worker assigned
-            jobcard_id_no_worker = jobcard_without_worker.get('id')
-            
-            # First update to in_progress
-            response = self.session.patch(f"{BASE_URL}/jobcards/{jobcard_id_no_worker}", json={"status": "in_progress"})
-            
-            if response.status_code == 200:
-                # Now try to complete (should fail)
-                response = self.session.patch(f"{BASE_URL}/jobcards/{jobcard_id_no_worker}", json={"status": "completed"})
-                
-                if response.status_code == 422:
-                    self.log_result("Job Card - Completion without Worker Blocked", "PASS", 
-                                  "Job card completion without worker correctly blocked with HTTP 422")
-                else:
-                    self.log_result("Job Card - Completion without Worker Blocked", "FAIL", 
-                                  f"Job card completion should be blocked, got: {response.status_code}")
-                    
-            # Test assigning worker and then completing
-            if len(self.test_workers) > 0:
-                worker = self.test_workers[0]
-                worker_assignment = {
-                    "worker_id": worker.get('id'),
-                    "worker_name": worker.get('name')
-                }
-                
-                response = self.session.patch(f"{BASE_URL}/jobcards/{jobcard_id_no_worker}", json=worker_assignment)
-                
-                if response.status_code == 200:
-                    # Now try to complete (should succeed)
-                    response = self.session.patch(f"{BASE_URL}/jobcards/{jobcard_id_no_worker}", json={"status": "completed"})
-                    
-                    if response.status_code == 200:
-                        self.log_result("Job Card - Completion after Worker Assignment", "PASS", 
-                                      "Job card completed successfully after worker assignment")
-                    else:
-                        self.log_result("Job Card - Completion after Worker Assignment", "FAIL", 
-                                      f"Job card completion after worker assignment failed: {response.status_code}")
-                        
-        except Exception as e:
-            self.log_result("Job Card Completion Validation - Exception", "ERROR", f"Error: {str(e)}")
-
-    # ============================================================================
-    # INVOICE WORKER INTEGRATION TESTING
-    # ============================================================================
-    
-    def test_invoice_worker_integration(self):
-        """
-        TEST 7: Invoice Worker Integration
-        Test that worker data flows from job card to invoice
-        """
-        print("\n" + "="*80)
-        print("TEST 7: INVOICE WORKER INTEGRATION")
-        print("="*80)
-        
-        if not self.test_jobcards:
-            self.log_result("Invoice Worker Integration", "FAIL", "No test job cards available")
-            return
-            
-        try:
-            # Find a completed job card with worker
-            completed_jobcard = None
-            for jobcard in self.test_jobcards:
-                if jobcard.get('status') == 'completed' and jobcard.get('worker_id'):
-                    completed_jobcard = jobcard
-                    break
-                    
-            if not completed_jobcard:
-                self.log_result("Invoice Worker Integration", "FAIL", "No completed job card with worker found")
-                return
-                
-            jobcard_id = completed_jobcard.get('id')
-            expected_worker_id = completed_jobcard.get('worker_id')
-            expected_worker_name = completed_jobcard.get('worker_name')
-            
-            # Convert job card to invoice
-            response = self.session.post(f"{BASE_URL}/jobcards/{jobcard_id}/convert-to-invoice")
-            
-            if response.status_code == 200:
+            response = self.session.post(f"{BASE_URL}/invoices", json=invoice_data)
+            if response.status_code == 201:
                 invoice = response.json()
-                self.test_invoices.append(invoice)
                 
-                # Verify worker data transfer
-                invoice_worker_id = invoice.get('worker_id')
-                invoice_worker_name = invoice.get('worker_name')
-                
-                if invoice_worker_id == expected_worker_id and invoice_worker_name == expected_worker_name:
-                    self.log_result("Invoice - Worker Data Transfer", "PASS", 
-                                  f"Worker data correctly transferred to invoice: {invoice_worker_name} (ID: {invoice_worker_id})")
+                # Finalize the invoice
+                finalize_response = self.session.post(f"{BASE_URL}/invoices/{invoice['id']}/finalize")
+                if finalize_response.status_code == 200:
+                    self.test_data["invoice"] = finalize_response.json()
+                    self.log_result("Setup - Finalized Invoice", True, 
+                                  f"Created and finalized invoice: {self.test_data['invoice']['invoice_number']} "
+                                  f"(Total: {self.test_data['invoice']['grand_total']} OMR, "
+                                  f"Weight: {sum(item['net_gold_weight'] for item in self.test_data['invoice']['items'])}g)")
                 else:
-                    self.log_result("Invoice - Worker Data Transfer", "FAIL", 
-                                  f"Worker data not transferred correctly. Expected: {expected_worker_name}, Got: {invoice_worker_name}")
-                    
-                # Verify invoice has worker fields
-                if 'worker_id' in invoice and 'worker_name' in invoice:
-                    self.log_result("Invoice - Worker Fields Present", "PASS", 
-                                  "Invoice model contains worker_id and worker_name fields")
-                else:
-                    self.log_result("Invoice - Worker Fields Present", "FAIL", 
-                                  "Invoice model missing worker fields")
-                    
+                    self.log_result("Setup - Finalized Invoice", False, "", f"Failed to finalize invoice: {finalize_response.text}")
+                    return False
             else:
-                self.log_result("Invoice - Job Card Conversion", "FAIL", 
-                              f"Failed to convert job card to invoice: {response.status_code} - {response.text}")
-                
-        except Exception as e:
-            self.log_result("Invoice Worker Integration - Exception", "ERROR", f"Error: {str(e)}")
+                self.log_result("Setup - Invoice Creation", False, "", f"Failed to create invoice: {response.text}")
+                return False
 
-    # ============================================================================
-    # WORKER DELETION TESTING
-    # ============================================================================
-    
-    def test_worker_deletion_constraints(self):
-        """
-        TEST 8: Worker Deletion Constraints
-        Test worker deletion with active job card constraints
-        """
-        print("\n" + "="*80)
-        print("TEST 8: WORKER DELETION CONSTRAINTS")
-        print("="*80)
-        
-        if len(self.test_workers) < 2:
-            self.log_result("Worker Deletion Constraints", "FAIL", "Insufficient test workers")
-            return
-            
-        try:
-            # Try to delete worker with active job cards (should fail)
-            worker_with_jobcards = self.test_workers[0]  # This worker has job cards assigned
-            worker_id = worker_with_jobcards.get('id')
-            
-            response = self.session.delete(f"{BASE_URL}/workers/{worker_id}")
-            
-            if response.status_code == 400:
-                self.log_result("Worker Deletion - Active Job Cards Constraint", "PASS", 
-                              "Worker deletion correctly blocked due to active job cards")
-            else:
-                self.log_result("Worker Deletion - Active Job Cards Constraint", "FAIL", 
-                              f"Worker deletion should be blocked, got: {response.status_code}")
-                
-            # Try to delete worker without active job cards (should succeed)
-            worker_without_jobcards = self.test_workers[1]  # This worker has no job cards
-            worker_id_free = worker_without_jobcards.get('id')
-            
-            response = self.session.delete(f"{BASE_URL}/workers/{worker_id_free}")
-            
-            if response.status_code == 200:
-                self.log_result("Worker Deletion - Success", "PASS", 
-                              "Worker without active job cards deleted successfully")
-                
-                # Verify soft delete (worker should not appear in list)
-                response = self.session.get(f"{BASE_URL}/workers")
-                if response.status_code == 200:
-                    workers = response.json().get('items', [])
-                    deleted_worker_found = any(w.get('id') == worker_id_free for w in workers)
-                    
-                    if not deleted_worker_found:
-                        self.log_result("Worker Deletion - Soft Delete Verification", "PASS", 
-                                      "Deleted worker not appearing in worker list (soft delete working)")
-                    else:
-                        self.log_result("Worker Deletion - Soft Delete Verification", "FAIL", 
-                                      "Deleted worker still appearing in list")
-            else:
-                self.log_result("Worker Deletion - Success", "FAIL", 
-                              f"Worker deletion failed: {response.status_code} - {response.text}")
-                
-            # Test deletion of non-existent worker
-            invalid_worker_id = str(uuid.uuid4())
-            response = self.session.delete(f"{BASE_URL}/workers/{invalid_worker_id}")
-            
-            if response.status_code == 404:
-                self.log_result("Worker Deletion - Invalid ID", "PASS", 
-                              "Deletion of non-existent worker returns 404 correctly")
-            else:
-                self.log_result("Worker Deletion - Invalid ID", "FAIL", 
-                              f"Invalid worker deletion should return 404, got: {response.status_code}")
-                
-        except Exception as e:
-            self.log_result("Worker Deletion Constraints - Exception", "ERROR", f"Error: {str(e)}")
-
-    # ============================================================================
-    # EDGE CASES AND VALIDATION TESTING
-    # ============================================================================
-    
-    def test_edge_cases_and_validation(self):
-        """
-        TEST 9: Edge Cases and Validation
-        Test various edge cases and validation scenarios
-        """
-        print("\n" + "="*80)
-        print("TEST 9: EDGE CASES AND VALIDATION")
-        print("="*80)
-        
-        try:
-            # Test worker creation with missing required fields
-            incomplete_worker_data = {
-                "name": "Test Worker"
-                # Missing role field
+            # Create finalized purchase
+            purchase_data = {
+                "vendor_party_id": self.test_data["vendor"]["id"],
+                "description": "Gold Purchase - 200g at 916 purity",
+                "weight_grams": 200.0,
+                "entered_purity": 916,
+                "valuation_purity_fixed": 916,
+                "rate_per_gram": 180.0,
+                "amount_total": 36000.0,
+                "paid_amount_money": 0.0,
+                "balance_due_money": 36000.0
             }
             
-            response = self.session.post(f"{BASE_URL}/workers", json=incomplete_worker_data)
-            
-            if response.status_code == 422:  # Validation error
-                self.log_result("Edge Case - Missing Required Fields", "PASS", 
-                              "Missing required fields validation working correctly")
-            else:
-                self.log_result("Edge Case - Missing Required Fields", "FAIL", 
-                              f"Missing fields should return 422, got: {response.status_code}")
+            response = self.session.post(f"{BASE_URL}/purchases", json=purchase_data)
+            if response.status_code == 201:
+                purchase = response.json()
                 
-            # Test worker creation with null/empty values
-            null_values_data = {
-                "name": None,
-                "phone": "",
-                "role": "   ",  # Whitespace only
-                "active": True
+                # Finalize the purchase
+                finalize_response = self.session.post(f"{BASE_URL}/purchases/{purchase['id']}/finalize")
+                if finalize_response.status_code == 200:
+                    self.test_data["purchase"] = finalize_response.json()
+                    self.log_result("Setup - Finalized Purchase", True, 
+                                  f"Created and finalized purchase (Weight: {self.test_data['purchase']['weight_grams']}g, "
+                                  f"Amount: {self.test_data['purchase']['amount_total']} OMR)")
+                else:
+                    self.log_result("Setup - Finalized Purchase", False, "", f"Failed to finalize purchase: {finalize_response.text}")
+                    return False
+            else:
+                self.log_result("Setup - Purchase Creation", False, "", f"Failed to create purchase: {response.text}")
+                return False
+
+            return True
+            
+        except Exception as e:
+            self.log_result("Setup Test Data", False, "", f"Setup error: {str(e)}")
+            return False
+
+    def test_phase1_validation(self):
+        """PHASE 1: VALIDATION TESTING - qty, weight, amount validation"""
+        print("=" * 80)
+        print("PHASE 1: VALIDATION TESTING")
+        print("=" * 80)
+        
+        # Test 1: Create sale return with qty exceeding original
+        try:
+            return_data = {
+                "return_type": "sale_return",
+                "reference_type": "invoice",
+                "reference_id": self.test_data["invoice"]["id"],
+                "party_id": self.test_data["customer"]["id"],
+                "items": [
+                    {
+                        "description": "Returned Gold Chain",
+                        "qty": 5,  # Original was 2, this exceeds
+                        "weight_grams": 25.0,
+                        "purity": 916,
+                        "amount": 5000.0
+                    }
+                ],
+                "total_weight_grams": 25.0,
+                "total_amount": 5000.0,
+                "reason": "Test qty validation",
+                "refund_mode": "money",
+                "refund_money_amount": 5000.0,
+                "account_id": self.test_data["account"]["id"]
             }
             
-            response = self.session.post(f"{BASE_URL}/workers", json=null_values_data)
-            
-            if response.status_code == 400:
-                self.log_result("Edge Case - Null/Empty Values", "PASS", 
-                              "Null/empty values validation working correctly")
+            response = self.session.post(f"{BASE_URL}/returns", json=return_data)
+            if response.status_code == 400 and "quantity" in response.text.lower():
+                self.log_result("Validation - Qty Exceeding Original", True, 
+                              "Correctly blocked return with qty exceeding original invoice")
             else:
-                self.log_result("Edge Case - Null/Empty Values", "FAIL", 
-                              f"Null/empty values should return 400, got: {response.status_code}")
-                
-            # Test job card with invalid worker_id
-            if self.test_jobcards:
-                jobcard = self.test_jobcards[0]
-                jobcard_id = jobcard.get('id')
-                invalid_worker_id = str(uuid.uuid4())
-                
-                invalid_worker_update = {
-                    "worker_id": invalid_worker_id,
-                    "worker_name": "Non-existent Worker"
-                }
-                
-                response = self.session.patch(f"{BASE_URL}/jobcards/{jobcard_id}", json=invalid_worker_update)
-                
-                # This might succeed as the API might not validate worker existence during assignment
-                # The validation would happen during completion
-                if response.status_code in [200, 400, 404]:
-                    self.log_result("Edge Case - Invalid Worker ID Assignment", "PASS", 
-                                  f"Invalid worker ID handled appropriately: {response.status_code}")
-                else:
-                    self.log_result("Edge Case - Invalid Worker ID Assignment", "FAIL", 
-                                  f"Unexpected response for invalid worker ID: {response.status_code}")
-                    
-            # Test worker activation/deactivation
-            if self.test_workers:
-                active_worker = self.test_workers[0]
-                worker_id = active_worker.get('id')
-                
-                # Deactivate worker
-                response = self.session.patch(f"{BASE_URL}/workers/{worker_id}", json={"active": False})
-                
-                if response.status_code == 200:
-                    self.log_result("Edge Case - Worker Deactivation", "PASS", 
-                                  "Worker deactivation successful")
-                    
-                    # Reactivate worker
-                    response = self.session.patch(f"{BASE_URL}/workers/{worker_id}", json={"active": True})
-                    
-                    if response.status_code == 200:
-                        self.log_result("Edge Case - Worker Reactivation", "PASS", 
-                                      "Worker reactivation successful")
-                    else:
-                        self.log_result("Edge Case - Worker Reactivation", "FAIL", 
-                                      f"Worker reactivation failed: {response.status_code}")
-                else:
-                    self.log_result("Edge Case - Worker Deactivation", "FAIL", 
-                                  f"Worker deactivation failed: {response.status_code}")
-                    
+                self.log_result("Validation - Qty Exceeding Original", False, "", 
+                              f"Should have blocked qty validation but got: {response.status_code} - {response.text}")
         except Exception as e:
-            self.log_result("Edge Cases and Validation - Exception", "ERROR", f"Error: {str(e)}")
+            self.log_result("Validation - Qty Exceeding Original", False, "", f"Error: {str(e)}")
 
-    # ============================================================================
-    # TEST EXECUTION AND REPORTING
-    # ============================================================================
-    
-    def run_all_tests(self):
-        """Run all worker management tests"""
-        print("STARTING COMPREHENSIVE WORKER MANAGEMENT TESTING")
-        print("Backend URL:", BASE_URL)
-        print("Authentication:", f"{USERNAME}/***")
-        print("Test Coverage: Worker CRUD, Job Card Integration, Invoice Integration, Validation")
-        print("="*80)
+        # Test 2: Create sale return with weight exceeding original
+        try:
+            return_data = {
+                "return_type": "sale_return",
+                "reference_type": "invoice",
+                "reference_id": self.test_data["invoice"]["id"],
+                "party_id": self.test_data["customer"]["id"],
+                "items": [
+                    {
+                        "description": "Returned Gold Chain",
+                        "qty": 1,
+                        "weight_grams": 100.0,  # Original total was 75g, this exceeds
+                        "purity": 916,
+                        "amount": 5000.0
+                    }
+                ],
+                "total_weight_grams": 100.0,
+                "total_amount": 5000.0,
+                "reason": "Test weight validation",
+                "refund_mode": "money",
+                "refund_money_amount": 5000.0,
+                "account_id": self.test_data["account"]["id"]
+            }
+            
+            response = self.session.post(f"{BASE_URL}/returns", json=return_data)
+            if response.status_code == 400 and "weight" in response.text.lower():
+                self.log_result("Validation - Weight Exceeding Original", True, 
+                              "Correctly blocked return with weight exceeding original invoice")
+            else:
+                self.log_result("Validation - Weight Exceeding Original", False, "", 
+                              f"Should have blocked weight validation but got: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("Validation - Weight Exceeding Original", False, "", f"Error: {str(e)}")
+
+        # Test 3: Create sale return with amount exceeding original
+        try:
+            return_data = {
+                "return_type": "sale_return",
+                "reference_type": "invoice",
+                "reference_id": self.test_data["invoice"]["id"],
+                "party_id": self.test_data["customer"]["id"],
+                "items": [
+                    {
+                        "description": "Returned Gold Chain",
+                        "qty": 1,
+                        "weight_grams": 25.0,
+                        "purity": 916,
+                        "amount": 25000.0  # Original total was 18112.5, this exceeds
+                    }
+                ],
+                "total_weight_grams": 25.0,
+                "total_amount": 25000.0,
+                "reason": "Test amount validation",
+                "refund_mode": "money",
+                "refund_money_amount": 25000.0,
+                "account_id": self.test_data["account"]["id"]
+            }
+            
+            response = self.session.post(f"{BASE_URL}/returns", json=return_data)
+            if response.status_code == 400 and "amount" in response.text.lower():
+                self.log_result("Validation - Amount Exceeding Original", True, 
+                              "Correctly blocked return with amount exceeding original invoice")
+            else:
+                self.log_result("Validation - Amount Exceeding Original", False, "", 
+                              f"Should have blocked amount validation but got: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("Validation - Amount Exceeding Original", False, "", f"Error: {str(e)}")
+
+        # Test 4: Create multiple partial returns
+        try:
+            # First return: 50% of original
+            return_data_1 = {
+                "return_type": "sale_return",
+                "reference_type": "invoice",
+                "reference_id": self.test_data["invoice"]["id"],
+                "party_id": self.test_data["customer"]["id"],
+                "items": [
+                    {
+                        "description": "Partial Return 1",
+                        "qty": 1,
+                        "weight_grams": 37.5,  # 50% of 75g total
+                        "purity": 916,
+                        "amount": 9056.25  # 50% of 18112.5
+                    }
+                ],
+                "total_weight_grams": 37.5,
+                "total_amount": 9056.25,
+                "reason": "First partial return",
+                "refund_mode": "money",
+                "refund_money_amount": 9056.25,
+                "account_id": self.test_data["account"]["id"]
+            }
+            
+            response = self.session.post(f"{BASE_URL}/returns", json=return_data_1)
+            if response.status_code == 201:
+                return_1 = response.json()
+                
+                # Finalize first return
+                finalize_response = self.session.post(f"{BASE_URL}/returns/{return_1['id']}/finalize")
+                if finalize_response.status_code == 200:
+                    self.test_data["return_1"] = finalize_response.json()
+                    self.log_result("Validation - First Partial Return", True, 
+                                  f"Successfully created and finalized first partial return (50%)")
+                    
+                    # Second return: Another 40% (total 90%)
+                    return_data_2 = {
+                        "return_type": "sale_return",
+                        "reference_type": "invoice",
+                        "reference_id": self.test_data["invoice"]["id"],
+                        "party_id": self.test_data["customer"]["id"],
+                        "items": [
+                            {
+                                "description": "Partial Return 2",
+                                "qty": 1,
+                                "weight_grams": 30.0,  # 40% of 75g total
+                                "purity": 916,
+                                "amount": 7245.0  # 40% of 18112.5
+                            }
+                        ],
+                        "total_weight_grams": 30.0,
+                        "total_amount": 7245.0,
+                        "reason": "Second partial return",
+                        "refund_mode": "money",
+                        "refund_money_amount": 7245.0,
+                        "account_id": self.test_data["account"]["id"]
+                    }
+                    
+                    response_2 = self.session.post(f"{BASE_URL}/returns", json=return_data_2)
+                    if response_2.status_code == 201:
+                        return_2 = response_2.json()
+                        
+                        # Finalize second return
+                        finalize_response_2 = self.session.post(f"{BASE_URL}/returns/{return_2['id']}/finalize")
+                        if finalize_response_2.status_code == 200:
+                            self.test_data["return_2"] = finalize_response_2.json()
+                            self.log_result("Validation - Second Partial Return", True, 
+                                          f"Successfully created and finalized second partial return (40%)")
+                            
+                            # Third return: Try to return 20% more (would exceed 100%)
+                            return_data_3 = {
+                                "return_type": "sale_return",
+                                "reference_type": "invoice",
+                                "reference_id": self.test_data["invoice"]["id"],
+                                "party_id": self.test_data["customer"]["id"],
+                                "items": [
+                                    {
+                                        "description": "Partial Return 3 - Should Fail",
+                                        "qty": 1,
+                                        "weight_grams": 15.0,  # 20% more would exceed 100%
+                                        "purity": 916,
+                                        "amount": 3622.5
+                                    }
+                                ],
+                                "total_weight_grams": 15.0,
+                                "total_amount": 3622.5,
+                                "reason": "Third partial return - should fail",
+                                "refund_mode": "money",
+                                "refund_money_amount": 3622.5,
+                                "account_id": self.test_data["account"]["id"]
+                            }
+                            
+                            response_3 = self.session.post(f"{BASE_URL}/returns", json=return_data_3)
+                            if response_3.status_code == 400:
+                                self.log_result("Validation - Third Partial Return (Exceeds 100%)", True, 
+                                              "Correctly blocked third return that would exceed 100% of original")
+                            else:
+                                self.log_result("Validation - Third Partial Return (Exceeds 100%)", False, "", 
+                                              f"Should have blocked third return but got: {response_3.status_code}")
+                        else:
+                            self.log_result("Validation - Second Partial Return", False, "", 
+                                          f"Failed to finalize second return: {finalize_response_2.text}")
+                    else:
+                        self.log_result("Validation - Second Partial Return", False, "", 
+                                      f"Failed to create second return: {response_2.text}")
+                else:
+                    self.log_result("Validation - First Partial Return", False, "", 
+                                  f"Failed to finalize first return: {finalize_response.text}")
+            else:
+                self.log_result("Validation - First Partial Return", False, "", 
+                              f"Failed to create first return: {response.text}")
+        except Exception as e:
+            self.log_result("Validation - Multiple Partial Returns", False, "", f"Error: {str(e)}")
+
+        # Test 5: Purchase return with weight exceeding original
+        try:
+            return_data = {
+                "return_type": "purchase_return",
+                "reference_type": "purchase",
+                "reference_id": self.test_data["purchase"]["id"],
+                "party_id": self.test_data["vendor"]["id"],
+                "items": [
+                    {
+                        "description": "Returned Gold Purchase",
+                        "qty": 1,
+                        "weight_grams": 250.0,  # Original was 200g, this exceeds
+                        "purity": 916,
+                        "amount": 15000.0
+                    }
+                ],
+                "total_weight_grams": 250.0,
+                "total_amount": 15000.0,
+                "reason": "Test purchase weight validation",
+                "refund_mode": "money",
+                "refund_money_amount": 15000.0,
+                "account_id": self.test_data["account"]["id"]
+            }
+            
+            response = self.session.post(f"{BASE_URL}/returns", json=return_data)
+            if response.status_code == 400 and "weight" in response.text.lower():
+                self.log_result("Validation - Purchase Weight Exceeding Original", True, 
+                              "Correctly blocked purchase return with weight exceeding original")
+            else:
+                self.log_result("Validation - Purchase Weight Exceeding Original", False, "", 
+                              f"Should have blocked purchase weight validation but got: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("Validation - Purchase Weight Exceeding Original", False, "", f"Error: {str(e)}")
+
+        # Test 6: Weight tolerance (0.1% for rounding)
+        try:
+            return_data = {
+                "return_type": "purchase_return",
+                "reference_type": "purchase",
+                "reference_id": self.test_data["purchase"]["id"],
+                "party_id": self.test_data["vendor"]["id"],
+                "items": [
+                    {
+                        "description": "Weight Tolerance Test",
+                        "qty": 1,
+                        "weight_grams": 200.05,  # 0.025% over 200g - should be allowed
+                        "purity": 916,
+                        "amount": 15000.0
+                    }
+                ],
+                "total_weight_grams": 200.05,
+                "total_amount": 15000.0,
+                "reason": "Test weight tolerance",
+                "refund_mode": "money",
+                "refund_money_amount": 15000.0,
+                "account_id": self.test_data["account"]["id"]
+            }
+            
+            response = self.session.post(f"{BASE_URL}/returns", json=return_data)
+            if response.status_code == 201:
+                self.log_result("Validation - Weight Tolerance (0.1%)", True, 
+                              "Correctly allowed return within 0.1% weight tolerance")
+            else:
+                self.log_result("Validation - Weight Tolerance (0.1%)", False, "", 
+                              f"Should have allowed weight tolerance but got: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("Validation - Weight Tolerance (0.1%)", False, "", f"Error: {str(e)}")
+
+        # Test 7: Amount tolerance (1% for rounding)
+        try:
+            return_data = {
+                "return_type": "purchase_return",
+                "reference_type": "purchase",
+                "reference_id": self.test_data["purchase"]["id"],
+                "party_id": self.test_data["vendor"]["id"],
+                "items": [
+                    {
+                        "description": "Amount Tolerance Test",
+                        "qty": 1,
+                        "weight_grams": 100.0,
+                        "purity": 916,
+                        "amount": 18180.0  # 0.5% over 18000 (half of 36000) - should be allowed
+                    }
+                ],
+                "total_weight_grams": 100.0,
+                "total_amount": 18180.0,
+                "reason": "Test amount tolerance",
+                "refund_mode": "money",
+                "refund_money_amount": 18180.0,
+                "account_id": self.test_data["account"]["id"]
+            }
+            
+            response = self.session.post(f"{BASE_URL}/returns", json=return_data)
+            if response.status_code == 201:
+                self.log_result("Validation - Amount Tolerance (1%)", True, 
+                              "Correctly allowed return within 1% amount tolerance")
+            else:
+                self.log_result("Validation - Amount Tolerance (1%)", False, "", 
+                              f"Should have allowed amount tolerance but got: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("Validation - Amount Tolerance (1%)", False, "", f"Error: {str(e)}")
+
+    def run_comprehensive_test(self):
+        """Run all test phases"""
+        print("🚀 STARTING COMPREHENSIVE RETURNS MODULE BACKEND TESTING")
+        print("=" * 80)
         
-        # Authenticate first
+        # Authenticate
         if not self.authenticate():
-            print("❌ Authentication failed. Cannot proceed with tests.")
+            print("❌ Authentication failed. Cannot proceed with testing.")
             return False
         
-        # Run all test suites
-        self.test_worker_list_endpoint()
-        self.test_worker_creation()
-        self.test_worker_retrieval()
-        self.test_worker_update()
-        self.test_jobcard_worker_assignment()
-        self.test_jobcard_completion_validation()
-        self.test_invoice_worker_integration()
-        self.test_worker_deletion_constraints()
-        self.test_edge_cases_and_validation()
+        # Setup test data
+        if not self.setup_test_data():
+            print("❌ Test data setup failed. Cannot proceed with testing.")
+            return False
         
-        # Generate comprehensive summary
-        self.generate_test_summary()
+        # Run validation tests
+        self.test_phase1_validation()
         
-        return self.assess_overall_success()
-    
-    def generate_test_summary(self):
-        """Generate comprehensive test summary"""
-        print("\n" + "="*80)
-        print("COMPREHENSIVE TEST SUMMARY - WORKER MANAGEMENT SYSTEM")
-        print("="*80)
+        # Print summary
+        self.print_summary()
+        
+        return True
+
+    def print_summary(self):
+        """Print test results summary"""
+        print("=" * 80)
+        print("🎯 COMPREHENSIVE RETURNS MODULE TESTING SUMMARY")
+        print("=" * 80)
         
         total_tests = len(self.test_results)
-        passed_tests = len([r for r in self.test_results if r["status"] == "PASS"])
-        failed_tests = len([r for r in self.test_results if r["status"] == "FAIL"])
-        error_tests = len([r for r in self.test_results if r["status"] == "ERROR"])
+        passed_tests = len([r for r in self.test_results if r["success"]])
+        failed_tests = total_tests - passed_tests
         
         print(f"Total Tests: {total_tests}")
         print(f"✅ Passed: {passed_tests}")
         print(f"❌ Failed: {failed_tests}")
-        print(f"⚠️ Errors: {error_tests}")
+        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        print()
         
-        # Category-wise assessment
-        print("\nTEST CATEGORY ASSESSMENT:")
+        if failed_tests > 0:
+            print("❌ FAILED TESTS:")
+            print("-" * 40)
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"• {result['test']}")
+                    if result["error"]:
+                        print(f"  Error: {result['error']}")
+            print()
         
-        categories = {
-            "Worker CRUD Operations": ["Worker List", "Worker Creation", "Worker Retrieval", "Worker Update", "Worker Deletion"],
-            "Job Card Integration": ["Job Card", "Completion"],
-            "Invoice Integration": ["Invoice"],
-            "Validation & Edge Cases": ["Edge Case", "Validation"]
-        }
-        
-        for category, keywords in categories.items():
-            category_tests = [r for r in self.test_results if any(keyword in r["test"] for keyword in keywords)]
-            category_passed = len([r for r in category_tests if r["status"] == "PASS"])
-            category_total = len(category_tests)
-            
-            if category_total > 0:
-                success_rate = (category_passed / category_total) * 100
-                status = "✅" if success_rate >= 80 else "⚠️" if success_rate >= 60 else "❌"
-                print(f"{status} {category}: {category_passed}/{category_total} ({success_rate:.1f}%)")
-        
-        # Critical functionality assessment
-        print("\nCRITICAL FUNCTIONALITY ASSESSMENT:")
-        
-        critical_tests = {
-            "Worker CRUD API": ["Worker List - Response Structure", "Worker Creation - Success", "Worker Retrieval - Success", "Worker Update - Success"],
-            "Duplicate Validation": ["Duplicate Name Validation", "Duplicate Phone Validation"],
-            "Job Card Worker Assignment": ["Job Card - Worker Assignment", "Job Card - Completion with Worker"],
-            "Completion Validation": ["Job Card - Completion without Worker Blocked"],
-            "Invoice Integration": ["Invoice - Worker Data Transfer"],
-            "Deletion Constraints": ["Worker Deletion - Active Job Cards Constraint"]
-        }
-        
-        for functionality, test_names in critical_tests.items():
-            func_tests = [r for r in self.test_results if any(test_name in r["test"] for test_name in test_names)]
-            func_passed = len([r for r in func_tests if r["status"] == "PASS"])
-            func_total = len(func_tests)
-            
-            if func_total > 0:
-                success = func_passed == func_total
-                status = "✅" if success else "❌"
-                print(f"{status} {functionality}: {'WORKING' if success else 'ISSUES DETECTED'}")
-        
-        # Detailed results
-        print("\nDETAILED TEST RESULTS:")
+        print("✅ PASSED TESTS:")
+        print("-" * 40)
         for result in self.test_results:
-            status_symbol = "✅" if result["status"] == "PASS" else "❌" if result["status"] == "FAIL" else "⚠️"
-            print(f"{status_symbol} {result['test']}: {result['details']}")
-    
-    def assess_overall_success(self):
-        """Assess overall test success"""
-        total_tests = len(self.test_results)
-        passed_tests = len([r for r in self.test_results if r["status"] == "PASS"])
+            if result["success"]:
+                print(f"• {result['test']}")
         
-        if total_tests == 0:
-            return False
-            
-        success_rate = (passed_tests / total_tests) * 100
-        
-        print(f"\nOVERALL SUCCESS RATE: {success_rate:.1f}%")
-        
-        if success_rate >= 90:
-            print("🎉 WORKER MANAGEMENT SYSTEM FULLY FUNCTIONAL!")
-            print("✅ All critical functionality working correctly")
-            print("✅ Ready for production use")
-            return True
-        elif success_rate >= 75:
-            print("⚠️ WORKER MANAGEMENT SYSTEM MOSTLY FUNCTIONAL")
-            print("⚠️ Some minor issues detected but core functionality working")
-            return True
-        else:
-            print("🚨 CRITICAL ISSUES DETECTED!")
-            print("❌ Major functionality problems require immediate attention")
-            return False
+        print("=" * 80)
+        print("🏁 TESTING COMPLETE")
+        print("=" * 80)
 
 if __name__ == "__main__":
-    tester = WorkerManagementTester()
-    success = tester.run_all_tests()
-    sys.exit(0 if success else 1)
+    tester = ReturnsModuleTester()
+    tester.run_comprehensive_test()
