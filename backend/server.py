@@ -981,9 +981,9 @@ class ReturnItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     description: str
     qty: int
-    weight_grams: float  # 3 decimal precision
+    weight_grams: float  # Input as float, stored as Decimal128 with 3 decimal precision
     purity: int
-    amount: float = 0.0  # 2 decimal precision - calculated value for this item
+    amount: float = 0.0  # Input as float, stored as Decimal128 with 2 decimal precision
 
 class Return(BaseModel):
     """
