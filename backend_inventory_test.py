@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 # Configuration
-BASE_URL = "https://axios-reference-fix.preview.emergentagent.com/api"
+BASE_URL = "https://refundmaster.preview.emergentagent.com/api"
 USERNAME = "admin@goldshop.com"
 PASSWORD = "admin123"
 

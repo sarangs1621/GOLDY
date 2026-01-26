@@ -12,7 +12,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://axios-reference-fix.preview.emergentagent.com/api"
+BASE_URL = "https://refundmaster.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 

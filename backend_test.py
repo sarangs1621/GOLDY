@@ -45,7 +45,7 @@ import uuid
 import time
 
 # Configuration
-BASE_URL = "https://axios-reference-fix.preview.emergentagent.com/api"
+BASE_URL = "https://refundmaster.preview.emergentagent.com/api"
 USERNAME = "admin"
 PASSWORD = "admin123"
 
