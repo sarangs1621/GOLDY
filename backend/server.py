@@ -8906,48 +8906,59 @@ async def finalize_return(
 ):
     """
     Finalize a return (apply stock movements, refunds, and update balances).
-    This is the core business logic for processing returns.
-    Uses status='processing' lock to prevent concurrent finalization and ensure atomicity.
+    Uses MongoDB multi-document transactions for true atomicity.
+    All operations either succeed together or fail together with automatic rollback.
     """
-    try:
-        # Step 1: Fetch and lock return (atomic check-and-set)
-        return_doc = await db.returns.find_one({"id": return_id, "is_deleted": False})
-        if not return_doc:
-            raise HTTPException(status_code=404, detail="Return not found")
-        
-        current_status = return_doc.get('status')
-        
-        if current_status == 'finalized':
-            raise HTTPException(status_code=400, detail="Return is already finalized")
-        
-        if current_status == 'processing':
-            raise HTTPException(status_code=409, detail="Return is currently being processed. Please try again in a moment.")
-        
-        # Atomic lock: Set status to 'processing'
-        lock_result = await db.returns.update_one(
-            {"id": return_id, "status": "draft", "is_deleted": False},
-            {"$set": {"status": "processing", "processing_started_at": datetime.now(timezone.utc)}}
-        )
-        
-        if lock_result.modified_count == 0:
-            raise HTTPException(status_code=409, detail="Return is already being processed or was modified. Please refresh and try again.")
-        
-        # Now we have exclusive lock - proceed with finalization
-        return_type = return_doc.get('return_type')
-        reference_type = return_doc.get('reference_type')
-        reference_id = return_doc.get('reference_id')
-        party_id = return_doc.get('party_id')
-        refund_mode = return_doc.get('refund_mode')
-        refund_money_amount = return_doc.get('refund_money_amount', 0)
-        refund_gold_grams = return_doc.get('refund_gold_grams', 0)
-        
-        stock_movement_ids = []
-        transaction_id = None
-        gold_ledger_id = None
-        
-        # Track all operations for rollback if needed
-        created_stock_movements = []
-        updated_inventory_headers = []
+    # Pre-transaction validation
+    return_doc = await db.returns.find_one({"id": return_id, "is_deleted": False})
+    if not return_doc:
+        raise HTTPException(status_code=404, detail="Return not found")
+    
+    current_status = return_doc.get('status')
+    
+    if current_status == 'finalized':
+        raise HTTPException(status_code=400, detail="Return is already finalized")
+    
+    if current_status == 'processing':
+        raise HTTPException(status_code=409, detail="Return is currently being processed. Please try again in a moment.")
+    
+    # MongoDB Transaction: All operations are atomic
+    async with await client.start_session() as session:
+        async with session.start_transaction():
+            try:
+                # Step 1: Atomic lock - Set status to 'processing'
+                lock_result = await db.returns.update_one(
+                    {"id": return_id, "status": "draft", "is_deleted": False},
+                    {"$set": {"status": "processing", "processing_started_at": datetime.now(timezone.utc)}},
+                    session=session
+                )
+                
+                if lock_result.modified_count == 0:
+                    raise HTTPException(status_code=409, detail="Return is already being processed or was modified.")
+                
+                # Get return data with Decimal handling
+                return_type = return_doc.get('return_type')
+                reference_type = return_doc.get('reference_type')
+                reference_id = return_doc.get('reference_id')
+                party_id = return_doc.get('party_id')
+                refund_mode = return_doc.get('refund_mode')
+                
+                # Convert Decimal128 to Decimal for arithmetic
+                refund_money_amount = return_doc.get('refund_money_amount', 0)
+                if isinstance(refund_money_amount, Decimal128):
+                    refund_money_amount = float(refund_money_amount.to_decimal())
+                else:
+                    refund_money_amount = float(refund_money_amount)
+                
+                refund_gold_grams = return_doc.get('refund_gold_grams', 0)
+                if isinstance(refund_gold_grams, Decimal128):
+                    refund_gold_grams = float(refund_gold_grams.to_decimal())
+                else:
+                    refund_gold_grams = float(refund_gold_grams)
+                
+                stock_movement_ids = []
+                transaction_id = None
+                gold_ledger_id = None
         created_transaction = None
         created_gold_ledger = None
         updated_reference = None
