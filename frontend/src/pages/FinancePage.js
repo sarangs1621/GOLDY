@@ -54,7 +54,7 @@ export default function FinancePageEnhanced() {
   
   const [accountForm, setAccountForm] = useState({
     name: '',
-    account_type: 'cash',
+    account_type: 'asset',
     opening_balance: 0
   });
   
@@ -98,7 +98,12 @@ export default function FinancePageEnhanced() {
       });
     } catch (error) {
       console.error('Failed to load data:', error);
-      toast.error('Failed to load financial data');
+      // Only show toast for actual server errors (not 404 or authentication errors)
+      // 404 is expected when there's no data yet
+      const status = error.response?.status;
+      if (status && status !== 401 && status !== 403 && status !== 404 && status >= 500) {
+        toast.error('Failed to load financial data');
+      }
       // Set safe defaults
       setAccounts([]);
       setTransactions([]);
@@ -125,13 +130,16 @@ export default function FinancePageEnhanced() {
         opening_balance: parseFloat(accountForm.opening_balance),
         current_balance: parseFloat(accountForm.opening_balance)
       };
-      await API.post(`/api/accounts`, data);
+      console.log('Creating account with data:', data);
+      const response = await API.post(`/api/accounts`, data);
+      console.log('Account created response:', response);
       toast.success('Account created successfully');
       setShowAccountDialog(false);
-      setAccountForm({ name: '', account_type: 'cash', opening_balance: 0 });
-      loadData();
+      setAccountForm({ name: '', account_type: 'asset', opening_balance: 0 });
+      await loadData(); // Wait for data to reload
     } catch (error) {
-      toast.error('Failed to create account');
+      console.error('Failed to create account:', error);
+      toast.error(error.response?.data?.detail || 'Failed to create account');
     }
   };
 
@@ -319,33 +327,41 @@ export default function FinancePageEnhanced() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {accounts.map((acc) => (
-                <div key={acc.id} className="p-4 border rounded-lg hover:border-accent transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{acc.name}</span>
+            {accounts.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <WalletIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No accounts found</p>
+                <p className="text-sm mt-1">Create your first account to get started</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {accounts.map((acc) => (
+                  <div key={acc.id} className="p-4 border rounded-lg hover:border-accent transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{acc.name}</span>
+                        {acc.account_type === 'cash' || acc.account_type === 'petty' ? (
+                          <Banknote className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Building2 className="w-4 h-4 text-purple-600" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-2xl font-mono font-semibold">
+                      {formatCurrency(acc.current_balance)}
+                      <span className="text-sm ml-1">OMR</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 capitalize flex items-center gap-1">
                       {acc.account_type === 'cash' || acc.account_type === 'petty' ? (
-                        <Banknote className="w-4 h-4 text-green-600" />
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Cash</span>
                       ) : (
-                        <Building2 className="w-4 h-4 text-purple-600" />
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">{acc.account_type}</span>
                       )}
                     </div>
                   </div>
-                  <div className="text-2xl font-mono font-semibold">
-                    {formatCurrency(acc.current_balance)}
-                    <span className="text-sm ml-1">OMR</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1 capitalize flex items-center gap-1">
-                    {acc.account_type === 'cash' || acc.account_type === 'petty' ? (
-                      <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Cash</span>
-                    ) : (
-                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">Bank</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -579,14 +595,17 @@ export default function FinancePageEnhanced() {
               />
             </div>
             <div>
-              <Label>Type</Label>
+              <Label>Account Type</Label>
               <Select value={accountForm.account_type} onValueChange={(val) => setAccountForm({...accountForm, account_type: val})}>
                 <SelectTrigger data-testid="account-type-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="bank">Bank</SelectItem>
+                  <SelectItem value="asset">Asset</SelectItem>
+                  <SelectItem value="income">Income</SelectItem>
+                  <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="liability">Liability</SelectItem>
+                  <SelectItem value="equity">Equity</SelectItem>
                 </SelectContent>
               </Select>
             </div>

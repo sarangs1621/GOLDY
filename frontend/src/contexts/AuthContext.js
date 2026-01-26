@@ -5,6 +5,21 @@ const AuthContext = createContext(null);
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:5000';
 
 
+// Helper function to get CSRF token from cookies
+const getCsrfToken = () => {
+  const name = 'csrf_token=';
+  const decodedCookie = decodeURIComponent(document.cookie);
+  const cookieArray = decodedCookie.split(';');
+  
+  for (let i = 0; i < cookieArray.length; i++) {
+    let cookie = cookieArray[i].trim();
+    if (cookie.indexOf(name) === 0) {
+      return cookie.substring(name.length, cookie.length);
+    }
+  }
+  return null;
+};
+
 // Create ONE axios instance with baseURL (WITHOUT /api suffix)
 const API = axios.create({
   baseURL: BACKEND_URL,
@@ -15,12 +30,31 @@ const API = axios.create({
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    console.log('🔍 API Request Interceptor - Token present:', !!token);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('✅ Authorization header added');
+    } else {
+      console.warn('⚠️ No token found in localStorage');
     }
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to log errors
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('❌ API Error Response:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+      code: error.code
+    });
     return Promise.reject(error);
   }
 );

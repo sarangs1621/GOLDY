@@ -1,7 +1,6 @@
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Response, Request, Cookie
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -163,7 +162,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "img-src 'self' data: https: blob:",
             "font-src 'self' data: https://fonts.gstatic.com",
-            "connect-src 'self'",
+            "connect-src 'self' http://localhost:3000 http://localhost:8001 http://127.0.0.1:3000 http://127.0.0.1:8001",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
@@ -4674,10 +4673,16 @@ async def add_payment_to_invoice(
     For walk-in customers: Recommend full payment but allow partial
     For saved customers: Allow partial payments (outstanding tracked in ledger)
     """
-    # Fetch invoice first to determine payment mode requirements
-    existing = await db.invoices.find_one({"id": invoice_id, "is_deleted": False})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Invoice not found")
+    try:
+        # Fetch invoice first to determine payment mode requirements
+        existing = await db.invoices.find_one({"id": invoice_id, "is_deleted": False})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching invoice {invoice_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
     invoice = Invoice(**decimal_to_float(existing))
     
@@ -5092,9 +5097,16 @@ async def add_payment_to_invoice(
             )
         
         # Fetch account
-        account = await db.accounts.find_one({"id": payment_data['account_id'], "is_deleted": False}, {"_id": 0})
-        if not account:
-            raise HTTPException(status_code=404, detail="Account not found")
+        try:
+            account = await db.accounts.find_one({"id": payment_data['account_id'], "is_deleted": False}, {"_id": 0})
+            if not account:
+                logger.error(f"Account not found: {payment_data['account_id']}")
+                raise HTTPException(status_code=404, detail=f"Account with ID {payment_data['account_id']} not found")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching account: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Database error while fetching account: {str(e)}")
         
         # Determine party details based on customer type
         party_id = None
@@ -9591,10 +9603,11 @@ app.include_router(api_router)
 # app.add_middleware(HTTPSRedirectMiddleware)  <-- Comment this out
 
 # 2. Security Headers
-app.add_middleware(SecurityHeadersMiddleware)
+# app.add_middleware(SecurityHeadersMiddleware)
 
 # 3. Input Sanitization
-app.add_middleware(InputSanitizationMiddleware)
+# temporarily disabling the Input Sanitization middleware
+# app.add_middleware(InputSanitizationMiddleware)
 
 # 4. CSRF Protection
 # (You can comment this out if you still have issues, but moving it 'above' CORS usually fixes it)
@@ -9604,17 +9617,23 @@ app.add_middleware(InputSanitizationMiddleware)
 # This ensures CORS headers are added to ALL responses, even 403 errors.
 from fastapi.middleware.cors import CORSMiddleware
 
+# Configure CORS origins from environment variable
+cors_origins_str = os.environ.get('CORS_ORIGINS', 'http://localhost:3000')
+cors_origins = [origin.strip() for origin in cors_origins_str.split(',')]
+
+# Add common localhost variations if not already present
+common_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8001", "http://127.0.0.1:8001"]
+for origin in common_origins:
+    if origin not in cors_origins:
+        cors_origins.append(origin)
+
 app.add_middleware(
     CORSMiddleware,
-    # Add your network IP here
-    allow_origins=[
-        "http://localhost:3000", 
-        "http://127.0.0.1:3000", 
-        "http://192.168.1.21:3000"
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
