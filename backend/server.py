@@ -9124,10 +9124,116 @@ async def finalize_return(
             }
         }
     
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        # Rollback: Reset status to draft if processing lock was acquired
+        try:
+            await db.returns.update_one(
+                {"id": return_id, "status": "processing"},
+                {"$set": {"status": "draft"}, "$unset": {"processing_started_at": ""}}
+            )
+        except:
+            pass  # Best effort rollback
+        raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error finalizing return: {str(e)}")
+        # CRITICAL ROLLBACK - Finalization failed mid-process, must revert all changes
+        try:
+            # 1. Rollback return status to draft
+            await db.returns.update_one(
+                {"id": return_id},
+                {
+                    "$set": {"status": "draft"},
+                    "$unset": {
+                        "processing_started_at": "",
+                        "stock_movement_ids": "",
+                        "transaction_id": "",
+                        "gold_ledger_id": ""
+                    }
+                }
+            )
+            
+            # 2. Delete any stock movements created
+            if stock_movement_ids:
+                for movement_id in stock_movement_ids:
+                    await db.stock_movements.delete_one({"id": movement_id})
+            
+            # 3. Delete transaction if created
+            if transaction_id:
+                transaction = await db.transactions.find_one({"id": transaction_id})
+                if transaction:
+                    # Revert account balance
+                    account_id = transaction.get('account_id')
+                    amount = transaction.get('amount', 0)
+                    transaction_type = transaction.get('transaction_type')
+                    if account_id:
+                        # Reverse the balance change
+                        balance_change = amount if transaction_type == 'debit' else -amount
+                        await db.accounts.update_one(
+                            {"id": account_id},
+                            {"$inc": {"current_balance": balance_change}}
+                        )
+                    # Delete transaction
+                    await db.transactions.delete_one({"id": transaction_id})
+            
+            # 4. Delete gold ledger entry if created
+            if gold_ledger_id:
+                await db.gold_ledger.delete_one({"id": gold_ledger_id})
+            
+            # 5. Revert inventory header changes
+            return_doc = await db.returns.find_one({"id": return_id})
+            if return_doc:
+                return_type = return_doc.get('return_type')
+                for item in return_doc.get('items', []):
+                    if item.get('weight_grams', 0) > 0:
+                        # Reverse the inventory change
+                        qty_change = item.get('qty', 0)
+                        weight_change = round(item.get('weight_grams'), 3)
+                        
+                        if return_type == 'sale_return':
+                            # We added stock, now subtract it back
+                            await db.inventory_headers.update_one(
+                                {"name": item.get('description')},
+                                {
+                                    "$inc": {
+                                        "current_qty": -qty_change,
+                                        "current_weight": -weight_change
+                                    }
+                                }
+                            )
+                        else:  # purchase_return
+                            # We removed stock, now add it back
+                            await db.inventory_headers.update_one(
+                                {"name": item.get('description')},
+                                {
+                                    "$inc": {
+                                        "current_qty": qty_change,
+                                        "current_weight": weight_change
+                                    }
+                                }
+                            )
+            
+            # 6. Create audit log for rollback
+            await create_audit_log(
+                user_id=current_user.id,
+                user_name=current_user.name,
+                module="returns",
+                record_id=return_id,
+                action="finalize_rollback",
+                changes={
+                    "error": str(e),
+                    "rollback_completed": True,
+                    "stock_movements_deleted": len(stock_movement_ids),
+                    "transaction_deleted": transaction_id is not None,
+                    "gold_ledger_deleted": gold_ledger_id is not None
+                }
+            )
+        except Exception as rollback_error:
+            # Even rollback failed - log critical error
+            print(f"CRITICAL: Rollback failed for return {return_id}: {str(rollback_error)}")
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error finalizing return: {str(e)}. Changes have been rolled back."
+        )
 
 
 @api_router.delete("/returns/{return_id}")
