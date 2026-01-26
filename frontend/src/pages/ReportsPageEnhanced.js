@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { toast } from 'sonner';
 import { 
   Download, FileSpreadsheet, TrendingUp, DollarSign, Package, 
-  Filter, Eye, Search, Calendar, RefreshCw, AlertCircle, ArrowUpCircle, ArrowDownCircle, Wallet, Building2
+  Filter, Eye, Search, Calendar, RefreshCw, AlertCircle, ArrowUpCircle, ArrowDownCircle, Wallet, Building2, RotateCcw, TrendingDown, Banknote
 } from 'lucide-react';
 
 export default function ReportsPageEnhanced() {
@@ -52,6 +52,19 @@ export default function ReportsPageEnhanced() {
   // Purchase History specific state
   const [purchaseSearchQuery, setPurchaseSearchQuery] = useState('');
   
+  // Returns specific state
+  const [returns, setReturns] = useState([]);
+  const [returnsSummary, setReturnsSummary] = useState(null);
+  const [returnsFilters, setReturnsFilters] = useState({
+    date_from: '',
+    date_to: '',
+    return_type: 'all',
+    status: 'all',
+    refund_mode: 'all',
+    party_id: 'all',
+    search: ''
+  });
+  
   // Detail view states
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [selectedParty, setSelectedParty] = useState(null);
@@ -83,6 +96,9 @@ export default function ReportsPageEnhanced() {
       loadSalesHistoryReport();
     } else if (activeTab === 'purchase-history') {
       loadPurchaseHistoryReport();
+    } else if (activeTab === 'returns') {
+      loadReturnsReport();
+      loadReturnsSummary();
     }
   }, [datePreset, startDate, endDate, selectedPartyId, sortBy]);
 
@@ -294,6 +310,46 @@ export default function ReportsPageEnhanced() {
     }
   };
 
+  const loadReturnsReport = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (returnsFilters.date_from) params.date_from = returnsFilters.date_from;
+      if (returnsFilters.date_to) params.date_to = returnsFilters.date_to;
+      if (returnsFilters.return_type && returnsFilters.return_type !== 'all') params.return_type = returnsFilters.return_type;
+      if (returnsFilters.status && returnsFilters.status !== 'all') params.status = returnsFilters.status;
+      if (returnsFilters.refund_mode && returnsFilters.refund_mode !== 'all') params.refund_mode = returnsFilters.refund_mode;
+      if (returnsFilters.party_id && returnsFilters.party_id !== 'all') params.party_id = returnsFilters.party_id;
+      if (returnsFilters.search) params.search = returnsFilters.search;
+      
+      const response = await API.get(`/api/returns`, { params });
+      setReturns(response.data.items || response.data || []);
+    } catch (error) {
+      toast.error('Failed to load returns report');
+      setReturns([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadReturnsSummary = async () => {
+    try {
+      const params = {};
+      if (returnsFilters.date_from) params.date_from = returnsFilters.date_from;
+      if (returnsFilters.date_to) params.date_to = returnsFilters.date_to;
+      if (returnsFilters.return_type && returnsFilters.return_type !== 'all') params.return_type = returnsFilters.return_type;
+      if (returnsFilters.refund_mode && returnsFilters.refund_mode !== 'all') params.refund_mode = returnsFilters.refund_mode;
+      if (returnsFilters.party_id && returnsFilters.party_id !== 'all') params.party_id = returnsFilters.party_id;
+      if (returnsFilters.search) params.search = returnsFilters.search;
+      
+      const response = await API.get(`/api/reports/returns-summary`, { params });
+      setReturnsSummary(response.data);
+    } catch (error) {
+      console.error('Failed to load returns summary:', error);
+      setReturnsSummary(null);
+    }
+  };
+
 
 
   const exportPDF = async (reportType) => {
@@ -308,6 +364,17 @@ export default function ReportsPageEnhanced() {
       if (movementType && movementType !== 'all') params.movement_type = movementType;
       if (category && category !== 'all') params.category = category;
       if (transactionType && transactionType !== 'all') params.transaction_type = transactionType;
+      
+      // Special handling for returns
+      if (reportType === 'returns') {
+        if (returnsFilters.date_from) params.date_from = returnsFilters.date_from;
+        if (returnsFilters.date_to) params.date_to = returnsFilters.date_to;
+        if (returnsFilters.return_type && returnsFilters.return_type !== 'all') params.return_type = returnsFilters.return_type;
+        if (returnsFilters.status && returnsFilters.status !== 'all') params.status = returnsFilters.status;
+        if (returnsFilters.refund_mode && returnsFilters.refund_mode !== 'all') params.refund_mode = returnsFilters.refund_mode;
+        if (returnsFilters.party_id && returnsFilters.party_id !== 'all') params.party_id = returnsFilters.party_id;
+        if (returnsFilters.search) params.search = returnsFilters.search;
+      }
       
       const response = await API.get(`/api/reports/${reportType}-pdf`, {
         params,
@@ -354,6 +421,17 @@ export default function ReportsPageEnhanced() {
         if (endDate) params.date_to = endDate;
         if (selectedPartyId && selectedPartyId !== 'all') params.vendor_id = selectedPartyId;
         if (purchaseSearchQuery) params.search = purchaseSearchQuery;
+      }
+      
+      // Special handling for returns
+      if (reportType === 'returns') {
+        if (returnsFilters.date_from) params.date_from = returnsFilters.date_from;
+        if (returnsFilters.date_to) params.date_to = returnsFilters.date_to;
+        if (returnsFilters.return_type && returnsFilters.return_type !== 'all') params.return_type = returnsFilters.return_type;
+        if (returnsFilters.status && returnsFilters.status !== 'all') params.status = returnsFilters.status;
+        if (returnsFilters.refund_mode && returnsFilters.refund_mode !== 'all') params.refund_mode = returnsFilters.refund_mode;
+        if (returnsFilters.party_id && returnsFilters.party_id !== 'all') params.party_id = returnsFilters.party_id;
+        if (returnsFilters.search) params.search = returnsFilters.search;
       }
       
       const response = await API.get(`/api/reports/${reportType}-export`, {
@@ -510,12 +588,16 @@ export default function ReportsPageEnhanced() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="outstanding">Outstanding</TabsTrigger>
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="sales-history">Sales History</TabsTrigger>
           <TabsTrigger value="purchase-history">Purchase History</TabsTrigger>
+          <TabsTrigger value="returns" data-testid="returns-tab">
+            <RotateCcw className="h-4 w-4 mr-1" />
+            Returns
+          </TabsTrigger>
           <TabsTrigger value="parties">Parties</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
@@ -1435,6 +1517,315 @@ export default function ReportsPageEnhanced() {
                 </CardContent>
               </Card>
             </>
+          )}
+        </TabsContent>
+
+        {/* RETURNS TAB */}
+        <TabsContent value="returns" data-testid="returns-content" className="space-y-6">
+          {/* Summary Cards */}
+          {returnsSummary && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card data-testid="total-returns-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Total Returns</CardTitle>
+                  <RotateCcw className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{returnsSummary.total_returns_count}</div>
+                  <p className="text-xs text-gray-500 mt-1">Finalized returns only</p>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="sales-returns-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Sales Returns</CardTitle>
+                  <TrendingDown className="h-4 w-4 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">{formatCurrency(returnsSummary.sales_returns_amount)}</div>
+                  <p className="text-xs text-gray-500 mt-1">Revenue reduction</p>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="purchase-returns-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Purchase Returns</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{formatCurrency(returnsSummary.purchase_returns_amount)}</div>
+                  <p className="text-xs text-gray-500 mt-1">Expense reduction</p>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="total-refund-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Total Refund</CardTitle>
+                  <Wallet className="h-4 w-4 text-purple-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-purple-600">{formatCurrency(returnsSummary.total_refund_amount)}</div>
+                  <p className="text-xs text-gray-500 mt-1">All returns combined</p>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="money-refunded-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Money Refunded</CardTitle>
+                  <Banknote className="h-4 w-4 text-orange-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">{formatCurrency(returnsSummary.money_refunded)}</div>
+                  <p className="text-xs text-gray-500 mt-1">Cash/bank impact</p>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="gold-refunded-card">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium">Gold Refunded</CardTitle>
+                  <Package className="h-4 w-4 text-yellow-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-yellow-600">{formatWeight(returnsSummary.gold_refunded)}g</div>
+                  <p className="text-xs text-gray-500 mt-1">Inventory impact</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Returns Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Returns Filters
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm">Date From</Label>
+                  <Input
+                    type="date"
+                    value={returnsFilters.date_from}
+                    onChange={(e) => setReturnsFilters({...returnsFilters, date_from: e.target.value})}
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <Label className="text-sm">Date To</Label>
+                  <Input
+                    type="date"
+                    value={returnsFilters.date_to}
+                    onChange={(e) => setReturnsFilters({...returnsFilters, date_to: e.target.value})}
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <Label className="text-sm">Return Type</Label>
+                  <Select value={returnsFilters.return_type} onValueChange={(val) => setReturnsFilters({...returnsFilters, return_type: val})}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="sale_return">Sales Return</SelectItem>
+                      <SelectItem value="purchase_return">Purchase Return</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label className="text-sm">Status</Label>
+                  <Select value={returnsFilters.status} onValueChange={(val) => setReturnsFilters({...returnsFilters, status: val})}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="finalized">Finalized</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label className="text-sm">Refund Mode</Label>
+                  <Select value={returnsFilters.refund_mode} onValueChange={(val) => setReturnsFilters({...returnsFilters, refund_mode: val})}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="All Modes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Modes</SelectItem>
+                      <SelectItem value="money">Money</SelectItem>
+                      <SelectItem value="gold">Gold</SelectItem>
+                      <SelectItem value="mixed">Mixed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label className="text-sm">Party</Label>
+                  <Select value={returnsFilters.party_id} onValueChange={(val) => setReturnsFilters({...returnsFilters, party_id: val})}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="All Parties" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Parties</SelectItem>
+                      {parties.map(party => (
+                        <SelectItem key={party.id} value={party.id}>{party.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="md:col-span-3">
+                  <Label className="text-sm">Search</Label>
+                  <Input
+                    type="text"
+                    placeholder="Return #, Party Name, Reason..."
+                    value={returnsFilters.search}
+                    onChange={(e) => setReturnsFilters({...returnsFilters, search: e.target.value})}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mt-4">
+                <Button onClick={() => { loadReturnsReport(); loadReturnsSummary(); }}>
+                  <Search className="h-4 w-4 mr-2" />
+                  Load Report
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setReturnsFilters({
+                      date_from: '',
+                      date_to: '',
+                      return_type: 'all',
+                      status: 'all',
+                      refund_mode: 'all',
+                      party_id: 'all',
+                      search: ''
+                    });
+                  }}
+                >
+                  Clear Filters
+                </Button>
+                <Button variant="outline" onClick={() => exportExcel('returns')}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export Excel
+                </Button>
+                <Button variant="outline" onClick={() => exportPDF('returns')}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Returns Table */}
+          {loading && (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+              <p className="mt-2 text-gray-500">Loading returns report...</p>
+            </div>
+          )}
+
+          {!loading && returns && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Returns Details ({returns.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table data-testid="returns-table">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Return #</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Party</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Refund Mode</TableHead>
+                        <TableHead className="text-right">Amount (OMR)</TableHead>
+                        <TableHead className="text-right">Gold (g)</TableHead>
+                        <TableHead>Invoice/Purchase #</TableHead>
+                        <TableHead>Payment Mode</TableHead>
+                        <TableHead>Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {returns.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={11} className="text-center py-8 text-gray-500">
+                            No returns found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        returns.map((ret) => (
+                          <TableRow key={ret.id}>
+                            <TableCell className="font-mono text-sm">{ret.return_number}</TableCell>
+                            <TableCell className="text-sm">{ret.date ? new Date(ret.date).toLocaleDateString() : '-'}</TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                ret.return_type === 'sale_return' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-purple-100 text-purple-800'
+                              }`}>
+                                {ret.return_type === 'sale_return' ? 'Sales' : 'Purchase'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm">{ret.party_name || '-'}</TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                ret.status === 'draft' 
+                                  ? 'bg-yellow-100 text-yellow-800' 
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {ret.status}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                ret.refund_mode === 'money' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : ret.refund_mode === 'gold'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {ret.refund_mode}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {ret.refund_mode === 'money' || ret.refund_mode === 'mixed' 
+                                ? formatCurrency(ret.refund_money_amount) 
+                                : '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {ret.refund_mode === 'gold' || ret.refund_mode === 'mixed' 
+                                ? formatWeight(ret.refund_gold_grams) 
+                                : '-'}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {ret.reference_number || ret.reference_id?.substring(0, 8) || '-'}
+                            </TableCell>
+                            <TableCell className="text-sm capitalize">
+                              {ret.payment_mode ? ret.payment_mode.replace('_', ' ') : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm max-w-xs truncate">
+                              {ret.reason || ret.notes || '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
