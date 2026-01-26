@@ -8305,6 +8305,441 @@ async def export_purchase_history(
     )
 
 
+# ============================================================================
+# RETURNS REPORT ENDPOINTS
+# ============================================================================
+
+@api_router.get("/reports/returns-summary")
+async def get_returns_summary_report(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    return_type: Optional[str] = None,
+    status: Optional[str] = None,
+    refund_mode: Optional[str] = None,
+    party_id: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(require_permission('reports.view'))
+):
+    """
+    Get returns summary report with filters.
+    
+    Summary includes:
+    - total_returns_count: Total number of finalized returns
+    - sales_returns_amount: Total amount of sales returns (OMR)
+    - purchase_returns_amount: Total amount of purchase returns (OMR)
+    - total_refund_amount: Total refund amount across all returns (OMR)
+    - money_refunded: Total money refunded (OMR)
+    - gold_refunded: Total gold weight refunded (grams)
+    
+    Note: Only FINALIZED returns are included in financial totals.
+    Draft returns are excluded from metrics.
+    """
+    # Build query - only finalized returns for summary
+    query = {
+        "is_deleted": False,
+        "status": "finalized"  # Only finalized returns count in financial totals
+    }
+    
+    # Date filters
+    if date_from:
+        query['date'] = {"$gte": datetime.fromisoformat(date_from)}
+    if date_to:
+        end_dt = datetime.fromisoformat(date_to)
+        if 'date' in query:
+            query['date']['$lte'] = end_dt
+        else:
+            query['date'] = {"$lte": end_dt}
+    
+    # Return type filter
+    if return_type and return_type != 'all':
+        query['return_type'] = return_type
+    
+    # Refund mode filter
+    if refund_mode and refund_mode != 'all':
+        query['refund_mode'] = refund_mode
+    
+    # Party filter
+    if party_id and party_id != 'all':
+        query['party_id'] = party_id
+    
+    # Get returns
+    returns = await db.returns.find(query, {"_id": 0}).to_list(10000)
+    
+    # Calculate summary metrics
+    total_returns_count = 0
+    sales_returns_amount = 0.0
+    purchase_returns_amount = 0.0
+    total_refund_amount = 0.0
+    money_refunded = 0.0
+    gold_refunded = 0.0
+    
+    for ret in returns:
+        # Apply search filter if provided
+        if search:
+            search_lower = search.lower()
+            party_name = ret.get('party_name', '').lower()
+            return_number = ret.get('return_number', '').lower()
+            reason = ret.get('reason', '').lower()
+            
+            if not (search_lower in party_name or 
+                    search_lower in return_number or 
+                    search_lower in reason):
+                continue  # Skip this return if search doesn't match
+        
+        total_returns_count += 1
+        
+        # Get total_amount (handle Decimal128)
+        total_amt = ret.get('total_amount', 0)
+        if isinstance(total_amt, Decimal128):
+            total_amt = float(total_amt.to_decimal())
+        
+        # Categorize by return type
+        if ret.get('return_type') == 'sale_return':
+            sales_returns_amount += total_amt
+        elif ret.get('return_type') == 'purchase_return':
+            purchase_returns_amount += total_amt
+        
+        # Total refund amount (same as total_amount)
+        total_refund_amount += total_amt
+        
+        # Money refunded
+        refund_money = ret.get('refund_money_amount', 0)
+        if isinstance(refund_money, Decimal128):
+            refund_money = float(refund_money.to_decimal())
+        money_refunded += refund_money
+        
+        # Gold refunded
+        refund_gold = ret.get('refund_gold_grams', 0)
+        if isinstance(refund_gold, Decimal128):
+            refund_gold = float(refund_gold.to_decimal())
+        gold_refunded += refund_gold
+    
+    return {
+        "total_returns_count": total_returns_count,
+        "sales_returns_amount": round(sales_returns_amount, 2),
+        "purchase_returns_amount": round(purchase_returns_amount, 2),
+        "total_refund_amount": round(total_refund_amount, 2),
+        "money_refunded": round(money_refunded, 2),
+        "gold_refunded": round(gold_refunded, 3)
+    }
+
+
+@api_router.get("/reports/returns-export")
+async def export_returns_report(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    return_type: Optional[str] = None,
+    status: Optional[str] = None,
+    refund_mode: Optional[str] = None,
+    party_id: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(require_permission('reports.view'))
+):
+    """Export returns report as Excel file with applied filters"""
+    from fastapi.responses import StreamingResponse
+    from io import BytesIO
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    
+    # Build query
+    query = {"is_deleted": False}
+    
+    # Date filters
+    if date_from:
+        query['date'] = {"$gte": datetime.fromisoformat(date_from)}
+    if date_to:
+        end_dt = datetime.fromisoformat(date_to)
+        if 'date' in query:
+            query['date']['$lte'] = end_dt
+        else:
+            query['date'] = {"$lte": end_dt}
+    
+    # Return type filter
+    if return_type and return_type != 'all':
+        query['return_type'] = return_type
+    
+    # Status filter
+    if status and status != 'all':
+        query['status'] = status
+    
+    # Refund mode filter
+    if refund_mode and refund_mode != 'all':
+        query['refund_mode'] = refund_mode
+    
+    # Party filter
+    if party_id and party_id != 'all':
+        query['party_id'] = party_id
+    
+    # Get returns
+    returns = await db.returns.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
+    
+    # Apply search filter
+    if search:
+        search_lower = search.lower()
+        returns = [
+            ret for ret in returns
+            if (search_lower in ret.get('party_name', '').lower() or
+                search_lower in ret.get('return_number', '').lower() or
+                search_lower in ret.get('reason', '').lower())
+        ]
+    
+    # Create workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Returns Report"
+    
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Headers
+    headers = [
+        "Return #", "Date", "Return Type", "Party Name", "Status",
+        "Refund Mode", "Refund Amount (OMR)", "Gold Weight Returned (g)",
+        "Linked Invoice/Purchase #", "Payment Mode", "Notes"
+    ]
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
+    
+    # Data rows
+    for row_num, ret in enumerate(returns, 2):
+        # Format date
+        ret_date = ret.get('date', '')
+        if isinstance(ret_date, str):
+            ret_date = ret_date[:10]
+        elif hasattr(ret_date, 'strftime'):
+            ret_date = ret_date.strftime('%Y-%m-%d')
+        
+        # Get refund amount
+        refund_amount = ret.get('refund_money_amount', 0)
+        if isinstance(refund_amount, Decimal128):
+            refund_amount = float(refund_amount.to_decimal())
+        
+        # Get gold weight
+        gold_weight = ret.get('refund_gold_grams', 0)
+        if isinstance(gold_weight, Decimal128):
+            gold_weight = float(gold_weight.to_decimal())
+        
+        # Return type display
+        return_type_display = "Sales Return" if ret.get('return_type') == 'sale_return' else "Purchase Return"
+        
+        # Refund mode display
+        refund_mode_display = ret.get('refund_mode', '').capitalize()
+        
+        row_data = [
+            ret.get('return_number', ''),
+            ret_date,
+            return_type_display,
+            ret.get('party_name', ''),
+            ret.get('status', '').capitalize(),
+            refund_mode_display,
+            round(refund_amount, 2),
+            round(gold_weight, 3),
+            ret.get('reference_number', ret.get('reference_id', '')[:8]),
+            ret.get('payment_mode', '').replace('_', ' ').title() if ret.get('payment_mode') else '',
+            ret.get('notes', '')
+        ]
+        
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num, value=value)
+            cell.border = thin_border
+    
+    # Adjust column widths
+    column_widths = [15, 12, 15, 20, 12, 12, 18, 20, 22, 15, 30]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_num)].width = width
+    
+    # Save to BytesIO
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    filename = f"returns_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@api_router.get("/reports/returns-pdf")
+async def export_returns_pdf(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    return_type: Optional[str] = None,
+    status: Optional[str] = None,
+    refund_mode: Optional[str] = None,
+    party_id: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(require_permission('reports.view'))
+):
+    """Export returns report as PDF file with applied filters"""
+    from fastapi.responses import StreamingResponse
+    from io import BytesIO
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    
+    # Build query
+    query = {"is_deleted": False}
+    
+    # Date filters
+    if date_from:
+        query['date'] = {"$gte": datetime.fromisoformat(date_from)}
+    if date_to:
+        end_dt = datetime.fromisoformat(date_to)
+        if 'date' in query:
+            query['date']['$lte'] = end_dt
+        else:
+            query['date'] = {"$lte": end_dt}
+    
+    # Return type filter
+    if return_type and return_type != 'all':
+        query['return_type'] = return_type
+    
+    # Status filter
+    if status and status != 'all':
+        query['status'] = status
+    
+    # Refund mode filter
+    if refund_mode and refund_mode != 'all':
+        query['refund_mode'] = refund_mode
+    
+    # Party filter
+    if party_id and party_id != 'all':
+        query['party_id'] = party_id
+    
+    # Get returns
+    returns = await db.returns.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
+    
+    # Apply search filter
+    if search:
+        search_lower = search.lower()
+        returns = [
+            ret for ret in returns
+            if (search_lower in ret.get('party_name', '').lower() or
+                search_lower in ret.get('return_number', '').lower() or
+                search_lower in ret.get('reason', '').lower())
+        ]
+    
+    # Create PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Title
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#1f2937'),
+        spaceAfter=30,
+        alignment=1  # Center
+    )
+    elements.append(Paragraph("Returns Report", title_style))
+    elements.append(Spacer(1, 0.2 * inch))
+    
+    # Filter info
+    filter_info = []
+    if date_from:
+        filter_info.append(f"From: {date_from}")
+    if date_to:
+        filter_info.append(f"To: {date_to}")
+    if return_type and return_type != 'all':
+        filter_info.append(f"Type: {return_type}")
+    if status and status != 'all':
+        filter_info.append(f"Status: {status}")
+    
+    if filter_info:
+        filter_text = " | ".join(filter_info)
+        elements.append(Paragraph(f"<b>Filters:</b> {filter_text}", styles['Normal']))
+        elements.append(Spacer(1, 0.2 * inch))
+    
+    # Table data
+    table_data = [[
+        "Return #", "Date", "Type", "Party", "Status",
+        "Refund Mode", "Amount (OMR)", "Gold (g)"
+    ]]
+    
+    for ret in returns:
+        # Format date
+        ret_date = ret.get('date', '')
+        if isinstance(ret_date, str):
+            ret_date = ret_date[:10]
+        elif hasattr(ret_date, 'strftime'):
+            ret_date = ret_date.strftime('%Y-%m-%d')
+        
+        # Get refund amount
+        refund_amount = ret.get('refund_money_amount', 0)
+        if isinstance(refund_amount, Decimal128):
+            refund_amount = float(refund_amount.to_decimal())
+        
+        # Get gold weight
+        gold_weight = ret.get('refund_gold_grams', 0)
+        if isinstance(gold_weight, Decimal128):
+            gold_weight = float(gold_weight.to_decimal())
+        
+        # Return type display (abbreviated for PDF)
+        return_type_display = "Sales" if ret.get('return_type') == 'sale_return' else "Purchase"
+        
+        table_data.append([
+            ret.get('return_number', '')[:10],
+            ret_date,
+            return_type_display,
+            ret.get('party_name', '')[:15],
+            ret.get('status', '').capitalize()[:8],
+            ret.get('refund_mode', '').capitalize()[:8],
+            f"{refund_amount:.2f}",
+            f"{gold_weight:.3f}"
+        ])
+    
+    # Create table
+    table = Table(table_data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')])
+    ]))
+    
+    elements.append(table)
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"returns_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+
 
 # Health check endpoint (no authentication required)
 @api_router.get("/health")
