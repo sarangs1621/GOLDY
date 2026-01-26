@@ -6412,3 +6412,391 @@ agent_communication:
       ❌ 0 errors
       
       Both fixes are now live and ready for testing.
+
+#====================================================================================================
+# RETURNS MANAGEMENT FEATURE IMPLEMENTATION
+#====================================================================================================
+
+user_problem_statement: |
+  Implement comprehensive Returns Management Feature for Gold Shop ERP with both Sales Returns and Purchase Returns.
+  
+  Requirements:
+  1. Return Types: Support both sale_return and purchase_return
+  2. Refund Modes: Support money, gold, and mixed refund modes
+  3. Workflow: Draft → Finalized (stock + ledger impact only on finalize)
+  4. Business Rules:
+     - Cannot return more than original invoice/purchase totals
+     - Must create stock movement entry (IN for sale_return, OUT for purchase_return)
+     - Must create transaction record for money refund (Debit for sale_return, Credit for purchase_return)
+     - Must create GoldLedgerEntry for gold refund (OUT for sale_return, IN for purchase_return)
+     - All actions must be audit logged
+     - Soft delete only
+     - Finalized returns are immutable
+  5. Sales Return: Stock IN, Money Debit to customer, Gold OUT to customer
+  6. Purchase Return: Stock OUT to vendor, Money Credit from vendor, Gold IN from vendor
+
+backend:
+  - task: "Return and ReturnItem Models"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ MODELS COMPLETE - Return and ReturnItem models defined with all required fields (lines 979-1047). Supports both sale_return and purchase_return types. Includes refund_mode (money/gold/mixed), status workflow (draft/finalized), and audit fields. All precision requirements met (3 decimals for weight, 2 for amounts)."
+
+  - task: "Return Permissions and Role Mappings"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ PERMISSIONS COMPLETE - Return permissions defined: returns.view, returns.create, returns.finalize, returns.delete. Role mappings configured: admin (all 4 permissions), manager (view, create, finalize), staff (view, create only). Permission constants at lines 393-396."
+
+  - task: "Return Validation - Prevent Exceeding Original Amount"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ VALIDATION ADDED - Created validate_return_against_original() helper function (lines 1181-1229) that prevents returns from exceeding original invoice/purchase totals. Calculates sum of all finalized returns + current return and compares against original. Validation integrated into create_return (line 8506-8512) and update_return (lines 8685-8698) endpoints. Returns detailed error with amounts if validation fails."
+
+  - task: "POST /api/returns - Create Return"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ CREATE ENDPOINT COMPLETE - Lines 8428-8560. Creates draft return with full validation: validates return_type (sale_return/purchase_return), validates reference (invoice/purchase must be finalized), validates refund_mode (money/gold/mixed), validates refund amounts based on mode, validates account for money refunds. Generates return number RET-00001 format. Includes new validation to prevent exceeding original amount. Creates audit log entry."
+
+  - task: "GET /api/returns - List Returns"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ LIST ENDPOINT COMPLETE - Lines 8563-8609. Returns paginated list with filters: return_type, status, refund_mode, party_id, date_range (start_date, end_date), search (by return_number or party_name). Supports pagination with page and page_size parameters. Returns metadata with total_count, total_pages, has_next, has_prev."
+
+  - task: "GET /api/returns/{id} - Get Single Return"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ GET ENDPOINT COMPLETE - Lines 8629-8641. Fetches single return by ID with full details. Returns 404 if not found or deleted."
+
+  - task: "PATCH /api/returns/{id} - Update Return"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ UPDATE ENDPOINT COMPLETE - Lines 8644-8721. Allows updating draft returns only (blocks finalized returns). Updates items, reason, refund_mode, refund amounts, payment details, notes. Recalculates totals when items change. Includes new validation to prevent exceeding original amount when items are updated. Creates audit log entry."
+
+  - task: "POST /api/returns/{id}/finalize - Finalize Return"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FINALIZE ENDPOINT COMPLETE - Lines 8727-9041. Core business logic for processing returns. SALES RETURN workflow (lines 8760-8877): Creates stock movements (IN), creates transaction (Debit), creates gold ledger (OUT), updates invoice paid_amount and balance_due, updates customer outstanding. PURCHASE RETURN workflow (lines 8882-8991): Creates stock movements (OUT), creates transaction (Credit), creates gold ledger (IN), updates purchase balance_due_money, updates vendor payable. Updates return status to finalized with timestamps. Creates comprehensive audit log. All refund modes supported (money/gold/mixed)."
+
+  - task: "DELETE /api/returns/{id} - Soft Delete Return"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ DELETE ENDPOINT COMPLETE - Lines 9046-9077. Soft deletes draft returns only (blocks finalized returns). Sets is_deleted=True, deleted_at timestamp, deleted_by user. Creates audit log entry."
+
+  - task: "GET /api/returns/{id}/finalize-impact - Get Finalization Impact"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ IMPACT ENDPOINT COMPLETE - Lines 9096-9148. Returns finalization impact preview before finalizing. Shows: return details, party name, refund mode, specific impacts (stock IN/OUT, money refund amount/direction, gold refund amount/direction, party balance update). Blocks already finalized returns. Used by frontend to show confirmation dialog."
+
+frontend:
+  - task: "ReturnsPage.js - Main Returns Management Page"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/pages/ReturnsPage.js"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ RETURNS PAGE COMPLETE - 1059 lines. Full-featured returns management with: List view with pagination and filters (return_type, status, refund_mode, search, date range), Create Return Dialog with dynamic form (switch between sale_return/purchase_return, select source invoice/purchase, add items, choose refund mode, calculate refunds), View Return Dialog showing all details, Finalize Return Dialog with impact preview, Edit draft returns, Delete draft returns. Table shows: Return#, Type, Date, Party, Reference, Total Amount, Refund Mode, Status, Actions."
+
+  - task: "Returns Navigation and Routing"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/components/DashboardLayout.js, frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ NAVIGATION COMPLETE - Returns navigation item added to DashboardLayout (line 28) with RotateCcw icon and returns.view permission. Route added to App.js (lines 171-176) with PermissionProtectedRoute protection. Returns page accessible at /returns path."
+
+  - task: "Returns Integration - Invoice Page"
+    implemented: false
+    working: "NA"
+    file: "frontend/src/pages/InvoicesPage.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NOT IMPLEMENTED - Optional enhancement: Add 'Create Return' button in Invoice detail view for finalized invoices. Would improve UX by allowing direct return creation from invoice. Can be added in future iteration."
+
+  - task: "Returns Integration - Purchase Page"
+    implemented: false
+    working: "NA"
+    file: "frontend/src/pages/PurchasesPage.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NOT IMPLEMENTED - Optional enhancement: Add 'Create Return' button in Purchase detail view for finalized purchases. Would improve UX by allowing direct return creation from purchase. Can be added in future iteration."
+
+  - task: "Returns Stats - Dashboard Integration"
+    implemented: false
+    working: "NA"
+    file: "frontend/src/pages/Dashboard.js"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "NOT IMPLEMENTED - Optional enhancement: Add returns count and total value to dashboard statistics. Can be added in future iteration."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Return Validation - Prevent Exceeding Original Amount"
+    - "POST /api/returns - Create Return"
+    - "POST /api/returns/{id}/finalize - Finalize Return"
+    - "ReturnsPage.js - Main Returns Management Page"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      🎉 RETURNS MANAGEMENT FEATURE IMPLEMENTATION COMPLETE
+      
+      IMPLEMENTATION STATUS: BACKEND AND FRONTEND FULLY IMPLEMENTED WITH CRITICAL VALIDATION ADDED
+      
+      ✅ BACKEND IMPLEMENTATION - COMPLETE:
+      ================================================================================
+      
+      1. ✅ Data Models (Lines 979-1047)
+         - Return model with all required fields
+         - ReturnItem model for line items
+         - Support for both sale_return and purchase_return
+         - All 3 refund modes: money, gold, mixed
+         - Draft → Finalized workflow
+         - Audit fields (created_by, created_at, deleted_at, etc.)
+      
+      2. ✅ Permission System (Lines 393-396)
+         - returns.view: View returns list and details
+         - returns.create: Create and update draft returns
+         - returns.finalize: Finalize returns (apply to stock/ledger)
+         - returns.delete: Delete draft returns
+         - Role mappings: admin (4), manager (3), staff (2)
+      
+      3. ✅ CRITICAL VALIDATION ADDED (Lines 1181-1229)
+         - validate_return_against_original() helper function
+         - Prevents returns from exceeding original invoice/purchase totals
+         - Calculates sum of all finalized returns + current return
+         - Returns detailed error message with amounts breakdown
+         - Integrated into both create_return and update_return endpoints
+         - Handles update scenario by excluding current return from calculation
+      
+      4. ✅ API Endpoints - Complete (Lines 8428-9148)
+         POST   /api/returns                       - Create draft return
+         GET    /api/returns                       - List returns (paginated, filtered)
+         GET    /api/returns/{id}                  - Get single return
+         PATCH  /api/returns/{id}                  - Update draft return
+         POST   /api/returns/{id}/finalize         - Finalize return
+         DELETE /api/returns/{id}                  - Soft delete draft return
+         GET    /api/returns/{id}/finalize-impact  - Get finalization preview
+      
+      5. ✅ Business Logic - Complete
+         SALES RETURN (Lines 8760-8877):
+         - Stock movements: IN (returned goods back to inventory)
+         - Transaction: Debit (money refund to customer)
+         - Gold Ledger: OUT (shop gives gold to customer)
+         - Updates: Invoice paid_amount↓, balance_due↑, customer outstanding↑
+         
+         PURCHASE RETURN (Lines 8882-8991):
+         - Stock movements: OUT (returned to vendor)
+         - Transaction: Credit (money received from vendor)
+         - Gold Ledger: IN (vendor returns gold to shop)
+         - Updates: Purchase balance_due_money↓, vendor payable↓
+      
+      6. ✅ Validation & Error Handling
+         - Return type validation (sale_return/purchase_return)
+         - Reference validation (invoice/purchase must be finalized)
+         - Refund mode validation (money/gold/mixed)
+         - Refund amount validation based on mode
+         - Account validation for money refunds
+         - Return amount vs original total validation ⭐ NEW
+         - Status checks (can't edit/delete finalized returns)
+         - Item requirements (at least one item)
+      
+      ✅ FRONTEND IMPLEMENTATION - COMPLETE:
+      ================================================================================
+      
+      1. ✅ ReturnsPage.js (1059 lines)
+         - Complete returns management interface
+         - List view with pagination
+         - Advanced filters: return_type, status, refund_mode, party, date range, search
+         - Create Return Dialog:
+           • Select return type (sale/purchase)
+           • Select source (invoice/purchase) with autocomplete
+           • Dynamic item selection and quantities
+           • Refund mode selection (money/gold/mixed)
+           • Refund amount calculation
+           • Account selection for money refunds
+         - View Return Dialog: Complete details display
+         - Finalize Dialog: Impact preview before confirmation
+         - Edit Draft Returns: Full form editing
+         - Delete Draft Returns: With confirmation
+      
+      2. ✅ Navigation & Routing
+         - Returns menu item in DashboardLayout (RotateCcw icon)
+         - Protected route with returns.view permission
+         - Accessible at /returns path
+      
+      3. ✅ Data Integration
+         - Loads finalized invoices for sale returns
+         - Loads finalized purchases for purchase returns
+         - Loads accounts for money refunds
+         - Full CRUD operations via API
+         - Real-time pagination and filtering
+      
+      📊 FEATURE COMPLETENESS:
+      ================================================================================
+      
+      ✅ CONFIRMED DECISIONS - ALL IMPLEMENTED:
+      1. Return types: sale_return ✅, purchase_return ✅
+      2. Refund modes: money ✅, gold ✅, mixed ✅
+      3. Workflow: Draft → Finalized ✅
+      4. Stock + ledger impact only on finalize ✅
+      5. Finalized returns immutable ✅
+      
+      ✅ BUSINESS RULES - ALL ENFORCED:
+      1. Cannot return more than original ✅ NEW VALIDATION
+      2. Stock movement entry creation ✅
+      3. Transaction record for money refund ✅
+      4. GoldLedgerEntry for gold refund ✅
+      5. Audit logging all actions ✅
+      6. Soft delete only ✅
+      
+      ✅ REFUND DIRECTIONS - CORRECT:
+      - Sales Return: Money Debit ✅, Gold OUT ✅
+      - Purchase Return: Money Credit ✅, Gold IN ✅
+      
+      🔧 ENHANCEMENTS ADDED:
+      ================================================================================
+      - ⭐ Return amount validation against original invoice/purchase
+      - Comprehensive error messages with amount breakdowns
+      - Finalization impact preview endpoint
+      - Advanced filtering and search capabilities
+      - Full pagination support
+      - Permission-based access control
+      - Complete audit trail
+      
+      📋 OPTIONAL FUTURE ENHANCEMENTS:
+      ================================================================================
+      (Not critical for MVP, can be added later)
+      - Add "Create Return" button in Invoice detail view
+      - Add "Create Return" button in Purchase detail view
+      - Add returns statistics to Dashboard
+      - Add return history view in Invoice/Purchase pages
+      
+      🎯 TESTING NEEDED:
+      ================================================================================
+      1. Create sales return from finalized invoice
+      2. Create purchase return from finalized purchase
+      3. Test all 3 refund modes: money, gold, mixed
+      4. Test validation: return exceeding original amount (should fail)
+      5. Test finalization: verify stock movements created
+      6. Test finalization: verify transaction created for money refund
+      7. Test finalization: verify gold ledger created for gold refund
+      8. Test finalization: verify invoice/purchase balances updated
+      9. Test finalization: verify party outstanding updated
+      10. Test draft editing and deletion
+      11. Test finalized return immutability (edit/delete should fail)
+      12. Test pagination and filters
+      13. Test permission-based access (staff/manager/admin)
+      14. Test multiple returns on same invoice/purchase
+      15. Test return history and audit logs
+      
+      🚀 DEPLOYMENT STATUS:
+      ================================================================================
+      ✅ Backend: Restarted successfully, running on port 8001
+      ✅ Frontend: Compiled successfully, no errors
+      ✅ MongoDB: Running
+      ✅ All services operational
+      
+      💡 RECOMMENDATION:
+      ================================================================================
+      Ready for comprehensive backend testing with deep_testing_backend_v2 agent.
+      The feature is fully implemented with all confirmed requirements and business rules.
+      Testing should validate the complete workflow from creation to finalization.
+
