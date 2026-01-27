@@ -4463,8 +4463,9 @@ async def get_returnable_invoices(
     # Build query filter
     query = {
         "is_deleted": False,
-        "status": "finalized"
+        "status": {"$in": ["finalized", "paid"]}
         # Note: Removed balance_due filter to allow returns on fully paid invoices
+        # Accepts both finalized and paid status to support all returnable invoices
     }
     
     # Filter by invoice type

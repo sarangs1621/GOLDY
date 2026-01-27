@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { API } from '../contexts/AuthContext';
 import { formatDateTime, formatDate } from '../utils/dateTimeUtils';
 import { safeToFixed, formatCurrency, formatWeight } from '../utils/numberFormat';
 import Pagination from '../components/Pagination';
@@ -68,7 +68,7 @@ const ReturnsPage = () => {
         if (params[key] === '') delete params[key];
       });
       
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/returns`, { params });
+      const response = await API.get('/api/returns', { params });
       
       setReturns(response.data.items || []);
       setTotalCount(response.data.pagination?.total_count || 0);
@@ -90,19 +90,19 @@ const ReturnsPage = () => {
     try {
       // Load returnable invoices based on return type
       if (returnType === 'sale_return') {
-        const invoicesRes = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/invoices/returnable`, {
+        const invoicesRes = await API.get('/api/invoices/returnable', {
           params: { type: 'sales' }
         });
         setInvoices(invoicesRes.data || []);
       } else if (returnType === 'purchase_return') {
-        const purchasesRes = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/purchases`, {
+        const purchasesRes = await API.get('/api/purchases', {
           params: { page: 1, page_size: 100, status: 'finalized' }
         });
         setPurchases(purchasesRes.data.items || []);
       }
       
       // Load accounts
-      const accountsRes = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/accounts`);
+      const accountsRes = await API.get('/api/accounts');
       setAccounts(accountsRes.data.items || accountsRes.data || []);
     } catch (err) {
       console.error('Error loading reference data:', err);
@@ -229,7 +229,7 @@ const ReturnsPage = () => {
       }
       
       // Create return
-      await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/returns`, formData);
+      await API.post('/api/returns', formData);
       
       setSuccess('Return created successfully');
       closeCreateDialog();
@@ -245,7 +245,7 @@ const ReturnsPage = () => {
   // View return
   const viewReturn = async (returnId) => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/returns/${returnId}`);
+      const response = await API.get(`/api/returns/${returnId}`);
       setSelectedReturn(response.data);
       setShowViewDialog(true);
     } catch (err) {
@@ -258,7 +258,7 @@ const ReturnsPage = () => {
   const openFinalizeDialog = async (returnObj) => {
     try {
       // Fetch finalize impact
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/returns/${returnObj.id}/finalize-impact`);
+      const response = await API.get(`/api/returns/${returnObj.id}/finalize-impact`);
       setFinalizeImpact(response.data);
       setSelectedReturn(returnObj);
       setShowFinalizeDialog(true);
@@ -277,7 +277,7 @@ const ReturnsPage = () => {
     setSuccess('');
     
     try {
-      await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/returns/${selectedReturn.id}/finalize`);
+      await API.post(`/api/returns/${selectedReturn.id}/finalize`);
       setSuccess('Return finalized successfully');
       setShowFinalizeDialog(false);
       setSelectedReturn(null);
@@ -302,7 +302,7 @@ const ReturnsPage = () => {
     setSuccess('');
     
     try {
-      await axios.delete(`${process.env.REACT_APP_BACKEND_URL}/api/returns/${returnId}`);
+      await API.delete(`/api/returns/${returnId}`);
       setSuccess('Return deleted successfully');
       loadReturns();
     } catch (err) {
@@ -599,11 +599,11 @@ const ReturnsPage = () => {
                   </select>
                   {formData.return_type === 'sale_return' && invoices.length === 0 ? (
                     <p className="text-xs text-red-600 mt-1">
-                      ⚠️ No finalized invoices available for return
+                      ⚠️ No finalized or paid invoices available for return
                     </p>
                   ) : (
                     <p className="text-xs text-gray-500 mt-1">
-                      ℹ️ Only finalized {formData.return_type === 'sale_return' ? 'invoices' : 'purchases'} are shown. Draft items cannot be returned.
+                      ℹ️ Only finalized or paid {formData.return_type === 'sale_return' ? 'invoices' : 'purchases'} are shown. Draft items cannot be returned.
                     </p>
                   )}
                 </div>
