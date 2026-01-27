@@ -2144,7 +2144,7 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
       * GST compliance (tax collected)
       
     WORKFLOW CONTROL:
-    - confirmation_reason is REQUIRED for all manual adjustments
+    - confirmation_reason is NOT REQUIRED for all manual adjustments
     """
     header = await db.inventory_headers.find_one({"id": movement_data['header_id']}, {"_id": 0})
     if not header:
@@ -2155,13 +2155,6 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
     qty_delta = movement_data.get('qty_delta', 0)
     weight_delta = movement_data.get('weight_delta', 0)
     
-    # WORKFLOW CONTROL: Require confirmation_reason for manual adjustments
-    confirmation_reason = movement_data.get('confirmation_reason', '').strip()
-    if not confirmation_reason:
-        raise HTTPException(
-            status_code=400,
-            detail="confirmation_reason is required for all manual inventory adjustments. Please provide a reason for this stock movement."
-        )
     
     # Block Stock OUT movement type entirely
     if movement_type == "Stock OUT":
@@ -2195,7 +2188,6 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
         weight_delta=weight_delta,
         purity=movement_data['purity'],
         notes=movement_data.get('notes'),
-        confirmation_reason=confirmation_reason,
         created_by=current_user.id
     )
     
@@ -2214,7 +2206,6 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
             "header_name": header['name'],
             "qty_delta": qty_delta,
             "weight_delta": weight_delta,
-            "confirmation_reason": confirmation_reason
         }
     )
     
@@ -3916,6 +3907,121 @@ async def get_jobcards(
     
     return create_pagination_response(jobcards, total_count, page, page_size)
 
+@api_router.post("/jobcards")
+async def create_jobcard(jobcard_data: dict, current_user: User = Depends(require_permission('jobcards.create'))):
+    """Create a new job card"""
+    # Validate based on customer type
+    customer_type = jobcard_data.get('customer_type', 'saved')
+    
+    if customer_type == 'saved':
+        if not jobcard_data.get('customer_id'):
+            raise HTTPException(status_code=400, detail="customer_id is required for saved customers")
+        # Fetch customer name from parties collection
+        customer = await db.parties.find_one({"id": jobcard_data['customer_id'], "is_deleted": False}, {"_id": 0})
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        jobcard_data['customer_name'] = customer.get('name', '')
+    elif customer_type == 'walk_in':
+        if not jobcard_data.get('walk_in_name') or not jobcard_data['walk_in_name'].strip():
+            raise HTTPException(status_code=400, detail="walk_in_name is required for walk-in customers")
+    
+    # Validate worker assignment for completed status
+    status = jobcard_data.get('status', 'created')
+    if status == 'completed' and not jobcard_data.get('worker_id'):
+        raise HTTPException(status_code=400, detail="Worker assignment is required to mark job card as completed")
+    
+    # Get worker name if worker_id is provided
+    if jobcard_data.get('worker_id'):
+        worker = await db.workers.find_one({"id": jobcard_data['worker_id'], "is_deleted": False}, {"_id": 0})
+        if worker:
+            jobcard_data['worker_name'] = worker.get('name', '')
+    
+    # Generate job card number
+    year = datetime.now(timezone.utc).year
+    count = await db.jobcards.count_documents({"job_card_number": {"$regex": f"^JC-{year}"}})
+    jobcard_data['job_card_number'] = f"JC-{year}-{str(count + 1).zfill(4)}"
+    
+    # Ensure card_type is set (default to 'individual' if not provided)
+    if 'card_type' not in jobcard_data:
+        jobcard_data['card_type'] = 'individual'
+    
+    # Set timestamps based on status
+    now = datetime.now(timezone.utc)
+    if status == 'completed':
+        jobcard_data['completed_at'] = now
+    elif status == 'delivered':
+        jobcard_data['completed_at'] = now
+        jobcard_data['delivered_at'] = now
+    
+    # Create the job card
+    jobcard = JobCard(**jobcard_data, created_by=current_user.id)
+    await db.jobcards.insert_one(jobcard.model_dump())
+    await create_audit_log(current_user.id, current_user.full_name, "jobcard", jobcard.id, "create")
+    
+    return jobcard
+
+@api_router.patch("/jobcards/{jobcard_id}")
+async def update_jobcard(jobcard_id: str, update_data: dict, current_user: User = Depends(require_permission('jobcards.update'))):
+    """Update an existing job card"""
+    # Verify the job card exists
+    existing = await db.jobcards.find_one({"id": jobcard_id, "is_deleted": False})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Job card not found")
+    
+    # Check if job card is locked
+    if existing.get("locked", False):
+        if current_user.role != 'admin':
+            raise HTTPException(
+                status_code=403, 
+                detail="Cannot edit locked job card. This job card is linked to a finalized invoice. Only admins can override."
+            )
+    
+    # Validate worker assignment for completed status
+    new_status = update_data.get('status', existing.get('status', 'created'))
+    worker_id = update_data.get('worker_id', existing.get('worker_id'))
+    
+    if new_status == 'completed' and not worker_id:
+        raise HTTPException(status_code=400, detail="Worker assignment is required to mark job card as completed")
+    
+    # Get worker name if worker_id is being updated
+    if 'worker_id' in update_data and update_data['worker_id']:
+        worker = await db.workers.find_one({"id": update_data['worker_id'], "is_deleted": False}, {"_id": 0})
+        if worker:
+            update_data['worker_name'] = worker.get('name', '')
+    
+    # If customer_id is being updated, fetch customer name
+    if 'customer_id' in update_data and update_data['customer_id']:
+        customer = await db.parties.find_one({"id": update_data['customer_id'], "is_deleted": False}, {"_id": 0})
+        if customer:
+            update_data['customer_name'] = customer.get('name', '')
+    
+    # Handle status transitions - set timestamps
+    old_status = existing.get('status', 'created')
+    if 'status' in update_data:
+        new_status = update_data['status']
+        now = datetime.now(timezone.utc)
+        
+        # Completed status
+        if new_status == 'completed' and old_status != 'completed':
+            update_data['completed_at'] = now
+        
+        # Delivered status
+        if new_status == 'delivered' and old_status != 'delivered':
+            update_data['delivered_at'] = now
+            # Ensure completed_at is also set if not already
+            if not existing.get('completed_at'):
+                update_data['completed_at'] = now
+    
+    # Update timestamp
+    update_data['updated_at'] = datetime.now(timezone.utc)
+    
+    # Update the job card
+    await db.jobcards.update_one({"id": jobcard_id}, {"$set": update_data})
+    await create_audit_log(current_user.id, current_user.full_name, "jobcard", jobcard_id, "update", update_data)
+
+    return {"message": "Job card updated successfully"}
+
+
 @api_router.delete("/jobcards/{jobcard_id}")
 async def delete_jobcard(jobcard_id: str, current_user: User = Depends(require_permission('jobcards.delete'))):
     existing = await db.jobcards.find_one({"id": jobcard_id, "is_deleted": False})
@@ -3969,7 +4075,7 @@ async def delete_jobcard(jobcard_id: str, current_user: User = Depends(require_p
     await create_audit_log(current_user.id, current_user.full_name, "jobcard", jobcard_id, "delete")
     return {"message": "Job card deleted successfully"}
 
-@api_router.get("/jobcards/{jobcard_id}/impact")
+@api_router.post("/jobcards/{jobcard_id}/impact")
 async def get_jobcard_impact(jobcard_id: str, current_user: User = Depends(require_permission('jobcards.view'))):
     """
     Get impact summary for job card actions (status changes or deletion).
