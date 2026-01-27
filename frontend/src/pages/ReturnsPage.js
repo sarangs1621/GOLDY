@@ -316,9 +316,17 @@ const ReturnsPage = () => {
   const getStatusBadge = (status) => {
     const badges = {
       draft: 'bg-yellow-100 text-yellow-800',
-      finalized: 'bg-green-100 text-green-800'
+      finalized: 'bg-green-100 text-green-800',
+      completed: 'bg-green-100 text-green-800'
     };
     return badges[status] || 'bg-gray-100 text-gray-800';
+  };
+  
+  // Format status display text
+  const formatStatusText = (status) => {
+    if (status === 'finalized') return 'Completed';
+    if (status === 'draft') return 'Draft';
+    return status.charAt(0).toUpperCase() + status.slice(1);
   };
   
   // Get return type badge
@@ -489,7 +497,12 @@ const ReturnsPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(returnObj.status)}`}>
-                        {returnObj.status}
+                        {formatStatusText(returnObj.status)}
+                        {returnObj.status === 'finalized' && (
+                          <svg className="ml-1 w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -892,7 +905,12 @@ const ReturnsPage = () => {
                   <label className="text-sm font-medium text-gray-500">Status</label>
                   <p>
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(selectedReturn.status)}`}>
-                      {selectedReturn.status}
+                      {formatStatusText(selectedReturn.status)}
+                      {selectedReturn.status === 'finalized' && (
+                        <svg className="ml-1 w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
                     </span>
                   </p>
                 </div>

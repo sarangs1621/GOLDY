@@ -9568,9 +9568,24 @@ async def create_return(
     current_user: User = Depends(require_permission('returns.create'))
 ):
     """
-    Create a new return (draft status).
+    Create and auto-finalize a new return.
+    
+    ⚠️ CRITICAL BUSINESS RULE: All returns are auto-finalized on creation ⚠️
+    - Inventory is updated immediately
+    - Accounting entries are created immediately
+    - Vendor/Customer balances are updated immediately
+    - No "Draft" state exists for returns
+    - Status is set to "finalized" immediately
+    - Returns are immutable audit records (cannot be deleted or edited)
+    
     Supports both sales returns and purchase returns.
     """
+    # Track created resources for rollback
+    stock_movement_ids = []
+    transaction_ids = []
+    gold_ledger_id = None
+    return_id = None
+    
     try:
         # Validate return_type
         return_type = return_data.get('return_type')
@@ -9599,7 +9614,9 @@ async def create_return(
             reference_doc = await db.purchases.find_one({"id": reference_id, "is_deleted": False})
             if not reference_doc:
                 raise HTTPException(status_code=404, detail="Purchase not found")
-            if reference_doc.get('status') != 'finalized':
+            # Check if purchase status contains "finalized" or is any paid status
+            purchase_status = reference_doc.get('status', '').lower()
+            if 'finalized' not in purchase_status and 'paid' not in purchase_status:
                 raise HTTPException(status_code=400, detail="Can only create return for finalized purchases")
             party_id = reference_doc.get('vendor_party_id')
             # Fetch vendor name
@@ -9627,8 +9644,8 @@ async def create_return(
             raise HTTPException(status_code=400, detail="Both refund_money_amount and refund_gold_grams must be greater than 0 for mixed refund")
         
         # Validate account if money refund
+        account_id = return_data.get('account_id')
         if refund_mode in ['money', 'mixed']:
-            account_id = return_data.get('account_id')
             if not account_id:
                 raise HTTPException(status_code=400, detail="account_id is required for money refund")
             account = await db.accounts.find_one({"id": account_id, "is_deleted": False})
@@ -9660,7 +9677,10 @@ async def create_return(
             current_return_id=None  # New return, no existing ID to exclude
         )
         
-        # Create return object
+        # ========== CRITICAL: AUTO-FINALIZE (NO DRAFT STATE) ==========
+        finalize_time = datetime.now(timezone.utc)
+        
+        # Create return object with FINALIZED status
         return_obj = Return(
             return_number=return_number,
             return_type=return_type,
@@ -9679,18 +9699,312 @@ async def create_return(
             refund_gold_grams=round(refund_gold_grams, 3),
             refund_gold_purity=return_data.get('refund_gold_purity'),
             payment_mode=return_data.get('payment_mode'),
-            account_id=return_data.get('account_id'),
+            account_id=account_id,
             account_name=account_name,
-            status='draft',
+            status='finalized',  # AUTO-FINALIZED
+            finalized_at=finalize_time,
+            finalized_by=current_user.id,
             created_by=current_user.id,
             notes=return_data.get('notes')
         )
+        
+        return_id = return_obj.id
+        
+        # ========== AUTO-FINALIZATION: APPLY ALL IMPACTS IMMEDIATELY ==========
+        
+        # ========================================================================
+        # SALES RETURN WORKFLOW
+        # ========================================================================
+        if return_type == 'sale_return':
+            # 1. Create stock movements (Stock IN - returned goods back to inventory)
+            for item in items:
+                weight_grams = float(item.get('weight_grams', 0))
+                
+                if weight_grams > 0:
+                    movement_id = str(uuid.uuid4())
+                    stock_movement = StockMovement(
+                        id=movement_id,
+                        type="IN",
+                        category=item.get('description'),
+                        weight=round(weight_grams, 3),
+                        purity=item.get('purity'),
+                        date=finalize_time,
+                        purpose=f"Sales Return - {return_number}",
+                        reference_type="return",
+                        reference_id=return_id,
+                        notes=return_data.get('reason'),
+                        created_by=current_user.id
+                    )
+                    await db.stock_movements.insert_one(stock_movement.model_dump())
+                    stock_movement_ids.append(movement_id)
+                    
+                    # Update inventory header stock
+                    await db.inventory_headers.update_one(
+                        {"name": item.get('description')},
+                        {
+                            "$inc": {
+                                "current_qty": item.get('qty', 0),
+                                "current_weight": round(weight_grams, 3)
+                            }
+                        }
+                    )
+            
+            # 2. Create money refund transactions
+            if refund_mode in ['money', 'mixed'] and refund_money_amount > 0:
+                account = await db.accounts.find_one({"id": account_id})
+                if not account:
+                    raise HTTPException(status_code=400, detail="Account not found for money refund")
+            
+                # 2a. Transaction 1: Debit Cash/Bank account (money going out)
+                transactions_count = await db.transactions.count_documents({})
+                transaction_number = f"TXN-{transactions_count + 1:05d}"
+                
+                transaction_id = str(uuid.uuid4())
+                transaction = Transaction(
+                    id=transaction_id,
+                    transaction_number=transaction_number,
+                    date=finalize_time,
+                    transaction_type="debit",  # Money going out to customer
+                    mode=return_data.get('payment_mode', 'cash'),
+                    account_id=account_id,
+                    account_name=account.get('name'),
+                    party_id=party_id,
+                    party_name=party_name,
+                    amount=round(refund_money_amount, 2),
+                    category="sales_return",
+                    notes=f"Sales Return Refund - {return_number}",
+                    reference_type="return",
+                    reference_id=return_id,
+                    created_by=current_user.id
+                )
+                await db.transactions.insert_one(transaction.model_dump())
+                transaction_ids.append(transaction_id)
+                
+                # Update Cash/Bank account balance (debit = decrease balance for asset accounts)
+                await db.accounts.update_one(
+                    {"id": account_id},
+                    {"$inc": {"current_balance": -round(refund_money_amount, 2)}}
+                )
+                
+                # 2b. Transaction 2: Debit Sales Income account (reduce revenue)
+                # Find Sales Income account
+                sales_income_account = await db.accounts.find_one({
+                    "is_deleted": False,
+                    "account_type": "income",
+                    "$or": [
+                        {"name": {"$regex": "sales income", "$options": "i"}},
+                        {"name": {"$regex": "^sales$", "$options": "i"}}
+                    ]
+                })
+                
+                if sales_income_account:
+                    transactions_count = await db.transactions.count_documents({})
+                    income_transaction_number = f"TXN-{transactions_count + 1:05d}"
+                    income_transaction_id = str(uuid.uuid4())
+                    
+                    income_transaction = Transaction(
+                        id=income_transaction_id,
+                        transaction_number=income_transaction_number,
+                        date=finalize_time,
+                        transaction_type="debit",  # Debit income = reduce revenue
+                        mode="adjustment",
+                        account_id=sales_income_account.get('id'),
+                        account_name=sales_income_account.get('name'),
+                        party_id=party_id,
+                        party_name=party_name,
+                        amount=round(refund_money_amount, 2),
+                        category="sales_return",
+                        notes=f"Sales Return Revenue Adjustment - {return_number}",
+                        reference_type="return",
+                        reference_id=return_id,
+                        created_by=current_user.id
+                    )
+                    await db.transactions.insert_one(income_transaction.model_dump())
+                    transaction_ids.append(income_transaction_id)
+                    
+                    # Update Sales Income account balance (debit income = decrease balance)
+                    await db.accounts.update_one(
+                        {"id": sales_income_account.get('id')},
+                        {"$inc": {"current_balance": -round(refund_money_amount, 2)}}
+                    )
+        
+            # 3. Create gold refund (GoldLedgerEntry - OUT)
+            if refund_mode in ['gold', 'mixed'] and refund_gold_grams > 0:
+                gold_ledger_id = str(uuid.uuid4())
+                gold_entry = GoldLedgerEntry(
+                    id=gold_ledger_id,
+                    party_id=party_id,
+                    date=finalize_time,
+                    type="OUT",  # Shop gives gold to customer
+                    weight_grams=round(refund_gold_grams, 3),
+                    purity_entered=return_data.get('refund_gold_purity', 916),
+                    purpose="sales_return",
+                    reference_type="return",
+                    reference_id=return_id,
+                    notes=f"Sales Return Gold Refund - {return_number}",
+                    created_by=current_user.id
+                )
+                await db.gold_ledger.insert_one(gold_entry.model_dump())
+        
+            # 4. Update invoice (adjust paid_amount and balance_due)
+            if reference_type == 'invoice':
+                invoice = await db.invoices.find_one({"id": reference_id})
+                if invoice:
+                    # Reduce paid amount by refund amount (as we're returning money)
+                    new_paid = invoice.get('paid_amount', 0) - refund_money_amount
+                    new_balance = invoice.get('grand_total', 0) - new_paid
+                    
+                    await db.invoices.update_one(
+                        {"id": reference_id},
+                        {
+                            "$set": {
+                                "paid_amount": round(max(0, new_paid), 2),
+                                "balance_due": round(max(0, new_balance), 2),
+                                "payment_status": "unpaid" if new_balance > 0 else "paid"
+                            }
+                        }
+                    )
+        
+            # 5. Update customer outstanding (if saved customer)
+            if party_id:
+                party = await db.parties.find_one({"id": party_id})
+                if party and party.get('party_type') == 'customer':
+                    # Increase outstanding (customer owes less due to refund)
+                    current_outstanding = party.get('outstanding_balance', 0)
+                    new_outstanding = current_outstanding + refund_money_amount
+                    await db.parties.update_one(
+                        {"id": party_id},
+                        {"$set": {"outstanding_balance": round(new_outstanding, 2)}}
+                    )
+        
+        # ========================================================================
+        # PURCHASE RETURN WORKFLOW
+        # ========================================================================
+        elif return_type == 'purchase_return':
+            # 1. Create stock movements (Stock OUT - returned to vendor)
+            for item in items:
+                weight_grams = float(item.get('weight_grams', 0))
+                
+                if weight_grams > 0:
+                    movement_id = str(uuid.uuid4())
+                    stock_movement = StockMovement(
+                        id=movement_id,
+                        type="OUT",
+                        category=item.get('description'),
+                        weight=round(weight_grams, 3),
+                        purity=item.get('purity'),
+                        date=finalize_time,
+                        purpose=f"Purchase Return - {return_number}",
+                        reference_type="return",
+                        reference_id=return_id,
+                        notes=return_data.get('reason'),
+                        created_by=current_user.id
+                    )
+                    await db.stock_movements.insert_one(stock_movement.model_dump())
+                    stock_movement_ids.append(movement_id)
+                    
+                    # Update inventory header stock (decrease)
+                    await db.inventory_headers.update_one(
+                        {"name": item.get('description')},
+                        {
+                            "$inc": {
+                                "current_qty": -item.get('qty', 0),
+                                "current_weight": -round(weight_grams, 3)
+                            }
+                        }
+                    )
+            
+            # 2. Create money refund (Transaction - Credit - vendor refunds us)
+            if refund_mode in ['money', 'mixed'] and refund_money_amount > 0:
+                account = await db.accounts.find_one({"id": account_id})
+                if not account:
+                    raise HTTPException(status_code=400, detail="Account not found for money refund")
+                
+                # Generate transaction number
+                transactions_count = await db.transactions.count_documents({})
+                transaction_number = f"TXN-{transactions_count + 1:05d}"
+                
+                transaction_id = str(uuid.uuid4())
+                transaction = Transaction(
+                    id=transaction_id,
+                    transaction_number=transaction_number,
+                    date=finalize_time,
+                    transaction_type="credit",  # Money coming in from vendor
+                    mode=return_data.get('payment_mode', 'cash'),
+                    account_id=account_id,
+                    account_name=account.get('name'),
+                    party_id=party_id,
+                    party_name=party_name,
+                    amount=round(refund_money_amount, 2),
+                    category="purchase_return",
+                    notes=f"Purchase Return Refund - {return_number}",
+                    reference_type="return",
+                    reference_id=return_id,
+                    created_by=current_user.id
+                )
+                await db.transactions.insert_one(transaction.model_dump())
+                transaction_ids.append(transaction_id)
+                
+                # Update account balance (credit = increase balance)
+                await db.accounts.update_one(
+                    {"id": account_id},
+                    {"$inc": {"current_balance": round(refund_money_amount, 2)}}
+                )
+            
+            # 3. Create gold refund (GoldLedgerEntry - IN - vendor returns gold to us)
+            if refund_mode in ['gold', 'mixed'] and refund_gold_grams > 0:
+                gold_ledger_id = str(uuid.uuid4())
+                gold_entry = GoldLedgerEntry(
+                    id=gold_ledger_id,
+                    party_id=party_id,
+                    date=finalize_time,
+                    type="IN",  # Vendor gives gold back to shop
+                    weight_grams=round(refund_gold_grams, 3),
+                    purity_entered=return_data.get('refund_gold_purity', 916),
+                    purpose="purchase_return",
+                    reference_type="return",
+                    reference_id=return_id,
+                    notes=f"Purchase Return Gold Refund - {return_number}",
+                    created_by=current_user.id
+                )
+                await db.gold_ledger.insert_one(gold_entry.model_dump())
+            
+            # 4. Update purchase (adjust balance_due_money)
+            if reference_type == 'purchase':
+                purchase = await db.purchases.find_one({"id": reference_id})
+                if purchase:
+                    # Reduce balance due by refund amount
+                    new_balance = purchase.get('balance_due_money', 0) - refund_money_amount
+                    
+                    await db.purchases.update_one(
+                        {"id": reference_id},
+                        {"$set": {"balance_due_money": round(max(0, new_balance), 2)}}
+                    )
+            
+            # 5. Update vendor payable
+            if party_id:
+                party = await db.parties.find_one({"id": party_id})
+                if party and party.get('party_type') == 'vendor':
+                    # Decrease outstanding (we owe vendor less due to return)
+                    current_outstanding = party.get('outstanding_balance', 0)
+                    new_outstanding = current_outstanding - refund_money_amount
+                    await db.parties.update_one(
+                        {"id": party_id},
+                        {"$set": {"outstanding_balance": round(new_outstanding, 2)}}
+                    )
+        
+        # ========================================================================
+        # SAVE RETURN WITH FINALIZED STATUS AND ALL IMPACT IDs
+        # ========================================================================
+        return_obj.stock_movement_ids = stock_movement_ids
+        return_obj.transaction_id = transaction_ids[0] if transaction_ids else None
+        return_obj.gold_ledger_id = gold_ledger_id
         
         # Convert float values to Decimal128 for precise storage
         return_dict = return_obj.model_dump()
         return_dict = convert_return_to_decimal(return_dict)
         
-        # Insert into database
+        # Insert return into database
         await db.returns.insert_one(return_dict)
         
         # Create audit log
@@ -9698,17 +10012,122 @@ async def create_return(
             user_id=current_user.id,
             user_name=current_user.full_name,            
             module="returns",
-            record_id=return_obj.id,
-            action="create",
-            changes={"status": "draft", "return_type": return_type, "party": party_name}
+            record_id=return_id,
+            action="create_and_finalize",
+            changes={
+                "status": "finalized",
+                "return_type": return_type,
+                "party": party_name,
+                "stock_movements_created": len(stock_movement_ids),
+                "transactions_created": len(transaction_ids),
+                "gold_ledger_created": gold_ledger_id is not None
+            }
         )
         
-        return {"message": "Return created successfully", "return": decimal_to_float(return_obj.model_dump())}
+        return {
+            "message": "Return created and finalized successfully",
+            "return": decimal_to_float(return_obj.model_dump()),
+            "details": {
+                "stock_movements_created": len(stock_movement_ids),
+                "transactions_created": len(transaction_ids),
+                "gold_ledger_created": gold_ledger_id is not None,
+                "auto_finalized": True
+            }
+        }
     
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating return: {str(e)}")
+        # CRITICAL ROLLBACK - Creation failed, must revert all changes
+        try:
+            # 1. Delete return if it was inserted
+            if return_id:
+                await db.returns.delete_one({"id": return_id})
+            
+            # 2. Delete any stock movements created
+            if stock_movement_ids:
+                for movement_id in stock_movement_ids:
+                    await db.stock_movements.delete_one({"id": movement_id})
+                
+                # Revert inventory header changes
+                for item in items:
+                    if item.get('weight_grams', 0) > 0:
+                        qty_change = item.get('qty', 0)
+                        weight_change = round(float(item.get('weight_grams')), 3)
+                        
+                        if return_type == 'sale_return':
+                            # We added stock, now subtract it back
+                            await db.inventory_headers.update_one(
+                                {"name": item.get('description')},
+                                {
+                                    "$inc": {
+                                        "current_qty": -qty_change,
+                                        "current_weight": -weight_change
+                                    }
+                                }
+                            )
+                        else:  # purchase_return
+                            # We removed stock, now add it back
+                            await db.inventory_headers.update_one(
+                                {"name": item.get('description')},
+                                {
+                                    "$inc": {
+                                        "current_qty": qty_change,
+                                        "current_weight": weight_change
+                                    }
+                                }
+                            )
+            
+            # 3. Delete transactions and revert account balances
+            if transaction_ids:
+                for txn_id in transaction_ids:
+                    transaction = await db.transactions.find_one({"id": txn_id})
+                    if transaction:
+                        # Revert account balance
+                        account_id = transaction.get('account_id')
+                        amount = transaction.get('amount', 0)
+                        transaction_type = transaction.get('transaction_type')
+                        if account_id:
+                            # Reverse the balance change
+                            if transaction_type == 'debit':
+                                balance_change = amount  # Reverse debit
+                            else:
+                                balance_change = -amount  # Reverse credit
+                            await db.accounts.update_one(
+                                {"id": account_id},
+                                {"$inc": {"current_balance": balance_change}}
+                            )
+                        # Delete transaction
+                        await db.transactions.delete_one({"id": txn_id})
+            
+            # 4. Delete gold ledger entry if created
+            if gold_ledger_id:
+                await db.gold_ledger.delete_one({"id": gold_ledger_id})
+            
+            # 5. Create audit log for rollback
+            if return_id:
+                await create_audit_log(
+                    user_id=current_user.id,
+                    user_name=current_user.full_name,
+                    module="returns",
+                    record_id=return_id,
+                    action="create_rollback",
+                    changes={
+                        "error": str(e),
+                        "rollback_completed": True,
+                        "stock_movements_deleted": len(stock_movement_ids),
+                        "transactions_deleted": len(transaction_ids),
+                        "gold_ledger_deleted": gold_ledger_id is not None
+                    }
+                )
+        except Exception as rollback_error:
+            # Even rollback failed - log critical error
+            print(f"CRITICAL: Rollback failed for return creation: {str(rollback_error)}")
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating return: {str(e)}. Changes have been rolled back."
+        )
 
 
 @api_router.get("/returns")
