@@ -840,7 +840,7 @@ class StockMovement(BaseModel):
     movement_type: str
     header_id: str
     header_name: str
-    description: str
+    description: Optional[str] = None  # Optional for faster data entry
     qty_delta: float
     weight_delta: float
     purity: int
@@ -848,7 +848,7 @@ class StockMovement(BaseModel):
     reference_id: Optional[str] = None
     created_by: str
     notes: Optional[str] = None
-    confirmation_reason: Optional[str] = None  # Required for manual adjustments
+    confirmation_reason: Optional[str] = None  # Optional for faster data entry
     is_deleted: bool = False
 
 class Party(BaseModel):
@@ -2144,7 +2144,7 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
       * GST compliance (tax collected)
       
     WORKFLOW CONTROL:
-    - confirmation_reason is NOT REQUIRED for all manual adjustments
+    - description and confirmation_reason are optional for faster data entry
     """
     header = await db.inventory_headers.find_one({"id": movement_data['header_id']}, {"_id": 0})
     if not header:
@@ -2155,6 +2155,8 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
     qty_delta = movement_data.get('qty_delta', 0)
     weight_delta = movement_data.get('weight_delta', 0)
     
+    # Get optional confirmation_reason for audit trail
+    confirmation_reason = movement_data.get('confirmation_reason', '').strip() or None
     
     # Block Stock OUT movement type entirely
     if movement_type == "Stock OUT":
@@ -2183,7 +2185,7 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
         movement_type=movement_type,
         header_id=movement_data['header_id'],
         header_name=header['name'],
-        description=movement_data['description'],
+        description=movement_data.get('description', '').strip() or None,
         qty_delta=qty_delta,
         weight_delta=weight_delta,
         purity=movement_data['purity'],

@@ -30,8 +30,7 @@ export default function InventoryPage() {
     qty_delta: 0,
     weight_delta: 0,
     purity: 916,
-    notes: '',
-    confirmation_reason: ''
+    notes: ''
   });
 
   // Validate category name
@@ -137,14 +136,6 @@ export default function InventoryPage() {
       toast.error('Please select a category');
       return;
     }
-    if (!movementForm.description.trim()) {
-      toast.error('Please enter a description');
-      return;
-    }
-    if (!movementForm.confirmation_reason.trim()) {
-      toast.error('Confirmation reason is required for all manual inventory adjustments');
-      return;
-    }
     if (parseFloat(movementForm.qty_delta) <= 0 || parseFloat(movementForm.weight_delta) <= 0) {
       toast.error('Quantity and weight must be positive values');
       return;
@@ -158,8 +149,7 @@ export default function InventoryPage() {
         qty_delta: Math.abs(parseFloat(movementForm.qty_delta)),
         weight_delta: Math.abs(parseFloat(movementForm.weight_delta)),
         purity: parseInt(movementForm.purity),
-        notes: movementForm.notes,
-        confirmation_reason: movementForm.confirmation_reason
+        notes: movementForm.notes
       };
 
       await API.post(`/api/inventory/movements`, data);
@@ -172,8 +162,7 @@ export default function InventoryPage() {
         qty_delta: 0,
         weight_delta: 0,
         purity: 916,
-        notes: '',
-        confirmation_reason: ''
+        notes: ''
       });
       loadInventoryData();
     } catch (error) {
@@ -282,7 +271,7 @@ export default function InventoryPage() {
                   </Select>
                 </div>
                 <div className="col-span-2">
-                  <Label>Description</Label>
+                  <Label>Description (Optional)</Label>
                   <Input
                     data-testid="description-input"
                     value={movementForm.description}
@@ -328,19 +317,6 @@ export default function InventoryPage() {
                     onChange={(e) => setMovementForm({...movementForm, notes: e.target.value})}
                     placeholder="Additional notes"
                   />
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-red-600">Confirmation Reason *</Label>
-                  <Input
-                    data-testid="confirmation-reason-input"
-                    value={movementForm.confirmation_reason}
-                    onChange={(e) => setMovementForm({...movementForm, confirmation_reason: e.target.value})}
-                    placeholder="Required: Reason for this manual inventory adjustment (e.g., stock return, found items, physical count)"
-                    className="border-red-200"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Required for audit trail and regulatory compliance
-                  </p>
                 </div>
               </div>
               <Button data-testid="save-movement-button" onClick={handleAddMovement} className="w-full mt-4">Save Movement</Button>
