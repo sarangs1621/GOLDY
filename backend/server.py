@@ -697,6 +697,31 @@ def validate_purchase_timestamps(status: str, finalized_at: Optional[datetime]) 
     
     return True, ""
 
+def calculate_purchase_status(paid_amount: float, total_amount: float) -> str:
+    """
+    Calculate purchase status based on payment amounts (SERVER-SIDE AUTHORITY).
+    
+    CRITICAL BUSINESS RULES:
+    - A purchase is NEVER "Draft" after creation (auto-finalized)
+    - Status reflects payment state for accounting integrity
+    
+    Args:
+        paid_amount: Amount paid to vendor
+        total_amount: Total purchase amount
+    
+    Returns:
+        Status string: "Finalized (Unpaid)" | "Partially Paid" | "Paid"
+    """
+    paid_amount = round(float(paid_amount), 2)
+    total_amount = round(float(total_amount), 2)
+    
+    if paid_amount == 0:
+        return "Finalized (Unpaid)"
+    elif paid_amount < total_amount:
+        return "Partially Paid"
+    else:  # paid_amount >= total_amount
+        return "Paid"
+
 class PaginationMetadata(BaseModel):
     total_count: int
     page: int
@@ -3339,7 +3364,15 @@ async def get_party_summary(party_id: str, current_user: User = Depends(require_
 @api_router.post("/purchases", response_model=Purchase)
 @limiter.limit("1000/hour")  # General authenticated rate limit: 1000 requests per hour
 async def create_purchase(request: Request, purchase_data: dict, current_user: User = Depends(require_permission('purchases.create'))):
-    """Create a new purchase in draft status"""
+    """
+    Create and auto-finalize a new purchase.
+    
+    ⚠️ CRITICAL BUSINESS RULE: All purchases are auto-finalized on creation ⚠️
+    - Inventory is updated immediately
+    - Accounting entries are created immediately
+    - No "Draft" state exists for normal purchases
+    - Status is calculated based on payment: "Finalized (Unpaid)" | "Partially Paid" | "Paid"
+    """
     if not user_has_permission(current_user, 'purchases.create'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to create purchases")
     
@@ -3409,22 +3442,188 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
     # Ensure valuation purity is always 916
     purchase_data["valuation_purity_fixed"] = 916
     
-    # Set creation metadata
+    # ========== CRITICAL: CALCULATE STATUS (SERVER-SIDE AUTHORITY) ==========
+    # Status is NEVER "draft" - purchases are auto-finalized
+    calculated_status = calculate_purchase_status(
+        paid_amount=purchase_data["paid_amount_money"],
+        total_amount=purchase_data["amount_total"]
+    )
+    
+    # Set creation and finalization metadata
+    finalize_time = datetime.now(timezone.utc)
     purchase_data["created_by"] = current_user.username
-    purchase_data["status"] = "draft"
+    purchase_data["status"] = calculated_status
+    purchase_data["finalized_at"] = finalize_time
+    purchase_data["finalized_by"] = current_user.username
+    purchase_data["locked"] = True
+    purchase_data["locked_at"] = finalize_time
+    purchase_data["locked_by"] = current_user.username
     
     # Create Purchase model instance
     purchase = Purchase(**purchase_data)
+    purchase_id = purchase.id
     
     # Insert purchase
     await db.purchases.insert_one(purchase.model_dump())
+    
+    # ========== AUTO-FINALIZATION: CREATE ALL ACCOUNTING ENTRIES ==========
+    
+    # === OPERATION 1: Create Stock IN movement ===
+    purity = purchase_data["valuation_purity_fixed"]  # Always 916
+    header_name = f"Gold {purity // 41.6:.0f}K"  # 916 = 22K
+    
+    header = await db.inventory_headers.find_one({"name": header_name, "is_deleted": False})
+    if not header:
+        # Create new inventory header
+        header = InventoryHeader(
+            name=header_name,
+            purity=purity,
+            current_qty=0,
+            current_weight=0,
+            created_by=current_user.username
+        )
+        await db.inventory_headers.insert_one(header.model_dump())
+    
+    # Create Stock IN movement
+    movement = StockMovement(
+        date=purchase.date,
+        movement_type="Stock IN",
+        header_id=header.get("id") if isinstance(header, dict) else header.id,
+        header_name=header_name,
+        description=f"Purchase from {vendor['name']}: {purchase.description}",
+        qty_delta=1,
+        weight_delta=purchase.weight_grams,
+        purity=purity,
+        reference_type="purchase",
+        reference_id=purchase_id,
+        created_by=current_user.username,
+        notes=f"Entered purity: {purchase.entered_purity}, Valuation purity: {purity}"
+    )
+    await db.stock_movements.insert_one(movement.model_dump())
+    
+    # Update inventory header
+    header_id = header.get("id") if isinstance(header, dict) else header.id
+    await db.inventory_headers.update_one(
+        {"id": header_id},
+        {"$inc": {
+            "current_qty": 1,
+            "current_weight": purchase.weight_grams
+        }}
+    )
+    
+    # === OPERATION 2: Create DEBIT transaction if paid_amount_money > 0 ===
+    if purchase_data["paid_amount_money"] > 0:
+        current_year = datetime.now(timezone.utc).year
+        existing_txns = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{current_year}-"}})
+        payment_txn_number = f"TXN-{current_year}-{existing_txns + 1:04d}"
+        
+        account = await db.accounts.find_one({"id": purchase_data["account_id"], "is_deleted": False})
+        
+        payment_transaction = Transaction(
+            transaction_number=payment_txn_number,
+            date=purchase.date,
+            transaction_type="debit",
+            mode=purchase_data.get("payment_mode", "Cash"),
+            account_id=purchase_data["account_id"],
+            account_name=account["name"],
+            party_id=purchase.vendor_party_id,
+            party_name=vendor["name"],
+            amount=round(purchase_data["paid_amount_money"], 2),
+            category="Purchase Payment",
+            reference_type="purchase",
+            reference_id=purchase_id,
+            notes=f"Payment for purchase: {purchase.description} ({purchase.weight_grams}g)",
+            created_by=current_user.username
+        )
+        await db.transactions.insert_one(payment_transaction.model_dump())
+        
+        # Update account balance
+        delta = -payment_transaction.amount
+        await db.accounts.update_one(
+            {"id": purchase_data["account_id"]}, 
+            {"$inc": {"current_balance": delta}}
+        )
+    
+    # === OPERATION 3: Create GoldLedgerEntry OUT if advance_in_gold_grams > 0 ===
+    advance_gold = purchase_data.get("advance_in_gold_grams")
+    if advance_gold and advance_gold > 0:
+        advance_gold = round(advance_gold, 3)
+        
+        advance_entry = GoldLedgerEntry(
+            party_id=purchase.vendor_party_id,
+            date=purchase.date,
+            type="OUT",
+            weight_grams=advance_gold,
+            purity_entered=purchase.entered_purity,
+            purpose="advance_gold",
+            reference_type="purchase",
+            reference_id=purchase_id,
+            notes=f"Advance gold settled in purchase: {purchase.description}",
+            created_by=current_user.username
+        )
+        await db.gold_ledger.insert_one(advance_entry.model_dump())
+    
+    # === OPERATION 4: Create GoldLedgerEntry IN if exchange_in_gold_grams > 0 ===
+    exchange_gold = purchase_data.get("exchange_in_gold_grams")
+    if exchange_gold and exchange_gold > 0:
+        exchange_gold = round(exchange_gold, 3)
+        
+        exchange_entry = GoldLedgerEntry(
+            party_id=purchase.vendor_party_id,
+            date=purchase.date,
+            type="IN",
+            weight_grams=exchange_gold,
+            purity_entered=purchase.entered_purity,
+            purpose="exchange",
+            reference_type="purchase",
+            reference_id=purchase_id,
+            notes=f"Gold exchanged in purchase: {purchase.description}",
+            created_by=current_user.username
+        )
+        await db.gold_ledger.insert_one(exchange_entry.model_dump())
+    
+    # === OPERATION 5: Create vendor payable transaction ONLY for balance_due_money ===
+    balance_due = purchase_data["balance_due_money"]
+    
+    if balance_due > 0:
+        current_year = datetime.now(timezone.utc).year
+        existing_txns = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{current_year}-"}})
+        payable_txn_number = f"TXN-{current_year}-{existing_txns + 1:04d}"
+        
+        purchases_account = await db.accounts.find_one({"name": "Purchases", "is_deleted": False})
+        if not purchases_account:
+            purchases_account = Account(
+                name="Purchases",
+                account_type="expense",
+                balance=0,
+                created_by=current_user.username
+            )
+            await db.accounts.insert_one(purchases_account.model_dump())
+        
+        payable_transaction = Transaction(
+            transaction_number=payable_txn_number,
+            date=purchase.date,
+            transaction_type="credit",
+            mode="Vendor Payable",
+            account_id=purchases_account.get("id") if isinstance(purchases_account, dict) else purchases_account.id,
+            account_name="Purchases",
+            party_id=purchase.vendor_party_id,
+            party_name=vendor["name"],
+            amount=round(balance_due, 2),
+            category="Purchase",
+            reference_type="purchase",
+            reference_id=purchase_id,
+            notes=f"Vendor payable for purchase: {purchase.description} ({purchase.weight_grams}g @ {purchase.rate_per_gram}/g)",
+            created_by=current_user.username
+        )
+        await db.transactions.insert_one(payable_transaction.model_dump())
     
     # Create audit log
     await create_audit_log(
         user_id=current_user.id,
         user_name=current_user.username,
         module="purchases",
-        record_id=purchase.id,
+        record_id=purchase_id,
         action="create",
         changes={
             "vendor_party_id": purchase.vendor_party_id,
@@ -3435,10 +3634,12 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
             "balance_due_money": purchase.balance_due_money,
             "advance_in_gold_grams": purchase.advance_in_gold_grams,
             "exchange_in_gold_grams": purchase.exchange_in_gold_grams,
-            "status": "draft"
+            "status": calculated_status,
+            "auto_finalized": True
         }
     )
     
+    # Return the created purchase with correct status
     return purchase
 
 @api_router.get("/purchases")
@@ -3653,28 +3854,15 @@ async def get_purchase_impact(purchase_id: str, current_user: User = Depends(req
 @api_router.post("/purchases/{purchase_id}/finalize")
 async def finalize_purchase(purchase_id: str, current_user: User = Depends(require_permission('purchases.finalize'))):
     """
-    Finalize a purchase - performs all required operations atomically.
+    ⚠️ DEPRECATED ENDPOINT ⚠️
     
-    ⚠️ CRITICAL - AUTHORITATIVE STOCK ADDITION PATH (from vendors) ⚠️
-    This endpoint is the primary authorized way to add purchased inventory stock (Stock IN from vendors).
-    Combined with manual Stock IN/Adjustment movements (for returns, found items), this ensures:
-    - Complete audit trail (all vendor purchases tracked)
-    - Accurate accounting (vendor payables recorded)
-    - Cost tracking (purchase rates maintained)
-    - Financial integrity (no unauthorized stock additions from vendors)
+    This endpoint is no longer needed as purchases are auto-finalized on creation.
+    All purchases are immediately committed with proper status:
+    - "Finalized (Unpaid)" if paid_amount == 0
+    - "Partially Paid" if 0 < paid_amount < total
+    - "Paid" if paid_amount == total
     
-    Atomic operations performed:
-    1. Update purchase status to 'finalized'
-    2. Create Stock IN movement (adds to inventory using valuation_purity_fixed = 916) - AUTHORIZED PATH
-    3. Directly increase inventory header current_qty and current_weight
-    4. Create DEBIT transaction if paid_amount_money > 0 (we paid vendor)
-    5. Create GoldLedgerEntry OUT if advance_in_gold_grams > 0 (shop gives gold to vendor)
-    6. Create GoldLedgerEntry IN if exchange_in_gold_grams > 0 (shop receives gold from vendor)
-    7. Create vendor payable transaction (credit entry) ONLY for balance_due_money
-    8. Lock the purchase to prevent further edits
-    9. Create audit log
-    
-    All operations succeed together or fail together to maintain data consistency.
+    Kept for backward compatibility only.
     """
     if not user_has_permission(current_user, 'purchases.finalize'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to finalize purchases")
@@ -3684,240 +3872,19 @@ async def finalize_purchase(purchase_id: str, current_user: User = Depends(requi
     if not purchase:
         raise HTTPException(status_code=404, detail="Purchase not found")
     
-    # Check if already finalized
-    if purchase.get("status") == "finalized":
-        raise HTTPException(status_code=400, detail="Purchase is already finalized")
+    # Check status - all purchases are now auto-finalized
+    purchase_status = purchase.get("status", "")
+    if purchase_status in ["Finalized (Unpaid)", "Partially Paid", "Paid"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Purchase is already finalized with status: {purchase_status}. All purchases are auto-finalized on creation."
+        )
     
-    # Get vendor details
-    vendor = await db.parties.find_one({"id": purchase["vendor_party_id"], "is_deleted": False})
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-    
-    # Collect IDs for response
-    created_ids = {
-        "stock_movement_id": None,
-        "payment_transaction_id": None,
-        "advance_gold_ledger_id": None,
-        "exchange_gold_ledger_id": None,
-        "vendor_payable_transaction_id": None
-    }
-    
-    # === OPERATION 1: Update purchase status ===
-    finalize_time = datetime.now(timezone.utc)
-    await db.purchases.update_one(
-        {"id": purchase_id},
-        {"$set": {
-            "status": "finalized",
-            "finalized_at": finalize_time,
-            "finalized_by": current_user.username,
-            "locked": True,
-            "locked_at": finalize_time,
-            "locked_by": current_user.username
-        }}
+    # Should never reach here in normal operation
+    raise HTTPException(
+        status_code=400,
+        detail="This endpoint is deprecated. All purchases are auto-finalized on creation."
     )
-    
-    # === OPERATION 2: Create Stock IN movement ===
-    # Find or create inventory header for 916 purity (22K gold)
-    purity = purchase["valuation_purity_fixed"]  # Always 916
-    header_name = f"Gold {purity // 41.6:.0f}K"  # 916 = 22K, 999 = 24K
-    
-    header = await db.inventory_headers.find_one({"name": header_name, "is_deleted": False})
-    if not header:
-        # Create new inventory header
-        header = InventoryHeader(
-            name=header_name,
-            purity=purity,
-            current_qty=0,
-            current_weight=0,
-            created_by=current_user.username
-        )
-        await db.inventory_headers.insert_one(header.model_dump())
-    
-    # Create Stock IN movement (positive values for incoming stock)
-    movement = StockMovement(
-        date=purchase["date"],
-        movement_type="Stock IN",
-        header_id=header.get("id") if isinstance(header, dict) else header.id,
-        header_name=header_name,
-        description=f"Purchase from {vendor['name']}: {purchase['description']}",
-        qty_delta=1,  # 1 piece added
-        weight_delta=purchase["weight_grams"],  # Positive value for incoming
-        purity=purity,
-        reference_type="purchase",
-        reference_id=purchase_id,
-        created_by=current_user.username,
-        notes=f"Entered purity: {purchase['entered_purity']}, Valuation purity: {purity}"
-    )
-    await db.stock_movements.insert_one(movement.model_dump())
-    created_ids["stock_movement_id"] = movement.id
-    
-    # Update inventory header current stock
-    header_id = header.get("id") if isinstance(header, dict) else header.id
-    await db.inventory_headers.update_one(
-        {"id": header_id},
-        {"$inc": {
-            "current_qty": 1,
-            "current_weight": purchase["weight_grams"]
-        }}
-    )
-    
-    # === MODULE 4 OPERATION 3: Create DEBIT transaction if paid_amount_money > 0 ===
-    paid_amount = purchase.get("paid_amount_money", 0.0)
-    if paid_amount > 0:
-        # Generate transaction number
-        current_year = datetime.now(timezone.utc).year
-        existing_txns = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{current_year}-"}})
-        payment_txn_number = f"TXN-{current_year}-{existing_txns + 1:04d}"
-        
-        # Get account details
-        account = await db.accounts.find_one({"id": purchase["account_id"], "is_deleted": False})
-        if not account:
-            raise HTTPException(status_code=404, detail="Payment account not found")
-        
-        # Create DEBIT transaction (we paid vendor - reduces our account balance)
-        payment_transaction = Transaction(
-            transaction_number=payment_txn_number,
-            date=purchase["date"],
-            transaction_type="debit",  # Debit = we paid out
-            mode=purchase.get("payment_mode", "Cash"),
-            account_id=purchase["account_id"],
-            account_name=account["name"],
-            party_id=purchase["vendor_party_id"],
-            party_name=vendor["name"],
-            amount=round(paid_amount, 2),
-            category="Purchase Payment",
-            reference_type="purchase",
-            reference_id=purchase_id,
-            notes=f"Payment for purchase: {purchase['description']} ({purchase['weight_grams']}g)",
-            created_by=current_user.username
-        )
-        await db.transactions.insert_one(payment_transaction.model_dump())
-        created_ids["payment_transaction_id"] = payment_transaction.id
-        
-        # CRITICAL FIX: Update account balance when payment is made to vendor
-        # Debit transaction decreases the account balance (money going out)
-        delta = -payment_transaction.amount  # Negative for debit (money out)
-        await db.accounts.update_one(
-            {"id": purchase["account_id"]}, 
-            {"$inc": {"current_balance": delta}}
-        )
-    
-    # === MODULE 4 OPERATION 4: Create GoldLedgerEntry OUT if advance_in_gold_grams > 0 ===
-    advance_gold = purchase.get("advance_in_gold_grams")
-    if advance_gold and advance_gold > 0:
-        advance_gold = round(advance_gold, 3)  # Ensure 3 decimal precision
-        
-        advance_entry = GoldLedgerEntry(
-            party_id=purchase["vendor_party_id"],
-            date=purchase["date"],
-            type="OUT",  # OUT = shop gives gold to vendor (settling advance)
-            weight_grams=advance_gold,
-            purity_entered=purchase["entered_purity"],
-            purpose="advance_gold",
-            reference_type="purchase",
-            reference_id=purchase_id,
-            notes=f"Advance gold settled in purchase: {purchase['description']}",
-            created_by=current_user.username
-        )
-        await db.gold_ledger.insert_one(advance_entry.model_dump())
-        created_ids["advance_gold_ledger_id"] = advance_entry.id
-    
-    # === MODULE 4 OPERATION 5: Create GoldLedgerEntry IN if exchange_in_gold_grams > 0 ===
-    exchange_gold = purchase.get("exchange_in_gold_grams")
-    if exchange_gold and exchange_gold > 0:
-        exchange_gold = round(exchange_gold, 3)  # Ensure 3 decimal precision
-        
-        exchange_entry = GoldLedgerEntry(
-            party_id=purchase["vendor_party_id"],
-            date=purchase["date"],
-            type="IN",  # IN = shop receives gold from vendor
-            weight_grams=exchange_gold,
-            purity_entered=purchase["entered_purity"],
-            purpose="exchange",
-            reference_type="purchase",
-            reference_id=purchase_id,
-            notes=f"Gold exchanged in purchase: {purchase['description']}",
-            created_by=current_user.username
-        )
-        await db.gold_ledger.insert_one(exchange_entry.model_dump())
-        created_ids["exchange_gold_ledger_id"] = exchange_entry.id
-    
-    # === MODULE 4 OPERATION 6: Create vendor payable transaction ONLY for balance_due_money ===
-    balance_due = purchase.get("balance_due_money", purchase.get("amount_total", 0))
-    
-    if balance_due > 0:
-        # Generate transaction number
-        current_year = datetime.now(timezone.utc).year
-        existing_txns = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{current_year}-"}})
-        payable_txn_number = f"TXN-{current_year}-{existing_txns + 1:04d}"
-        
-        # Get or create Purchases account
-        purchases_account = await db.accounts.find_one({"name": "Purchases", "is_deleted": False})
-        if not purchases_account:
-            purchases_account = Account(
-                name="Purchases",
-                account_type="expense",
-                balance=0,
-                created_by=current_user.username
-            )
-            await db.accounts.insert_one(purchases_account.model_dump())
-        
-        # Create transaction (credit = we owe vendor)
-        payable_transaction = Transaction(
-            transaction_number=payable_txn_number,
-            date=purchase["date"],
-            transaction_type="credit",  # Credit = liability, we owe vendor
-            mode="Vendor Payable",
-            account_id=purchases_account.get("id") if isinstance(purchases_account, dict) else purchases_account.id,
-            account_name="Purchases",
-            party_id=purchase["vendor_party_id"],
-            party_name=vendor["name"],
-            amount=round(balance_due, 2),
-            category="Purchase",
-            reference_type="purchase",
-            reference_id=purchase_id,
-            notes=f"Vendor payable (balance due) for purchase: {purchase['description']} ({purchase['weight_grams']}g @ {purchase['rate_per_gram']}/g)",
-            created_by=current_user.username
-        )
-        await db.transactions.insert_one(payable_transaction.model_dump())
-        created_ids["vendor_payable_transaction_id"] = payable_transaction.id
-    
-    # === OPERATION 7: Create audit log ===
-    await create_audit_log(
-        user_id=current_user.id,
-        user_name=current_user.username,
-        module="purchases",
-        record_id=purchase_id,
-        action="finalize",
-        changes={
-            "status": "finalized",
-            "stock_movement_id": created_ids["stock_movement_id"],
-            "payment_transaction_id": created_ids["payment_transaction_id"],
-            "advance_gold_ledger_id": created_ids["advance_gold_ledger_id"],
-            "exchange_gold_ledger_id": created_ids["exchange_gold_ledger_id"],
-            "vendor_payable_transaction_id": created_ids["vendor_payable_transaction_id"],
-            "weight_added": purchase["weight_grams"],
-            "purity_used": purity,
-            "paid_amount": paid_amount,
-            "balance_due": balance_due,
-            "advance_gold_grams": purchase.get("advance_in_gold_grams"),
-            "exchange_gold_grams": purchase.get("exchange_in_gold_grams")
-        }
-    )
-    
-    return {
-        "message": "Purchase finalized successfully with payment and gold settlement",
-        "purchase_id": purchase_id,
-        "stock_movement_id": created_ids["stock_movement_id"],
-        "payment_transaction_id": created_ids["payment_transaction_id"],
-        "advance_gold_ledger_id": created_ids["advance_gold_ledger_id"],
-        "exchange_gold_ledger_id": created_ids["exchange_gold_ledger_id"],
-        "vendor_payable_transaction_id": created_ids["vendor_payable_transaction_id"],
-        "paid_amount": paid_amount,
-        "balance_due": balance_due,
-        "vendor_payable": balance_due
-    }
-
 
 @api_router.get("/jobcards")
 async def get_jobcards(
@@ -3926,175 +3893,6 @@ async def get_jobcards(
     current_user: User = Depends(require_permission('jobcards.view'))
 ):
     """Get job cards with pagination support"""
-    if not user_has_permission(current_user, 'jobcards.view'):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view job cards")
-    
-    query = {"is_deleted": False}
-    
-    # Calculate skip value
-    skip = (page - 1) * page_size
-    
-    # Get total count for pagination
-    total_count = await db.jobcards.count_documents(query)
-    
-    # Get paginated results
-    jobcards = await db.jobcards.find(query, {"_id": 0}).sort("date_created", -1).skip(skip).limit(page_size).to_list(page_size)
-    
-    return create_pagination_response(jobcards, total_count, page, page_size)
-
-@api_router.post("/jobcards", response_model=JobCard)
-async def create_jobcard(jobcard_data: dict, current_user: User = Depends(require_permission('jobcards.create'))):
-    # Validate customer type data
-    customer_type = jobcard_data.get('customer_type', 'saved')
-    
-    if customer_type == 'saved':
-        if not jobcard_data.get('customer_id'):
-            raise HTTPException(status_code=400, detail="customer_id is required for saved customers")
-    elif customer_type == 'walk_in':
-        if not jobcard_data.get('walk_in_name'):
-            raise HTTPException(status_code=400, detail="walk_in_name is required for walk-in customers")
-    
-    year = datetime.now(timezone.utc).year
-    count = await db.jobcards.count_documents({"job_card_number": {"$regex": f"^JC-{year}"}})
-    job_card_number = f"JC-{year}-{str(count + 1).zfill(4)}"
-    
-    # Remove conflicting keys and add required fields
-    jobcard_data_clean = {k: v for k, v in jobcard_data.items() if k not in ['job_card_number', 'created_by']}
-    jobcard = JobCard(**jobcard_data_clean, job_card_number=job_card_number, created_by=current_user.id)
-    await db.jobcards.insert_one(jobcard.model_dump())
-    await create_audit_log(current_user.id, current_user.full_name, "jobcard", jobcard.id, "create")
-    return jobcard
-
-@api_router.get("/jobcards/{jobcard_id}", response_model=JobCard)
-async def get_jobcard(jobcard_id: str, current_user: User = Depends(require_permission('jobcards.view'))):
-    jobcard = await db.jobcards.find_one({"id": jobcard_id, "is_deleted": False}, {"_id": 0})
-    if not jobcard:
-        raise HTTPException(status_code=404, detail="Job card not found")
-    return JobCard(**jobcard)
-
-@api_router.patch("/jobcards/{jobcard_id}")
-async def update_jobcard(jobcard_id: str, update_data: dict, current_user: User = Depends(require_permission('jobcards.update'))):
-    existing = await db.jobcards.find_one({"id": jobcard_id, "is_deleted": False})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Job card not found")
-    
-    # Always update updated_at timestamp (audit safety - backend controlled)
-    update_data["updated_at"] = datetime.now(timezone.utc)
-    
-    # Validate status transition if status is being changed
-    if "status" in update_data:
-        current_status = existing.get("status", "created")
-        new_status = update_data["status"]
-        
-        is_valid, error_msg = validate_status_transition("jobcard", current_status, new_status)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_msg)
-        
-        # WORKER VALIDATION: Block completion without worker assignment
-        if new_status == "completed":
-            # Get worker_id from update_data or existing job card
-            worker_id = update_data.get("worker_id") or existing.get("worker_id")
-            if not worker_id:
-                raise HTTPException(
-                    status_code=422, 
-                    detail="Please assign a worker before completing the job card"
-                )
-            
-            # Set completed_at timestamp ONLY if not already set (immutability)
-            if not existing.get("completed_at"):
-                update_data["completed_at"] = datetime.now(timezone.utc)
-        
-        # INVOICE VALIDATION: Block delivery without FULLY PAID invoice
-        if new_status == "delivered":
-            # Check if job card has been converted to invoice
-            if not existing.get("is_invoiced"):
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Please convert this job card to an invoice before delivery."
-                )
-            
-            # CRITICAL: Fetch the linked invoice and validate payment status
-            invoice = await db.invoices.find_one({"jobcard_id": jobcard_id, "is_deleted": False})
-            if not invoice:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Cannot deliver job card. Invoice not found."
-                )
-            
-            # BUSINESS RULE ENFORCEMENT: Invoice MUST be fully paid before delivery
-            # Check 1: Invoice must be finalized
-            if invoice.get("status") != "finalized":
-                raise HTTPException(
-                    status_code=403,
-                    detail="Cannot deliver job card. Invoice is not finalized yet."
-                )
-            
-            # Check 2: Invoice must have ZERO balance due (fully paid)
-            balance_due = invoice.get("balance_due", 0)
-            if balance_due > 0:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"Cannot deliver job card. Invoice has outstanding balance of {balance_due:.2f}. Full payment required before delivery."
-                )
-            
-            # Check 3: Payment status must be "paid"
-            payment_status = invoice.get("payment_status", "unpaid")
-            if payment_status != "paid":
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"Cannot deliver job card. Invoice payment status is '{payment_status}'. Full payment required before delivery."
-                )
-            
-            # All checks passed - allow delivery
-            # Set delivered_at timestamp ONLY if not already set (immutability)
-            if not existing.get("delivered_at"):
-                update_data["delivered_at"] = datetime.now(timezone.utc)
-    
-    # Prevent modification of immutable timestamp fields (audit safety)
-    # Remove these from update_data if client tries to modify them
-    if "completed_at" in update_data and existing.get("completed_at"):
-        update_data["completed_at"] = existing.get("completed_at")  # Keep original
-    if "delivered_at" in update_data and existing.get("delivered_at"):
-        update_data["delivered_at"] = existing.get("delivered_at")  # Keep original
-    if "created_at" in update_data:
-        update_data.pop("created_at", None)  # Never allow modification
-    if "date_created" in update_data:
-        update_data.pop("date_created", None)  # Never allow modification
-    
-    # Check if job card is locked (linked to finalized invoice)
-    if existing.get("locked", False):
-        # Admin override: Allow admins to edit locked job cards
-        if current_user.role == 'admin':
-            # Perform the update
-            await db.jobcards.update_one({"id": jobcard_id}, {"$set": update_data})
-            
-            # Log admin override with special action
-            override_details = {
-                "action": "admin_override_edit_locked_jobcard",
-                "reason": "Admin edited a locked job card that is linked to a finalized invoice",
-                "locked_at": existing.get("locked_at"),
-                "locked_by": existing.get("locked_by"),
-                "changes": update_data
-            }
-            await create_audit_log(
-                current_user.id, 
-                current_user.full_name, 
-                "jobcard", 
-                jobcard_id, 
-                "admin_override_edit", 
-                override_details
-            )
-            
-            return {
-                "message": "Job card updated successfully (admin override)",
-                "warning": "This job card is locked and linked to a finalized invoice"
-            }
-        else:
-            # Non-admin users cannot edit locked job cards
-            raise HTTPException(
-                status_code=403, 
-                detail="Cannot edit locked job card. This job card is linked to a finalized invoice. Only admins can override."
-            )
     
     # Normal update for unlocked job cards
     await db.jobcards.update_one({"id": jobcard_id}, {"$set": update_data})
