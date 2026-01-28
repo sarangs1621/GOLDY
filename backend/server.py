@@ -4120,7 +4120,7 @@ async def get_jobcards(
     
     return create_pagination_response(jobcards, total_count, page, page_size)
 
-@api_router.post("/jobcards")
+@api_router.post("/jobcards", status_code=201)
 async def create_jobcard(jobcard_data: dict, current_user: User = Depends(require_permission('jobcards.create'))):
     """Create a new job card"""
     # Generate job card number
