@@ -698,13 +698,21 @@ const ReturnsPage = () => {
                           >
                             Finalize
                           </button>
-                          <button
-                            onClick={() => handleDeleteReturn(returnObj.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
+                          {canDeleteReturn && (
+                            <button
+                              onClick={() => handleDeleteReturn(returnObj.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete draft return"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </>
+                      )}
+                      {returnObj.status === 'finalized' && (
+                        <span className="text-gray-400 text-xs italic" title="Completed returns cannot be deleted for audit reasons">
+                          View Only
+                        </span>
                       )}
                     </td>
                   </tr>
