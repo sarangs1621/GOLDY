@@ -3380,7 +3380,7 @@ async def get_party_summary(party_id: str, current_user: User = Depends(require_
 # PURCHASES MODULE (Stock IN + Vendor Payable)
 # ===========================
 
-@api_router.post("/purchases", response_model=Purchase)
+@api_router.post("/purchases", response_model=Purchase, status_code=201)
 @limiter.limit("1000/hour")  # General authenticated rate limit: 1000 requests per hour
 async def create_purchase(request: Request, purchase_data: dict, current_user: User = Depends(require_permission('purchases.create'))):
     """
