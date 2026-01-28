@@ -13,8 +13,8 @@ import time
 # Configuration
 BACKEND_URL = "https://bankflow-testing.preview.emergentagent.com/api"
 TEST_USER = {
-    "username": "testadmin",
-    "password": "TestAdmin@123456"  # Test admin user we just created
+    "username": "admin_netflow_test",
+    "password": "TestAdmin@123"  # Test admin user for net flow testing
 }
 
 class BackendTester:
