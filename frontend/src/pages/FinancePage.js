@@ -260,13 +260,13 @@ export default function FinancePageEnhanced() {
                   <span className="text-green-600 flex items-center gap-1">
                     <TrendingUp className="w-3 h-3" /> In
                   </span>
-                  <span className="font-mono font-semibold">{formatCurrency(summary.total_credit)}</span>
+                  <span className="font-mono font-semibold">{formatCurrency(summary.total_in || 0)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-red-600 flex items-center gap-1">
                     <TrendingDown className="w-3 h-3" /> Out
                   </span>
-                  <span className="font-mono font-semibold">{formatCurrency(summary.total_debit)}</span>
+                  <span className="font-mono font-semibold">{formatCurrency(summary.total_out || 0)}</span>
                 </div>
               </div>
             </CardContent>
