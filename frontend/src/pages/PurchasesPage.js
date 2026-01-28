@@ -642,8 +642,23 @@ export default function PurchasesPage() {
                             <Eye className="w-4 h-4" />
                           </Button>
                           
-                          {/* Edit and Delete only for Draft purchases */}
-                          {(purchase.status === 'Draft' || purchase.status === 'draft') && (
+                          {/* Add Payment button - show when balance_due > 0 and not locked */}
+                          {purchase.balance_due_money > 0 && !purchase.locked && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => handleOpenPaymentDialog(purchase)}
+                              title="Add Payment / Pay Remaining"
+                              data-testid={`add-payment-purchase-${purchase.id}`}
+                            >
+                              <DollarSign className="w-4 h-4 mr-1" />
+                              Add Payment
+                            </Button>
+                          )}
+                          
+                          {/* Edit and Delete only for unlocked purchases */}
+                          {!purchase.locked && (
                             <>
                               <Button
                                 size="sm"
@@ -665,8 +680,9 @@ export default function PurchasesPage() {
                               </Button>
                             </>
                           )}
-                          {/* Show locked badge for all finalized purchases */}
-                          {purchase.status !== 'Draft' && purchase.status !== 'draft' && (
+                          
+                          {/* Show locked badge for locked purchases */}
+                          {purchase.locked && (
                             <Badge className="bg-green-100 text-green-800">
                               <Lock className="w-3 h-3 mr-1" />Locked
                             </Badge>
