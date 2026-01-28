@@ -88,6 +88,15 @@ const ReturnsPage = () => {
     loadReturns();
   }, [loadReturns]);
   
+  // Auto-load invoice items when reference_id changes for sale_return
+  useEffect(() => {
+    if (formData.return_type === 'sale_return' && formData.reference_type === 'invoice' && formData.reference_id) {
+      loadInvoiceReturnableItems(formData.reference_id);
+    } else {
+      setReturnableItems([]);
+    }
+  }, [formData.reference_id, formData.return_type, formData.reference_type]);
+  
   // Load reference data
   const loadReferenceData = async (returnType = 'sale_return') => {
     try {
