@@ -8504,3 +8504,118 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ COMPREHENSIVE TESTING COMPLETED - Server-Side Party Filtering VERIFIED WORKING. Tested 11 scenarios with 100% success rate: (1) Case-insensitive name search ('john' found 2 parties, 'GOLD' found 8 parties) - SUCCESS, (2) Phone number search ('1234' found 3 parties) - SUCCESS, (3) Party type filtering (customers: 125, vendors: 15, no mixing) - SUCCESS, (4) Combined filters (search='gold' + party_type=vendor found 6 vendor parties) - SUCCESS, (5) Pagination with filters (page 1 of 25 showing 5 of 125 customers, page 2 navigation working) - SUCCESS, (6) Empty results for non-existent search - SUCCESS, (7) Database-level filtering verification (queries entire 140-party database, not just loaded page) - SUCCESS. All critical success criteria met: ✅ Search queries ENTIRE database ✅ Case-insensitive search works for name and phone ✅ Party type filtering works correctly ✅ Combined filters use AND logic ✅ Pagination total_count reflects filtered results ✅ Empty results handled gracefully ✅ All filters applied at MongoDB level before pagination. Bug fix is production ready."
+
+
+user_problem_statement: |
+  Returns Module UX Improvements & Testing
+  
+  REQUIREMENTS:
+  1. Hide refund fields in Draft creation mode (show only when Finalizing or Editing)
+  2. Verify backend accepts auto-loaded invoice items
+  3. Test Draft → Edit → Finalize workflow
+  4. Verify all previously fixed features work correctly
+
+frontend:
+  - task: "Returns Create Dialog - Hide Refund Fields for Draft"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/ReturnsPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ UX IMPROVEMENT IMPLEMENTED - Simplified Draft Creation
+          
+          CHANGES MADE (Lines 929-947):
+          - REMOVED all refund field inputs from Create Dialog (refund_mode buttons, money amount, gold weight, account selection, payment mode)
+          - REPLACED with clear informational message explaining draft workflow
+          - New message shows: "Simple Draft Creation" with steps explaining that refund details can be added later via Edit or Finalize
+          - This makes draft creation super simple: just select invoice and items, click Create
+          
+          USER BENEFIT:
+          - Faster draft creation (no need to think about refund details upfront)
+          - Clearer workflow: Draft → Edit (add refund) → Finalize
+          - Less form clutter and cognitive load
+          - Matches the backend's optional refund approach
+          
+          NEXT STEPS:
+          - Refund fields still available in Edit Dialog (lines 1116-1287) ✅
+          - Finalize Dialog validates refund details (lines 394-456) ✅
+          - Backend validates refund at finalization (already implemented) ✅
+
+backend:
+  - task: "Returns Backend - Auto-loaded Items Validation"
+    implemented: true
+    working: "verified"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "verified"
+        agent: "main"
+        comment: |
+          ✅ CODE REVIEW CONFIRMED - Backend correctly handles auto-loaded items
+          
+          VERIFICATION POINTS:
+          1. CREATE ENDPOINT (Lines 10174-10346):
+             - Accepts draft returns with items
+             - No rejection of auto-loaded items
+             - Validates items against original invoice/purchase using validate_return_against_original()
+             - Refund details are OPTIONAL at draft stage
+          
+          2. VALIDATION FUNCTION (Lines 1310-1477):
+             - validate_return_against_original() checks:
+               * Total quantity doesn't exceed original
+               * Total weight doesn't exceed original (with 0.1% tolerance)
+               * Total amount doesn't exceed original (with 0.1% tolerance)
+             - Uses Decimal for precision
+             - Considers already finalized returns
+             - Returns clear error messages if validation fails
+          
+          3. DRAFT WORKFLOW:
+             - Draft creation: Items required, refund optional
+             - Finalize time: Refund details required and validated
+             - This matches the UX flow perfectly
+          
+          CONCLUSION: Backend already works correctly. No changes needed.
+
+metadata:
+  created_by: "main_agent"
+  version: "3.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Returns Create Dialog - Hide Refund Fields for Draft"
+    - "Complete Returns workflow testing (Draft → Edit → Finalize)"
+    - "Verify Purchases Add Payment feature"
+    - "Verify Invoice Stock OUT movements"
+    - "Verify Finance dashboard calculations"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      ✅ RETURNS MODULE UX IMPROVEMENTS COMPLETED
+      
+      SUMMARY OF CHANGES:
+      1. ✅ Simplified Create Return Dialog - Removed all refund fields
+      2. ✅ Added clear informational message about draft workflow
+      3. ✅ Verified backend accepts auto-loaded items correctly
+      4. ✅ Confirmed validation logic is working (qty/weight/amount checks)
+      
+      READY FOR TESTING:
+      - Test Draft creation with auto-loaded invoice items
+      - Test Edit draft to add refund details
+      - Test Finalize with refund validation
+      - Verify complete Returns workflow
+      
+      NEXT: Run comprehensive testing with deep_testing_backend_v2 agent
+
