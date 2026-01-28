@@ -383,9 +383,37 @@ const ReturnsPage = () => {
     }
   };
   
-  // Finalize return
+  // Finalize return (with validation for refund details)
   const handleFinalizeReturn = async () => {
     if (!selectedReturn) return;
+    
+    // Validate refund details before finalization
+    if (!selectedReturn.refund_mode || !['money', 'gold', 'mixed'].includes(selectedReturn.refund_mode)) {
+      setError('Please update the return with a valid refund mode (money, gold, or mixed) before finalizing.');
+      return;
+    }
+    
+    if (selectedReturn.refund_mode === 'money' && (!selectedReturn.refund_money_amount || selectedReturn.refund_money_amount <= 0)) {
+      setError('Please update the return with refund money amount before finalizing.');
+      return;
+    }
+    
+    if (selectedReturn.refund_mode === 'gold' && (!selectedReturn.refund_gold_grams || selectedReturn.refund_gold_grams <= 0)) {
+      setError('Please update the return with refund gold amount before finalizing.');
+      return;
+    }
+    
+    if (selectedReturn.refund_mode === 'mixed') {
+      if (!selectedReturn.refund_money_amount || selectedReturn.refund_money_amount <= 0 || !selectedReturn.refund_gold_grams || selectedReturn.refund_gold_grams <= 0) {
+        setError('Please update the return with both refund money and gold amounts before finalizing.');
+        return;
+      }
+    }
+    
+    if ((selectedReturn.refund_mode === 'money' || selectedReturn.refund_mode === 'mixed') && !selectedReturn.account_id) {
+      setError('Please update the return with an account for money refund before finalizing.');
+      return;
+    }
     
     setLoading(true);
     setError('');
