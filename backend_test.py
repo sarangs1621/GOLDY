@@ -1219,9 +1219,9 @@ class BackendTester:
             json.dump(self.test_results, f, indent=2, default=str)
 
 def main():
-    """Main test execution"""
-    print("Starting Comprehensive Backend API Testing")
-    print("Testing Returns Module workflow and previously fixed features")
+    """Main test execution - Focus on Net Flow / Cash Flow / Bank Flow calculations"""
+    print("Starting Finance Dashboard Net Flow / Cash Flow / Bank Flow Testing")
+    print("Testing the fix for Net Flow calculations after backend changes")
     print("="*80)
     
     tester = BackendTester()
@@ -1231,10 +1231,10 @@ def main():
         print("❌ Authentication failed. Cannot proceed with tests.")
         return
     
-    # Test Returns Module Complete Workflow
-    tester.test_returns_module_workflow()
+    # Primary Focus: Test Net Flow / Cash Flow / Bank Flow Calculations
+    tester.test_finance_dashboard_net_flow_calculations()
     
-    # Test Previously Fixed Features
+    # Secondary: Test other previously fixed features
     tester.test_previously_fixed_features()
     
     # Print summary
