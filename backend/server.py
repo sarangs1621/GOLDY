@@ -3462,21 +3462,11 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
     purchase_data["valuation_purity_fixed"] = 916
     
     # ========== CRITICAL: CALCULATE STATUS (SERVER-SIDE AUTHORITY) ==========
-    # Status is NEVER "draft" - purchases are auto-finalized
+    # Purchase lifecycle matches Invoice lifecycle: Draft → Partially Paid → Paid → Finalized (Locked)
     calculated_status = calculate_purchase_status(
         paid_amount=purchase_data["paid_amount_money"],
         total_amount=purchase_data["amount_total"]
     )
-    
-    # ========== SAFETY ASSERTION: PREVENT "DRAFT" WITH COMMITTED DATA ==========
-    # A purchase MUST NEVER be "Draft" if we're creating inventory/accounting entries
-    # "Draft" is ONLY for future explicit "save as draft" feature (not yet implemented)
-    if calculated_status.lower() == "draft":
-        raise HTTPException(
-            status_code=500,
-            detail="CRITICAL ERROR: Cannot save purchase as 'Draft' when inventory/accounting entries are being created. This violates ERP business rules."
-        )
-
     
     # Set creation and finalization metadata
     finalize_time = datetime.now(timezone.utc)
@@ -3484,9 +3474,18 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
     purchase_data["status"] = calculated_status
     purchase_data["finalized_at"] = finalize_time
     purchase_data["finalized_by"] = current_user.username
-    purchase_data["locked"] = True
-    purchase_data["locked_at"] = finalize_time
-    purchase_data["locked_by"] = current_user.username
+    
+    # ========== LOCKING RULES: ONLY LOCK WHEN FULLY PAID ==========
+    # Locking is allowed ONLY AFTER FULL PAYMENT (balance_due == 0)
+    # This allows editing and adding payments until purchase is fully paid
+    if purchase_data["balance_due_money"] == 0:
+        purchase_data["locked"] = True
+        purchase_data["locked_at"] = finalize_time
+        purchase_data["locked_by"] = current_user.username
+    else:
+        purchase_data["locked"] = False
+        purchase_data["locked_at"] = None
+        purchase_data["locked_by"] = None
     
     # Create Purchase model instance
     purchase = Purchase(**purchase_data)
