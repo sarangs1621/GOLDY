@@ -6550,6 +6550,8 @@ async def get_transactions_summary(
             "total_credit": round(total_credit, 3),
             "total_debit": round(total_debit, 3),
             "net_flow": round(net_flow, 3),
+            "total_in": round(total_in, 3),  # Money IN to cash/bank accounts
+            "total_out": round(total_out, 3),  # Money OUT from cash/bank accounts
             "transaction_count": len(transactions),
             "cash_summary": {
                 "credit": round(cash_credit, 3),
