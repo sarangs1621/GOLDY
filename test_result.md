@@ -671,6 +671,27 @@ agent_communication:
       Backend service has been restarted and is running.
 
 user_problem_statement: |
+  Fix Net Flow / Cash Flow / Bank Flow calculations in transactions summary.
+  - The backend filtering logic needs to identify cash/bank accounts by account_name (containing 'cash', 'bank', 'petty') 
+    AND account_type being 'asset', not just by account_type alone.
+
+backend:
+  - task: "Net Flow Filtering Logic - Account Name Based"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "❌ Backend filtering logic at lines 6530-6535 was filtering by account_type being 'cash', 'petty', or 'bank'. But actual accounts have account_type as 'asset' with names like 'Test Cash Account' or 'Bank Account'."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Changed the filtering logic to identify cash/bank accounts by: (1) account_type == 'asset' AND (2) account name containing 'cash'/'petty' for cash accounts OR 'bank' for bank accounts. Added account_names dictionary and updated the for loop logic. This matches the pattern already used in get_profit_loss_statement (lines 7734-7743)."
+
+user_problem_statement_duplicate: |
   Prevent duplicate category names in the inventory system.
   - Backend: Add validation to prevent creating or updating categories with duplicate names (case-insensitive)
   - Both create and update endpoints should check for duplicates
