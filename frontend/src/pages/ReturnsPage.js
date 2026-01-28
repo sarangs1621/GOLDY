@@ -12,6 +12,9 @@ const ReturnsPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
+  // Permissions
+  const canDeleteReturn = usePermission('returns.delete');
+  
   // Pagination
   const { currentPage, setPage, pagination, setPagination } = useURLPagination();
   const pageSize = 10;
