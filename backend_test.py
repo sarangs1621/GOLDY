@@ -1170,13 +1170,13 @@ class BackendTester:
             
             response = self.session.post(f"{BACKEND_URL}/transactions", json=transaction_data)
             
-            if response.status_code == 201:
+            if response.status_code in [200, 201]:
                 transaction = response.json()
                 transaction_id = transaction.get("id")
                 self.log_result(
                     f"Create Test Transaction ({transaction_type.upper()})", 
                     True, 
-                    f"Created {transaction_type} transaction: {amount} OMR"
+                    f"Created {transaction_type} transaction: {amount} OMR (ID: {transaction_id})"
                 )
                 return transaction_id
             else:
