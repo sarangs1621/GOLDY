@@ -710,7 +710,7 @@ def calculate_purchase_status(paid_amount: float, total_amount: float) -> str:
         total_amount: Total purchase amount
     
     Returns:
-        Status string: "Finalized (Unpaid)" | "Partially Paid" | "Paid"
+        Status string: "Draft" | "Partially Paid" | "Paid"
     """
     paid_amount = round(float(paid_amount), 2)
     total_amount = round(float(total_amount), 2)
