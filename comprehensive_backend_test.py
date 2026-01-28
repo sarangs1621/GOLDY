@@ -181,10 +181,11 @@ class GoldShopERPTester:
             }
             response = self.session.post(f"{BASE_URL}/parties", json=vendor_data)
             if response.status_code == 201:
-                self.test_data["vendor"] = response.json()
-                self.log_result("Setup - Vendor Party", True, f"Created vendor: {self.test_data['vendor']['name']}")
+                vendor_result = response.json()
+                self.test_data["vendor"] = vendor_result
+                self.log_result("Setup - Vendor Party", True, f"Created vendor: {vendor_result['name']}")
             else:
-                self.log_result("Setup - Vendor Party", False, "", f"Failed to create vendor: {response.text}")
+                self.log_result("Setup - Vendor Party", False, "", f"Failed to create vendor: {response.status_code} - {response.text}")
                 return False
 
             # Create customer party
