@@ -3672,6 +3672,183 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
     # Return the created purchase with correct status
     return purchase
 
+@api_router.post("/purchases/{purchase_id}/add-payment")
+async def add_payment_to_purchase(
+    purchase_id: str,
+    payment_data: dict,
+    current_user: User = Depends(require_permission('purchases.create'))
+):
+    """
+    Add payment to a purchase and create a transaction record.
+    
+    CRITICAL: Purchase Payment Lifecycle
+    - Purchases can have multiple payments until fully paid
+    - Each payment creates a CREDIT transaction (money OUT from cash/bank)
+    - Updates paid_amount_money and balance_due_money
+    - Status automatically updated: Draft → Partially Paid → Paid
+    - Purchase is locked ONLY when balance_due_money == 0
+    
+    Required fields:
+    - payment_amount: Amount being paid
+    - payment_mode: Cash | Bank Transfer | Card | UPI | Online | Cheque
+    - account_id: Account from which payment is made
+    
+    Optional fields:
+    - notes: Additional notes for the payment
+    """
+    try:
+        # Fetch purchase
+        existing = await db.purchases.find_one({"id": purchase_id, "is_deleted": False})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Purchase not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching purchase {purchase_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+    purchase = Purchase(**existing)
+    
+    # Validate purchase is not locked
+    if purchase.locked:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot add payment to locked purchase. Purchase is already finalized and fully paid."
+        )
+    
+    # Validate payment amount
+    payment_amount = payment_data.get('payment_amount')
+    if not payment_amount or payment_amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
+    
+    payment_amount = round(float(payment_amount), 2)
+    
+    # Validate payment doesn't exceed balance
+    if payment_amount > purchase.balance_due_money + 0.01:  # Allow small rounding errors
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payment amount ({payment_amount:.2f} OMR) exceeds remaining balance ({purchase.balance_due_money:.2f} OMR)"
+        )
+    
+    # Validate payment mode and account
+    payment_mode = payment_data.get('payment_mode')
+    if not payment_mode:
+        raise HTTPException(status_code=400, detail="Payment mode is required")
+    
+    account_id = payment_data.get('account_id')
+    if not account_id:
+        raise HTTPException(status_code=400, detail="Account ID is required")
+    
+    # Fetch account
+    account = await db.accounts.find_one({"id": account_id, "is_deleted": False})
+    if not account:
+        raise HTTPException(status_code=404, detail="Payment account not found")
+    
+    # Fetch vendor
+    vendor = await db.parties.find_one({"id": purchase.vendor_party_id, "is_deleted": False})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    
+    # Calculate new amounts
+    new_paid_amount = round(purchase.paid_amount_money + payment_amount, 2)
+    new_balance_due = round(purchase.amount_total - new_paid_amount, 2)
+    
+    # Ensure balance doesn't go negative
+    if new_balance_due < -0.01:
+        new_balance_due = 0.0
+        payment_amount = purchase.balance_due_money
+        new_paid_amount = purchase.amount_total
+    
+    # Calculate new status
+    new_status = calculate_purchase_status(new_paid_amount, purchase.amount_total)
+    
+    # Determine if purchase should be locked after this payment
+    should_lock = (new_balance_due == 0)
+    
+    # Generate transaction number
+    current_year = datetime.now(timezone.utc).year
+    existing_txns = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{current_year}-"}})
+    payment_txn_number = f"TXN-{current_year}-{existing_txns + 1:04d}"
+    
+    # Create CREDIT transaction (money OUT from cash/bank for purchase payment)
+    payment_transaction = Transaction(
+        transaction_number=payment_txn_number,
+        date=datetime.now(timezone.utc),
+        transaction_type="credit",
+        mode=payment_mode,
+        account_id=account_id,
+        account_name=account["name"],
+        party_id=purchase.vendor_party_id,
+        party_name=vendor["name"],
+        amount=payment_amount,
+        category="Purchase Payment",
+        reference_type="purchase",
+        reference_id=purchase_id,
+        notes=payment_data.get('notes', f"Payment for purchase: {purchase.description}"),
+        created_by=current_user.username
+    )
+    await db.transactions.insert_one(payment_transaction.model_dump())
+    
+    # Update account balance (CREDIT = money OUT)
+    delta = -payment_amount
+    await db.accounts.update_one(
+        {"id": account_id},
+        {"$inc": {"current_balance": delta}}
+    )
+    
+    # Update purchase with new payment info
+    update_data = {
+        "paid_amount_money": new_paid_amount,
+        "balance_due_money": new_balance_due,
+        "status": new_status
+    }
+    
+    # Lock purchase if fully paid
+    if should_lock:
+        lock_time = datetime.now(timezone.utc)
+        update_data["locked"] = True
+        update_data["locked_at"] = lock_time
+        update_data["locked_by"] = current_user.username
+    
+    await db.purchases.update_one(
+        {"id": purchase_id},
+        {"$set": update_data}
+    )
+    
+    # Create audit log
+    await create_audit_log(
+        user_id=current_user.id,
+        user_name=current_user.username,
+        module="purchases",
+        record_id=purchase_id,
+        action="add_payment",
+        changes={
+            "payment_amount": payment_amount,
+            "payment_mode": payment_mode,
+            "account_id": account_id,
+            "account_name": account["name"],
+            "previous_paid_amount": purchase.paid_amount_money,
+            "new_paid_amount": new_paid_amount,
+            "previous_balance_due": purchase.balance_due_money,
+            "new_balance_due": new_balance_due,
+            "previous_status": purchase.status,
+            "new_status": new_status,
+            "locked": should_lock,
+            "transaction_number": payment_txn_number
+        }
+    )
+    
+    # Fetch and return updated purchase
+    updated_purchase = await db.purchases.find_one({"id": purchase_id})
+    return {
+        "success": True,
+        "message": "Payment added successfully",
+        "purchase": updated_purchase,
+        "transaction_number": payment_txn_number,
+        "locked": should_lock
+    }
+
+
 @api_router.get("/purchases")
 @limiter.limit("1000/hour")  # General authenticated rate limit: 1000 requests per hour
 async def get_purchases(
