@@ -112,7 +112,7 @@ class PurchasePaymentFlowTester:
                 "notes": "Test vendor for purchase payment flow testing"
             }
             response = self.session.post(f"{self.base_url}/parties", json=vendor_data)
-            if response.status_code == 201:
+            if response.status_code in [200, 201]:
                 self.test_data["vendor"] = response.json()
                 self.log_result("Setup - Vendor Party", True, f"Created vendor: {self.test_data['vendor']['name']}")
             else:
