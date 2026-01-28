@@ -926,9 +926,14 @@ const ReturnsPage = () => {
                 )}
               </div>
               
-              {/* Refund Details */}
+              {/* Refund Details - OPTIONAL FOR DRAFT */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Refund Mode *</label>
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
+                  <p className="text-sm text-blue-800">
+                    <strong>📝 Draft Mode:</strong> Refund details are OPTIONAL at creation. You can create a draft return with just items and finalize it later with refund details.
+                  </p>
+                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Refund Mode (Optional)</label>
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   <button
                     type="button"
