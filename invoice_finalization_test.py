@@ -5,9 +5,9 @@ from datetime import datetime
 
 class InvoiceFinalizationTester:
 <<<<<<< HEAD
-    def __init__(self, base_url="https://accurate-reporting.preview.emergentagent.com"):
+    def __init__(self, base_url="https://complete-search-fix.preview.emergentagent.com"):
 =======
-    def __init__(self, base_url="https://accurate-reporting.preview.emergentagent.com"):
+    def __init__(self, base_url="https://complete-search-fix.preview.emergentagent.com"):
 >>>>>>> b31b2899369e7f105da7aa8839d08cfdd4516b95
         self.base_url = base_url
         self.token = None

@@ -8,9 +8,9 @@ import requests
 import sys
 
 <<<<<<< HEAD
-BACKEND_URL = "https://accurate-reporting.preview.emergentagent.com"
+BACKEND_URL = "https://complete-search-fix.preview.emergentagent.com"
 =======
-BACKEND_URL = "https://accurate-reporting.preview.emergentagent.com"
+BACKEND_URL = "https://complete-search-fix.preview.emergentagent.com"
 >>>>>>> b31b2899369e7f105da7aa8839d08cfdd4516b95
 API_BASE = f"{BACKEND_URL}/api"
 

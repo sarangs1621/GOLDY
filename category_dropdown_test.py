@@ -29,11 +29,11 @@ import time
 
 # Configuration
 <<<<<<< HEAD
-BASE_URL = "https://accurate-reporting.preview.emergentagent.com/api"
-FRONTEND_URL = "https://accurate-reporting.preview.emergentagent.com"
+BASE_URL = "https://complete-search-fix.preview.emergentagent.com/api"
+FRONTEND_URL = "https://complete-search-fix.preview.emergentagent.com"
 =======
-BASE_URL = "https://accurate-reporting.preview.emergentagent.com/api"
-FRONTEND_URL = "https://accurate-reporting.preview.emergentagent.com"
+BASE_URL = "https://complete-search-fix.preview.emergentagent.com/api"
+FRONTEND_URL = "https://complete-search-fix.preview.emergentagent.com"
 >>>>>>> b31b2899369e7f105da7aa8839d08cfdd4516b95
 USERNAME = "admin"
 PASSWORD = "admin123"
