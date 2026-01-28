@@ -336,13 +336,16 @@ class BackendTester:
             response = self.session.post(f"{BACKEND_URL}/returns", json=return_data)
             
             if response.status_code == 201:
-                return_doc = response.json()
+                response_data = response.json()
+                # Extract return object from nested response
+                return_doc = response_data.get('return', response_data)
                 return_id = return_doc.get("id")
+                return_number = return_doc.get("return_number")
                 self.log_result(
                     "Create Draft Return", 
                     True, 
-                    f"Created draft return: {return_doc.get('return_number')} (Amount: {total_amount:.2f} OMR)",
-                    {"return_id": return_id, "return_number": return_doc.get('return_number')}
+                    f"Created draft return: {return_number} (Amount: {total_amount:.2f} OMR)",
+                    {"return_id": return_id, "return_number": return_number}
                 )
                 return return_id
             else:
