@@ -10843,19 +10843,27 @@ async def finalize_return(
         elif return_type == 'purchase_return':
             # 1. Create stock movements (Stock OUT - returned to vendor)
             for item in return_doc.get('items', []):
-                if item.get('weight_grams', 0) > 0:
+                weight_grams = item.get('weight_grams', 0)
+                qty = item.get('qty', 0)
+                # Handle Decimal128
+                if isinstance(weight_grams, Decimal128):
+                    weight_grams = float(weight_grams.to_decimal())
+                if isinstance(qty, Decimal128):
+                    qty = float(qty.to_decimal())
+                
+                if weight_grams > 0:
                     movement_id = str(uuid.uuid4())
                     stock_movement = StockMovement(
                         id=movement_id,
-                        type="OUT",
-                        category=item.get('description'),
-                        weight=round(item.get('weight_grams'), 3),
+                        movement_type="OUT",  # FIXED: Use correct field name
+                        header_name=item.get('description'),  # FIXED: Use correct field name
+                        qty_delta=-round(qty, 0),  # FIXED: Use correct field name (negative for OUT)
+                        weight_delta=-round(weight_grams, 3),  # FIXED: Use correct field name (negative for OUT)
                         purity=item.get('purity'),
                         date=datetime.now(timezone.utc),
-                        purpose=f"Purchase Return - {return_doc.get('return_number')}",
                         reference_type="return",
                         reference_id=return_id,
-                        notes=return_doc.get('reason'),
+                        notes=f"Purchase Return - {return_doc.get('return_number')} - {return_doc.get('reason', '')}",
                         created_by=current_user.id
                     )
                     await db.stock_movements.insert_one(stock_movement.model_dump())
@@ -10866,8 +10874,8 @@ async def finalize_return(
                         {"name": item.get('description')},
                         {
                             "$inc": {
-                                "current_qty": -item.get('qty', 0),
-                                "current_weight": -round(item.get('weight_grams'), 3)
+                                "current_qty": -qty,
+                                "current_weight": -round(weight_grams, 3)
                             }
                         }
                     )
