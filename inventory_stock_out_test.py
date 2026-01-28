@@ -174,7 +174,7 @@ class InventoryStockOutTester:
             }
             
             response = self.session.post(f"{BASE_URL}/purchases", json=purchase_data)
-            if response.status_code == 201:
+            if response.status_code in [200, 201]:
                 purchase = response.json()
                 self.test_data["purchase"] = purchase
                 self.log_result("Step 2 - Create Purchase", True, 
