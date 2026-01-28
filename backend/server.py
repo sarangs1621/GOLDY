@@ -702,7 +702,7 @@ def calculate_purchase_status(paid_amount: float, total_amount: float) -> str:
     Calculate purchase status based on payment amounts (SERVER-SIDE AUTHORITY).
     
     CRITICAL BUSINESS RULES (FIXED - Match Invoice Lifecycle):
-    - A purchase is NEVER "Draft" after creation (auto-finalized)
+    - Draft: No payment made (balance_due == total_amount)
     - Status reflects payment state for accounting integrity
     
     Args:
