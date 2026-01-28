@@ -703,7 +703,11 @@ def calculate_purchase_status(paid_amount: float, total_amount: float) -> str:
     
     CRITICAL BUSINESS RULES (FIXED - Match Invoice Lifecycle):
     - Draft: No payment made (balance_due == total_amount)
-    - Status reflects payment state for accounting integrity
+    - Partially Paid: Some payment made (0 < paid_amount < total_amount)
+    - Paid: Fully paid (paid_amount >= total_amount)
+    
+    Purchase Lifecycle: Draft → Partially Paid → Paid → Finalized (Locked)
+    - Only lock when balance_due == 0
     
     Args:
         paid_amount: Amount paid to vendor
