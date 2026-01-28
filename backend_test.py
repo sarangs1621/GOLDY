@@ -1218,10 +1218,193 @@ class BackendTester:
         with open('/app/test_results.json', 'w') as f:
             json.dump(self.test_results, f, indent=2, default=str)
 
+    def test_net_flow_filtering_fix(self):
+        """Test the specific Net Flow filtering fix - account name based filtering"""
+        print("\n--- Testing Net Flow Filtering Fix (Account Name Based) ---")
+        
+        # Step 1: Create test accounts with proper naming
+        cash_account_id = self.create_test_account_with_name("Test Cash Account", "asset")
+        bank_account_id = self.create_test_account_with_name("Bank Account", "asset")
+        
+        if not cash_account_id or not bank_account_id:
+            self.log_result("Net Flow Filtering Fix Setup", False, "Failed to create test accounts")
+            return
+        
+        # Step 2: Create test transactions on these accounts
+        # DEBIT transactions (money IN)
+        cash_debit_id = self.create_test_transaction(
+            account_id=cash_account_id,
+            transaction_type="debit",
+            amount=2000.00,
+            description="Cash IN - Customer payment"
+        )
+        
+        bank_debit_id = self.create_test_transaction(
+            account_id=bank_account_id,
+            transaction_type="debit", 
+            amount=1500.00,
+            description="Bank IN - Transfer received"
+        )
+        
+        # CREDIT transactions (money OUT)
+        cash_credit_id = self.create_test_transaction(
+            account_id=cash_account_id,
+            transaction_type="credit",
+            amount=800.00,
+            description="Cash OUT - Purchase payment"
+        )
+        
+        if not all([cash_debit_id, bank_debit_id, cash_credit_id]):
+            self.log_result("Net Flow Filtering Fix Transactions", False, "Failed to create test transactions")
+            return
+        
+        # Step 3: Wait for transactions to be processed
+        time.sleep(2)
+        
+        # Step 4: Test /api/transactions/summary endpoint
+        try:
+            response = self.session.get(f"{BACKEND_URL}/transactions/summary")
+            
+            if response.status_code == 200:
+                summary_data = response.json()
+                
+                # Verify the response structure
+                required_fields = ['total_in', 'total_out', 'net_flow', 'cash_summary', 'bank_summary']
+                missing_fields = [field for field in required_fields if field not in summary_data]
+                
+                if missing_fields:
+                    self.log_result("Net Flow Filtering Fix", False, f"Missing required fields: {missing_fields}")
+                    return
+                
+                # Extract values
+                total_in = summary_data.get('total_in', 0)
+                total_out = summary_data.get('total_out', 0)
+                net_flow = summary_data.get('net_flow', 0)
+                cash_summary = summary_data.get('cash_summary', {})
+                bank_summary = summary_data.get('bank_summary', {})
+                
+                # Verify math calculations
+                # 1. net_flow = total_in - total_out
+                calculated_net_flow = round(total_in - total_out, 2)
+                actual_net_flow = round(net_flow, 2)
+                net_flow_correct = abs(calculated_net_flow - actual_net_flow) < 0.01
+                
+                # 2. cash_summary.net = cash_summary.debit - cash_summary.credit
+                cash_net_correct = True
+                if cash_summary and all(k in cash_summary for k in ['debit', 'credit', 'net']):
+                    cash_calculated_net = round(cash_summary['debit'] - cash_summary['credit'], 2)
+                    cash_actual_net = round(cash_summary['net'], 2)
+                    cash_net_correct = abs(cash_calculated_net - cash_actual_net) < 0.01
+                
+                # 3. bank_summary.net = bank_summary.debit - bank_summary.credit
+                bank_net_correct = True
+                if bank_summary and all(k in bank_summary for k in ['debit', 'credit', 'net']):
+                    bank_calculated_net = round(bank_summary['debit'] - bank_summary['credit'], 2)
+                    bank_actual_net = round(bank_summary['net'], 2)
+                    bank_net_correct = abs(bank_calculated_net - bank_actual_net) < 0.01
+                
+                # 4. total_in = cash_summary.debit + bank_summary.debit
+                total_in_correct = True
+                if cash_summary and bank_summary:
+                    calculated_total_in = round(cash_summary.get('debit', 0) + bank_summary.get('debit', 0), 2)
+                    actual_total_in = round(total_in, 2)
+                    # Allow for existing data - check if our test amounts are included
+                    total_in_correct = actual_total_in >= calculated_total_in
+                
+                # 5. total_out = cash_summary.credit + bank_summary.credit
+                total_out_correct = True
+                if cash_summary and bank_summary:
+                    calculated_total_out = round(cash_summary.get('credit', 0) + bank_summary.get('credit', 0), 2)
+                    actual_total_out = round(total_out, 2)
+                    # Allow for existing data - check if our test amounts are included
+                    total_out_correct = actual_total_out >= calculated_total_out
+                
+                # Verify that our test transactions are included
+                # We expect at least our test amounts to be reflected
+                min_expected_cash_debit = 2000.00  # Our cash debit
+                min_expected_bank_debit = 1500.00  # Our bank debit
+                min_expected_cash_credit = 800.00  # Our cash credit
+                
+                cash_includes_test_data = (
+                    cash_summary.get('debit', 0) >= min_expected_cash_debit and
+                    cash_summary.get('credit', 0) >= min_expected_cash_credit
+                )
+                
+                bank_includes_test_data = bank_summary.get('debit', 0) >= min_expected_bank_debit
+                
+                all_tests_passed = all([
+                    net_flow_correct,
+                    cash_net_correct,
+                    bank_net_correct,
+                    total_in_correct,
+                    total_out_correct,
+                    cash_includes_test_data,
+                    bank_includes_test_data
+                ])
+                
+                # Create detailed result message
+                details = []
+                details.append(f"Net Flow Math: {'✓' if net_flow_correct else '✗'} ({total_in} - {total_out} = {net_flow})")
+                details.append(f"Cash Net Math: {'✓' if cash_net_correct else '✗'} ({cash_summary.get('debit', 0)} - {cash_summary.get('credit', 0)} = {cash_summary.get('net', 0)})")
+                details.append(f"Bank Net Math: {'✓' if bank_net_correct else '✗'} ({bank_summary.get('debit', 0)} - {bank_summary.get('credit', 0)} = {bank_summary.get('net', 0)})")
+                details.append(f"Total IN Math: {'✓' if total_in_correct else '✗'}")
+                details.append(f"Total OUT Math: {'✓' if total_out_correct else '✗'}")
+                details.append(f"Cash Test Data: {'✓' if cash_includes_test_data else '✗'}")
+                details.append(f"Bank Test Data: {'✓' if bank_includes_test_data else '✗'}")
+                
+                self.log_result(
+                    "Net Flow Filtering Fix - Math Verification",
+                    all_tests_passed,
+                    "; ".join(details),
+                    {
+                        "summary_data": summary_data,
+                        "test_results": {
+                            "net_flow_correct": net_flow_correct,
+                            "cash_net_correct": cash_net_correct,
+                            "bank_net_correct": bank_net_correct,
+                            "total_in_correct": total_in_correct,
+                            "total_out_correct": total_out_correct,
+                            "cash_includes_test_data": cash_includes_test_data,
+                            "bank_includes_test_data": bank_includes_test_data
+                        }
+                    }
+                )
+                
+            else:
+                self.log_result("Net Flow Filtering Fix", False, f"Failed to get transactions summary: {response.status_code} - {response.text}")
+                
+        except Exception as e:
+            self.log_result("Net Flow Filtering Fix", False, f"Error: {str(e)}")
+    
+    def create_test_account_with_name(self, name, account_type):
+        """Create a test account with specific name and type"""
+        try:
+            account_data = {
+                "name": name,
+                "account_type": account_type,
+                "opening_balance": 0.00,
+                "current_balance": 0.00
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/accounts", json=account_data)
+            
+            if response.status_code == 201:
+                account = response.json()
+                account_id = account.get("id")
+                self.log_result(f"Create Test Account ({name})", True, f"Created account: {name} (Type: {account_type})")
+                return account_id
+            else:
+                self.log_result(f"Create Test Account ({name})", False, f"Failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result(f"Create Test Account ({name})", False, f"Error: {str(e)}")
+            return None
+
 def main():
-    """Main test execution - Focus on Net Flow / Cash Flow / Bank Flow calculations"""
-    print("Starting Finance Dashboard Net Flow / Cash Flow / Bank Flow Testing")
-    print("Testing the fix for Net Flow calculations after backend changes")
+    """Main test execution - Focus on Net Flow / Cash Flow / Bank Flow fix"""
+    print("Starting Net Flow / Cash Flow / Bank Flow Fix Testing")
+    print("Testing the backend filtering logic fix for transactions summary")
     print("="*80)
     
     tester = BackendTester()
@@ -1231,11 +1414,11 @@ def main():
         print("❌ Authentication failed. Cannot proceed with tests.")
         return
     
-    # Primary Focus: Test Net Flow / Cash Flow / Bank Flow Calculations
-    tester.test_finance_dashboard_net_flow_calculations()
+    # Primary Focus: Test the specific Net Flow filtering fix
+    tester.test_net_flow_filtering_fix()
     
-    # Secondary: Test other previously fixed features
-    tester.test_previously_fixed_features()
+    # Secondary: Test general Net Flow calculations
+    tester.test_finance_dashboard_net_flow_calculations()
     
     # Print summary
     tester.print_summary()
