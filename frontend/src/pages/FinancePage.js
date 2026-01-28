@@ -286,11 +286,11 @@ export default function FinancePageEnhanced() {
               <div className="mt-3 pt-3 border-t border-green-300">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-green-600">In</span>
-                  <span className="font-mono font-semibold">{formatCurrency(summary.cash_summary?.credit)}</span>
+                  <span className="font-mono font-semibold">{formatCurrency(summary.cash_summary?.debit || 0)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-red-600">Out</span>
-                  <span className="font-mono font-semibold">{formatCurrency(summary.cash_summary?.debit)}</span>
+                  <span className="font-mono font-semibold">{formatCurrency(summary.cash_summary?.credit || 0)}</span>
                 </div>
               </div>
             </CardContent>
