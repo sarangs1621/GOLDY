@@ -989,6 +989,95 @@ agent_communication:
   - agent: "main"
     message: |
       🎉 COMPREHENSIVE ROLE-BASED PERMISSION SYSTEM IMPLEMENTATION COMPLETE
+  - agent: "testing"
+    message: |
+      ✅ RETURNS PAGE UI LAYOUT AND FUNCTIONALITY TESTING COMPLETED SUCCESSFULLY
+      
+      COMPREHENSIVE TEST RESULTS:
+      ================================================================================
+      
+      🔐 AUTHENTICATION & NAVIGATION:
+      - Login with test credentials (admin_4675790d / TestAdmin@123): ✅ SUCCESS
+      - Returns navigation item in menu: ✅ FOUND (with returns.view permission)
+      - Page accessibility via navigation: ✅ SUCCESS
+      - User has proper admin permissions including returns.view: ✅ VERIFIED
+      
+      📄 RETURNS PAGE UI LAYOUT VERIFICATION:
+      - Page title "Returns Management": ✅ FOUND
+      - Page subtitle "Manage sales and purchase returns": ✅ FOUND
+      - Create Return button (with proper permissions): ✅ VISIBLE
+      - Info note about audit reasons: ✅ FOUND
+      
+      📊 TABLE STRUCTURE AND COLUMNS:
+      - Table exists: ✅ YES
+      - All required columns present: ✅ VERIFIED
+        • Return #: ✅ FOUND
+        • Type: ✅ FOUND  
+        • Party: ✅ FOUND
+        • Reference: ✅ FOUND
+        • Refund Mode: ✅ FOUND
+        • Amount/Weight: ✅ FOUND
+        • Status: ✅ FOUND
+        • Date: ✅ FOUND
+        • Actions: ✅ FOUND
+      - Horizontal scroll container (.overflow-x-auto): ✅ PRESENT
+      - Table data: ✅ 3 returns found with proper structure
+      - First row has 9 columns: ✅ CORRECT
+      
+      🔍 FILTER CONTROLS VERIFICATION:
+      - Return Type dropdown: ✅ FOUND (All Types, Sales Return, Purchase Return)
+      - Status dropdown: ✅ FOUND (All Status, Draft, Finalized)
+      - Refund Mode dropdown: ✅ FOUND (All Modes, Money, Gold, Mixed)
+      - Search box: ✅ FOUND (placeholder: "Return #, Party, Reason...")
+      - Filter functionality: ✅ TESTED (filters respond correctly)
+      
+      📄 PAGINATION CONTROLS:
+      - Pagination container: ✅ FOUND
+      - Pagination display: ✅ "Showing 1 to 3 of 3 entries"
+      - Page navigation: ✅ PRESENT (page number "1" visible)
+      
+      🎯 DATA DISPLAY AND ACTIONS:
+      - Returns data properly displayed: ✅ YES (3 returns visible)
+      - Return numbers: ✅ RET-00004, RET-00002, RET-00001
+      - Type badges: ✅ "Sales" badges displayed correctly
+      - Party names: ✅ Displayed correctly
+      - Reference numbers: ✅ Invoice references shown
+      - Refund mode badges: ✅ "money" badges displayed
+      - Amount display: ✅ Proper currency formatting (603.93 OMR, 150.00 OMR)
+      - Status badges: ✅ "Completed" and "Draft" statuses with proper styling
+      - Date formatting: ✅ Consistent date format (28-Jan-2026, 28-Jan-2025)
+      - Action buttons: ✅ View, Edit, Finalize, Delete buttons present based on status
+      
+      🔒 PERMISSION-BASED UI ELEMENTS:
+      - Create Return button visible for admin: ✅ YES
+      - Action buttons respect status rules: ✅ YES
+        • Completed returns: View only (locked icon)
+        • Draft returns: View, Edit, Finalize, Delete options
+      - Permission-based access control: ✅ WORKING
+      
+      ❌ NO CRITICAL ISSUES FOUND:
+      - No error messages displayed: ✅ VERIFIED
+      - No console errors: ✅ CLEAN
+      - No UI layout problems: ✅ VERIFIED
+      - No missing components: ✅ ALL PRESENT
+      - No permission access issues: ✅ VERIFIED
+      
+      📸 SCREENSHOTS CAPTURED:
+      - returns-page-complete.png: Main page layout
+      - returns-page-final-complete.png: Final state after testing
+      
+      🎯 TESTING SUMMARY:
+      The Returns Page UI Layout and Functionality is FULLY WORKING and meets all requirements:
+      ✅ All table columns present and properly formatted
+      ✅ Filter controls functional and responsive  
+      ✅ Pagination controls working
+      ✅ Permission-based UI elements correctly displayed
+      ✅ Data properly formatted and displayed
+      ✅ Action buttons respect business rules
+      ✅ No errors or layout issues detected
+      ✅ Responsive design with horizontal scroll for table
+      
+      RECOMMENDATION: Returns page is production-ready and fully functional.
       
       IMPLEMENTATION STATUS: ALL 5 PHASES SUCCESSFULLY COMPLETED
       
