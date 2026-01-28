@@ -10233,6 +10233,16 @@ async def create_return(
                 raise HTTPException(status_code=400, detail="Can only create return for finalized invoices")
             party_id = reference_doc.get('customer_id')
             party_name = reference_doc.get('customer_name')
+            
+            # CRITICAL FIX: If customer_name is None, fetch from parties collection
+            if not party_name and party_id:
+                customer = await db.parties.find_one({"id": party_id, "is_deleted": False})
+                party_name = customer.get('name') if customer else None
+            
+            # Final fallback: Generate placeholder name if still None
+            if not party_name:
+                party_name = f"Customer-{party_id[:8] if party_id else 'unknown'}"
+            
             party_type = 'customer'
             reference_number = reference_doc.get('invoice_number')
         elif reference_type == 'purchase':
@@ -10244,9 +10254,17 @@ async def create_return(
             if 'finalized' not in purchase_status and 'paid' not in purchase_status:
                 raise HTTPException(status_code=400, detail="Can only create return for finalized purchases")
             party_id = reference_doc.get('vendor_party_id')
-            # Fetch vendor name
-            vendor = await db.parties.find_one({"id": party_id, "is_deleted": False})
-            party_name = vendor.get('name') if vendor else 'Unknown Vendor'
+            
+            # CRITICAL FIX: Fetch vendor name from parties collection
+            party_name = None
+            if party_id:
+                vendor = await db.parties.find_one({"id": party_id, "is_deleted": False})
+                party_name = vendor.get('name') if vendor else None
+            
+            # Final fallback: Generate placeholder name if still None
+            if not party_name:
+                party_name = f"Vendor-{party_id[:8] if party_id else 'unknown'}"
+            
             party_type = 'vendor'
             reference_number = reference_id  # Purchases don't have human-readable numbers yet
         else:
