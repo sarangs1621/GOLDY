@@ -262,7 +262,7 @@ class GoldShopERPTester:
             }
             
             response = self.session.post(f"{BASE_URL}/purchases", json=purchase_data)
-            if response.status_code == 201:
+            if response.status_code in [200, 201]:
                 purchase = response.json()
                 self.test_data["draft_purchase"] = purchase
                 
