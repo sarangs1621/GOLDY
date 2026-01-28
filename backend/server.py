@@ -10712,7 +10712,7 @@ async def finalize_return(
                 id=transaction_id,
                 transaction_number=transaction_number,
                 date=datetime.now(timezone.utc),
-                transaction_type="debit",  # Money going out to customer
+                transaction_type="credit",  # Money going out to customer (credit decreases asset)
                 mode=return_doc.get('payment_mode', 'cash'),
                 account_id=account_id,
                 account_name=account.get('name'),
