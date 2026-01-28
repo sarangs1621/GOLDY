@@ -2362,7 +2362,23 @@ agent_communication:
 # Security Hardening Implementation - Phase 1: JWT Cookie Authentication
 #====================================================================================================
 
-user_problem_statement: "SECURITY HARDENING (CRITICAL) - Implement comprehensive security improvements: (1) Move JWT storage to HttpOnly + Secure cookies, (2) Implement rate limiting, (3) Input sanitization (XSS protection), (4) Configure proper CORS, (5) Security headers (CSP, X-Frame-Options, etc.), (6) CSRF protection, (7) HTTPS enforcement, (8) Dependency vulnerability scan + cleanup."
+user_problem_statement: |
+  REPORTS – NOT USING SOURCE-OF-TRUTH DATA
+  ❌ Problems:
+  - Inventory report ignores sales
+  - Cash flow mismatches
+  - Returns not reflected properly
+  
+  ✅ Fix Rule (IMPORTANT):
+  Reports MUST read from:
+  - StockMovements (inventory)
+  - Transactions (finance)
+  - GoldLedger (gold balances)
+  
+  🚫 Reports must NOT derive totals from:
+  - invoices
+  - purchases
+  - cached totals
 
 backend:
   - task: "JWT Cookie-Based Authentication (Phase 1)"
