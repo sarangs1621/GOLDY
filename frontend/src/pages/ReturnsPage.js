@@ -545,12 +545,15 @@ const ReturnsPage = () => {
           <h1 className="text-2xl font-bold text-gray-800">Returns Management</h1>
           <p className="text-gray-600 text-sm mt-1">Manage sales and purchase returns</p>
         </div>
-        <button
-          onClick={openCreateDialog}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          + Create Return
-        </button>
+        {canCreateReturn && (
+          <button
+            onClick={openCreateDialog}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <span className="text-xl">+</span>
+            <span>Create Return</span>
+          </button>
+        )}
       </div>
 
       {/* Info Note */}
