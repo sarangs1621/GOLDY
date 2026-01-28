@@ -102,11 +102,12 @@ class PurchasePaymentFlowTester:
     def setup_test_data(self):
         """Create test data: vendor party and account"""
         try:
-            # Create vendor party
+            # Create vendor party with unique data
+            timestamp = int(time.time())
             vendor_data = {
-                "name": "Test Gold Vendor",
-                "phone": "+968-1234-5678",
-                "address": "456 Gold Street, Muscat",
+                "name": f"Test Gold Vendor {timestamp}",
+                "phone": f"+968-{timestamp % 10000:04d}-{timestamp % 10000:04d}",
+                "address": f"{timestamp} Gold Street, Muscat",
                 "party_type": "vendor",
                 "notes": "Test vendor for purchase payment flow testing"
             }
