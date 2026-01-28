@@ -4014,7 +4014,7 @@ async def update_purchase(
     
     # Get updated purchase
     updated = await db.purchases.find_one({"id": purchase_id})
-    return updated
+    return decimal_to_float(updated)
 
 
 @api_router.get("/purchases/{purchase_id}/impact")
