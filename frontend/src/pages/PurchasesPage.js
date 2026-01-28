@@ -44,6 +44,16 @@ export default function PurchasesPage() {
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [viewPurchase, setViewPurchase] = useState(null);
   
+  // Payment dialog state
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [selectedPurchase, setSelectedPurchase] = useState(null);
+  const [paymentData, setPaymentData] = useState({
+    payment_amount: '',
+    payment_mode: 'Cash',
+    account_id: '',
+    notes: ''
+  });
+  
   // Confirmation Dialogs
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [confirmPurchase, setConfirmPurchase] = useState(null);
