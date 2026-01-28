@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import time
 
 # Configuration
-BACKEND_URL = "https://invisible-ui-1.preview.emergentagent.com/api"
+BACKEND_URL = "https://auth-returns-debug.preview.emergentagent.com/api"
 TEST_USER = {
     "username": "testadmin",
     "password": "TestAdmin@123456"  # Test admin user we just created
