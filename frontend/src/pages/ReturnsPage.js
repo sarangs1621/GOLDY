@@ -1089,6 +1089,180 @@ const ReturnsPage = () => {
         </div>
       )}
 
+      {/* Edit Return Dialog */}
+      {showEditDialog && editingReturn && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-gray-800">Edit Return Draft - {editingReturn.return_number}</h2>
+              <p className="text-sm text-gray-600 mt-1">Update refund details before finalization</p>
+            </div>
+            
+            <div className="px-6 py-4 space-y-4">
+              {/* Reference Info (Read-only) */}
+              <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Return Reference (Cannot be changed)</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Type:</span>
+                    <span className="ml-2 font-medium">{formData.return_type === 'sale_return' ? 'Sales Return' : 'Purchase Return'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Reference:</span>
+                    <span className="ml-2 font-medium">{editingReturn.reference_number || editingReturn.reference_id.substring(0, 8)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Refund Mode */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Refund Mode *</label>
+                <select
+                  value={formData.refund_mode}
+                  onChange={(e) => handleFormChange('refund_mode', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="money">Money Refund</option>
+                  <option value="gold">Gold Refund</option>
+                  <option value="mixed">Mixed (Money + Gold)</option>
+                </select>
+              </div>
+              
+              {/* Refund Details */}
+              <div className="grid grid-cols-2 gap-4">
+                {(formData.refund_mode === 'money' || formData.refund_mode === 'mixed') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Refund Money Amount (OMR) *</label>
+                    <input
+                      type="number"
+                      value={formData.refund_money_amount}
+                      onChange={(e) => handleFormChange('refund_money_amount', parseFloat(e.target.value) || 0)}
+                      step="0.01"
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+                )}
+                
+                {(formData.refund_mode === 'gold' || formData.refund_mode === 'mixed') && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Refund Gold Weight (grams) *</label>
+                      <input
+                        type="number"
+                        value={formData.refund_gold_grams}
+                        onChange={(e) => handleFormChange('refund_gold_grams', parseFloat(e.target.value) || 0)}
+                        step="0.001"
+                        min="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="0.000"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Gold Purity *</label>
+                      <input
+                        type="number"
+                        value={formData.refund_gold_purity}
+                        onChange={(e) => handleFormChange('refund_gold_purity', parseFloat(e.target.value) || 916)}
+                        step="1"
+                        min="1"
+                        max="999"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="916"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              {/* Account Selection (for money refund) */}
+              {(formData.refund_mode === 'money' || formData.refund_mode === 'mixed') && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode *</label>
+                    <select
+                      value={formData.payment_mode}
+                      onChange={(e) => handleFormChange('payment_mode', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank</option>
+                      <option value="card">Card</option>
+                      <option value="online">Online</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Account *</label>
+                    <select
+                      value={formData.account_id}
+                      onChange={(e) => handleFormChange('account_id', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Select Account --</option>
+                      {accounts.map(acc => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.name} ({acc.account_type}) - {formatCurrency(acc.current_balance)} OMR
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+              
+              {/* Reason and Notes */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Return Reason</label>
+                  <input
+                    type="text"
+                    value={formData.reason}
+                    onChange={(e) => handleFormChange('reason', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., Damaged goods, Customer dissatisfaction"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
+                  <input
+                    type="text"
+                    value={formData.notes}
+                    onChange={(e) => handleFormChange('notes', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Any additional information"
+                  />
+                </div>
+              </div>
+              
+              {error && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t border-gray-200">
+              <button
+                onClick={closeEditDialog}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateReturn}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
+                disabled={loading}
+              >
+                {loading ? 'Updating...' : 'Update Return'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View Return Dialog */}
       {showViewDialog && selectedReturn && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
