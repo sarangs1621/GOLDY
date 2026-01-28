@@ -8271,7 +8271,128 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      ✅ CRITICAL BUG FIX COMPLETED: Server-Side Party Filtering
+      ✅ PURCHASE PAYMENT FLOW - OBJECTID SERIALIZATION FIX COMPLETED
+      
+      🎯 COMPREHENSIVE TESTING RESULTS: 100% SUCCESS RATE (13/13 TESTS PASSED)
+      ================================================================================
+      
+      🔴 ROOT CAUSE IDENTIFIED:
+      ----------------------------------------
+      - ObjectId Serialization Error in 2 endpoints
+      - Backend was returning raw MongoDB documents with ObjectId fields
+      - Python ObjectId cannot be JSON serialized directly
+      - Error: "TypeError: 'ObjectId' object is not iterable"
+      
+      ✅ SOLUTION IMPLEMENTED:
+      ================================================================================
+      
+      **BACKEND FIXES (server.py):**
+      
+      1. **Line 3846 - Purchase Add Payment Endpoint**
+         - BEFORE: return {"purchase": updated_purchase, ...}
+         - AFTER: return {"purchase": decimal_to_float(updated_purchase), ...}
+         - Converts ObjectId, Decimal128, datetime to JSON-safe types
+      
+      2. **Line 4017 - Purchase Update Endpoint**
+         - BEFORE: return updated
+         - AFTER: return decimal_to_float(updated)
+         - Ensures all MongoDB types are serialized properly
+      
+      **HELPER FUNCTION USED:**
+      - decimal_to_float() (line 494): Recursively converts:
+        • ObjectId → string
+        • Decimal128 → float
+        • datetime → ISO 8601 string
+        • Nested dicts and lists
+      
+      **TEST FILE FIX (purchase_payment_flow_test.py):**
+      - Updated test to extract purchase from nested response structure
+      - Changed: response.json() → response.json().get("purchase", {})
+      
+      ✅ COMPREHENSIVE TEST RESULTS:
+      ================================================================================
+      
+      ✅ **SCENARIO 1** - Draft Purchase Creation: WORKING
+         - Status: Draft, Locked: False, Balance: 5025.0 OMR
+         - Verified: Unpaid purchases can be created
+      
+      ✅ **SCENARIO 2** - Partially Paid Purchase: WORKING
+         - Status: Partially Paid, Locked: False, Balance: 2200.0 OMR
+         - Verified: Partial payment at creation works correctly
+      
+      ✅ **SCENARIO 3** - Add Payment to Draft: WORKING ✨ (WAS FAILING)
+         - Status: Partially Paid, Locked: False, Balance: 2512.5 OMR
+         - Transaction: TXN-2026-0022
+         - Verified: Add payment endpoint now working after serialization fix
+      
+      ✅ **SCENARIO 4** - Complete Payment Auto Lock: WORKING ✨ (WAS FAILING)
+         - Status: Paid, Locked: True, Balance: 0.0 OMR
+         - Locked At: 2026-01-28T02:37:07.452000
+         - Verified: Auto-lock when balance reaches zero
+      
+      ✅ **SCENARIO 5** - Edit Unlocked Purchase: WORKING ✨ (WAS FAILING)
+         - Successfully edited unlocked purchase
+         - New description: "Updated Gold Purchase - 80g at 916 purity (EDITED)"
+         - Verified: Update endpoint now working after serialization fix
+      
+      ✅ **SCENARIO 6** - Block Edit Locked Purchase: WORKING ✨ (WAS FAILING)
+         - Error: "Cannot edit locked purchase. Purchase is finalized and fully paid."
+         - Verified: Locked purchases cannot be edited
+      
+      ✅ **SCENARIO 7** - Block Payment Locked Purchase: WORKING ✨ (WAS FAILING)
+         - Error: "Cannot add payment to locked purchase. Purchase is already finalized and fully paid."
+         - Verified: Cannot add payment to locked purchases
+      
+      ✅ **ERROR CASE** - Overpayment Validation: WORKING
+         - Error: "Payment amount (3200.00 OMR) exceeds remaining balance (2200.00 OMR)"
+         - Verified: Overpayment protection working
+      
+      ✅ **ERROR CASE** - Missing Account: WORKING
+         - Error: "Account ID is required"
+         - Verified: Payment requires valid account
+      
+      ✅ **ERROR CASE** - Invalid Purchase ID: WORKING
+         - Error: 404 Not Found
+         - Verified: Invalid ID handling working
+      
+      📊 COMPLETE PURCHASE LIFECYCLE VERIFIED:
+      ================================================================================
+      
+      **Phase 1: Draft Creation**
+      - ✅ Create unpaid draft (paid_amount=0)
+      - ✅ Status: Draft
+      - ✅ Locked: False
+      - ✅ Can be edited
+      
+      **Phase 2: Partial Payment**
+      - ✅ Add first payment
+      - ✅ Status: Draft → Partially Paid
+      - ✅ Locked: False (still unlocked)
+      - ✅ Can still add more payments
+      - ✅ Can still be edited
+      
+      **Phase 3: Final Payment**
+      - ✅ Add remaining payment
+      - ✅ Status: Partially Paid → Paid
+      - ✅ Locked: True (auto-locked)
+      - ✅ locked_at timestamp set
+      - ✅ Cannot add more payments
+      - ✅ Cannot be edited
+      
+      **Phase 4: Protection**
+      - ✅ Overpayment blocked
+      - ✅ Locked purchase immutable
+      - ✅ Invalid operations rejected
+      
+      🚀 ALL SERVICES STATUS:
+      ================================================================================
+      ✅ Backend: Restarted successfully (RUNNING on port 8001)
+      ✅ MongoDB: Connected and operational
+      ✅ All purchase payment endpoints: FULLY FUNCTIONAL
+      
+      🎉 PURCHASE PAYMENT FLOW IS NOW PRODUCTION READY
+      
+      **Next Step:** Frontend testing to verify UI displays payment buttons correctly
       
       🔴 ORIGINAL PROBLEM:
       ================================================================================
