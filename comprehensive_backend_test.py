@@ -198,10 +198,11 @@ class GoldShopERPTester:
             }
             response = self.session.post(f"{BASE_URL}/parties", json=customer_data)
             if response.status_code == 201:
-                self.test_data["customer"] = response.json()
-                self.log_result("Setup - Customer Party", True, f"Created customer: {self.test_data['customer']['name']}")
+                customer_result = response.json()
+                self.test_data["customer"] = customer_result
+                self.log_result("Setup - Customer Party", True, f"Created customer: {customer_result['name']}")
             else:
-                self.log_result("Setup - Customer Party", False, "", f"Failed to create customer: {response.text}")
+                self.log_result("Setup - Customer Party", False, "", f"Failed to create customer: {response.status_code} - {response.text}")
                 return False
 
             # Create inventory categories
