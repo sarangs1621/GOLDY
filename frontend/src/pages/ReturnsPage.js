@@ -25,10 +25,12 @@ const ReturnsPage = () => {
   
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [finalizeImpact, setFinalizeImpact] = useState(null);
+  const [editingReturn, setEditingReturn] = useState(null);
   
   // Create/Edit form state
   const [formData, setFormData] = useState({
