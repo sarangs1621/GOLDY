@@ -9423,3 +9423,99 @@ agent_communication:
       ✅ lucide-react: Icons imported and rendering
       
       All enhancements complete and production-ready!
+
+user_problem_statement: "Finance page filter not working - Select component error: 'A <Select.Item /> must have a value prop that is not an empty string'"
+
+frontend:
+  - task: "Fix Select Component Empty String Values"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/FinancePage.js"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ FINANCE PAGE FILTER ERROR - User reported 'not able to filter finance'. Error shown: 'A <Select.Item /> must have a value prop that is not an empty string. This error is located in the component stack'. Application displays error page instead of finance page."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Root cause identified: Filter dropdowns in FinancePage were using empty strings ('') as values for 'All' options in SelectItem components. React Select component doesn't allow empty string values. Changes made: (1) Changed all filter SelectItem 'All' option values from '' to 'all' (lines 408, 423, 437, 451), (2) Updated filter state initialization to use 'all' instead of '' (lines 46-53), (3) Updated clearFilters() function to reset to 'all' (lines 215-223), (4) Updated hasActiveFilters logic to check for 'all' instead of '' (line 226), (5) Updated loadData() to exclude 'all' values when building API params (lines 74-78). Frontend restarted and compiled successfully."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Fix Select Component Empty String Values"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      ✅ FINANCE PAGE FILTER FIX IMPLEMENTED
+      
+      ISSUE ANALYSIS:
+      User reported "not able to filter finance" with error:
+      "Error: A <Select.Item /> must have a value prop that is not an empty string"
+      
+      ROOT CAUSE:
+      The filter panel in FinancePage.js had multiple Select dropdowns using empty strings ('') 
+      as values for the "All" options. The shadcn/ui Select component enforces that SelectItem 
+      values cannot be empty strings.
+      
+      AFFECTED FILTERS:
+      1. Account filter - Line 408: <SelectItem value="">All accounts</SelectItem>
+      2. Account Type filter - Line 423: <SelectItem value="">All types</SelectItem>
+      3. Transaction Type filter - Line 437: <SelectItem value="">All types</SelectItem>
+      4. Transaction Source filter - Line 451: <SelectItem value="">All sources</SelectItem>
+      
+      FIX IMPLEMENTATION:
+      
+      1. ✅ Changed SelectItem values from '' to 'all':
+         - All four filter dropdowns now use value="all" for "All" options
+         - This satisfies the Select component's non-empty string requirement
+      
+      2. ✅ Updated filter state initialization:
+         Changed from: { account_id: '', account_type: '', ... }
+         Changed to: { account_id: 'all', account_type: 'all', ... }
+      
+      3. ✅ Updated clearFilters() function:
+         Now resets filters to 'all' instead of ''
+      
+      4. ✅ Updated hasActiveFilters logic:
+         Now checks if value !== 'all' (was checking value !== '')
+         Properly detects when filters are applied vs default state
+      
+      5. ✅ Updated loadData() API params logic:
+         Added checks: if (filters.account_id && filters.account_id !== 'all')
+         Ensures 'all' values are not sent to backend (treats as no filter)
+      
+      TECHNICAL DETAILS:
+      - The 'all' value is used purely in the frontend as a sentinel value
+      - When 'all' is selected, no filter param is sent to the backend
+      - This maintains backward compatibility with the backend API
+      - Date filters still use '' for empty (no 'all' option needed)
+      
+      SERVICES STATUS:
+      ✅ Frontend: Restarted and compiled successfully
+      ✅ Backend: Running on port 8001
+      ✅ MongoDB: Running
+      
+      TESTING NEEDED:
+      1. Navigate to Finance page - should load without errors
+      2. Verify all filter dropdowns display "All" options correctly
+      3. Test changing each filter individually
+      4. Test combining multiple filters
+      5. Test "Clear Filters" button
+      6. Verify transactions are filtered correctly
+      7. Verify "Filtered" badge appears when filters are active
+      8. Test date range filters
+      9. Verify pagination works with filters
+      
+      The finance page should now be fully functional with working filters.
