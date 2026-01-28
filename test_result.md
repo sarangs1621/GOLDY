@@ -7643,6 +7643,28 @@ agent_communication:
 #====================================================================================================
 
 user_problem_statement: |
+  CRITICAL BUG FIX: Sales Return Creation Flow is BROKEN - Must implement Draft → Finalize pattern
+  
+  PROBLEM: Returns are auto-finalized on creation, requiring ALL refund details immediately. This breaks the UX.
+  
+  REQUIRED FLOW (Must match Invoice pattern):
+  1. Create Draft Return: Select invoice → Add items → Save as DRAFT (NO refund details required)
+  2. Finalize Return: Enter refund mode → Enter amounts → Select account → Finalize (apply impacts)
+  
+  BACKEND FIXES REQUIRED:
+  - Make refund_mode OPTIONAL at creation (currently required)
+  - Make refund amounts OPTIONAL at creation (currently validated)
+  - Make account_id truly optional at creation (validation should be at finalize only)
+  - Set status='draft' at creation (currently auto-finalizes to 'finalized')
+  - Move ALL finalization logic to finalize endpoint ONLY
+  - Validation for refund details should be at finalize time, NOT at create time
+  
+  FRONTEND FIXES REQUIRED:
+  - Remove refund section from Create Return dialog
+  - Add refund section to Finalize Return dialog
+  - Remove validation for refund fields at creation
+  - Only validate: reference selected, items added
+  
   Implement comprehensive Returns Management Feature for Gold Shop ERP with both Sales Returns and Purchase Returns.
   
   Requirements:
