@@ -190,8 +190,8 @@ class GoldShopERPTester:
 
             # Create customer party
             customer_data = {
-                "name": "Ahmed Al-Rashid",
-                "phone": "+968-9876-5432",
+                "name": f"Ahmed Al-Rashid Test {int(time.time())}",
+                "phone": f"+968-{int(time.time()) % 10000}-1234",
                 "address": "Al Khuwair, Muscat",
                 "party_type": "customer",
                 "notes": "VIP customer for testing"
