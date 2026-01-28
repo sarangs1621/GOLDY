@@ -34,7 +34,7 @@ from decimal import Decimal
 
 # Configuration - Use environment variable for backend URL
 import os
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://two-phase-returns.preview.emergentagent.com') + '/api'
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://status-tracker-app.preview.emergentagent.com') + '/api'
 HEADERS = {"Content-Type": "application/json"}
 
 class CashFlowTester:

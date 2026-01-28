@@ -44,9 +44,9 @@ class PurchasePaymentFlowTester:
                         self.base_url = f"{backend_url}/api"
                         break
                 else:
-                    self.base_url = "https://two-phase-returns.preview.emergentagent.com/api"
+                    self.base_url = "https://status-tracker-app.preview.emergentagent.com/api"
         except:
-            self.base_url = "https://two-phase-returns.preview.emergentagent.com/api"
+            self.base_url = "https://status-tracker-app.preview.emergentagent.com/api"
         
         self.session.headers.update({"Content-Type": "application/json"})
         
