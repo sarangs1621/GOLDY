@@ -113,6 +113,8 @@ export default function FinancePageEnhanced() {
         total_credit: 0,
         total_debit: 0,
         net_flow: 0,
+        total_in: 0,
+        total_out: 0,
         transaction_count: 0,
         cash_summary: { credit: 0, debit: 0, net: 0 },
         bank_summary: { credit: 0, debit: 0, net: 0 },
