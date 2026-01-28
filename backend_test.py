@@ -13,8 +13,8 @@ import time
 # Configuration
 BACKEND_URL = "https://jewelerp.preview.emergentagent.com/api"
 TEST_USER = {
-    "username": "admin",
-    "password": "Admin@123456789"  # Assuming admin user exists
+    "username": "testadmin",
+    "password": "TestAdmin@123456"  # Test admin user we just created
 }
 
 class BackendTester:
