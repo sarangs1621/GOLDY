@@ -842,7 +842,7 @@ class StockMovement(BaseModel):
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))  # Alias for created_at
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))  # ISO 8601 UTC timestamp
     movement_type: str
-    header_id: str
+    header_id: Optional[str] = None  # Optional - may be None if no matching inventory header
     header_name: str
     description: Optional[str] = None
     qty_delta: float
