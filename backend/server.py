@@ -10179,24 +10179,33 @@ async def create_return(
     current_user: User = Depends(require_permission('returns.create'))
 ):
     """
-    Create and auto-finalize a new return.
+    Create a DRAFT return (does NOT finalize - no stock/transaction/ledger impacts).
     
-    ⚠️ CRITICAL BUSINESS RULE: All returns are auto-finalized on creation ⚠️
-    - Inventory is updated immediately
-    - Accounting entries are created immediately
-    - Vendor/Customer balances are updated immediately
-    - No "Draft" state exists for returns
-    - Status is set to "finalized" immediately
-    - Returns are immutable audit records (cannot be deleted or edited)
+    ✅ CORRECT WORKFLOW: Draft → Finalize Pattern (matches Invoice behavior)
+    
+    CREATE DRAFT (this endpoint):
+    - Validates reference (invoice/purchase must be finalized)
+    - Validates items are present
+    - Generates return number
+    - Saves return with status='draft'
+    - NO stock movements created
+    - NO transactions created
+    - NO ledger entries created
+    - NO party balance updates
+    
+    FINALIZE (separate endpoint - POST /api/returns/{id}/finalize):
+    - Validates refund details (mode, amounts, account)
+    - Creates stock movements
+    - Creates transactions
+    - Creates ledger entries
+    - Updates party balances
+    - Locks return (status='finalized')
+    
+    Refund details (refund_mode, amounts, account) are OPTIONAL at draft creation.
+    They become REQUIRED at finalization time.
     
     Supports both sales returns and purchase returns.
     """
-    # Track created resources for rollback
-    stock_movement_ids = []
-    transaction_ids = []
-    gold_ledger_id = None
-    return_id = None
-    
     try:
         # Validate return_type
         return_type = return_data.get('return_type')
