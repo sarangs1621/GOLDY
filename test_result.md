@@ -1414,19 +1414,53 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "1.4"
-  test_sequence: 6
+  version: "1.5"
+  test_sequence: 7
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Authentication Service Restoration"
-    - "Login API Endpoint - Authentication Flow"
-    - "Login Page - Authentication UI"
-    - "AuthContext - Login Implementation"
+    - "Purchase Lifecycle - Draft Status Support"
+    - "Add Payment to Purchase Endpoint"
+    - "Purchase Locking Rules - Balance-Based"
+    - "Purchase Edit Rules - Lock-Based"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      🎉 PURCHASE PAYMENT + STATUS FLOW - COMPREHENSIVE FIX COMPLETED
+      
+      CRITICAL BUG FIXED: Purchase flow now matches Invoice flow exactly
+      
+      🔧 BACKEND FIXES:
+      1. ✅ Draft Purchase Creation - Purchases can be created with paid_amount = 0 (Draft status)
+      2. ✅ Add Payment Endpoint - POST /api/purchases/{purchase_id}/add-payment
+      3. ✅ Locking Rules - locked = True ONLY when balance_due_money == 0
+      4. ✅ Edit Rules - Allow editing when locked = False
+      
+      🎨 FRONTEND FIXES:
+      1. ✅ Add Payment Button - Shows when balance_due > 0 and !locked
+      2. ✅ Payment Dialog - Complete dialog with form validation
+      3. ✅ Payment Handler - Calls API and updates UI
+      4. ✅ Edit Button Logic - Changed to lock-based control
+      
+      📊 PURCHASE LIFECYCLE (NOW CORRECT):
+      DRAFT → [Add Payment] → PARTIALLY_PAID → [Add Payment] → PAID → FINALIZED (LOCKED)
+      
+      🎯 TESTING REQUIRED:
+      SCENARIO 1: Create purchase with paid_amount = 0 → status = Draft, locked = False
+      SCENARIO 2: Add partial payment → status = Partially Paid, locked = False
+      SCENARIO 3: Complete payment → status = Paid, locked = True
+      SCENARIO 4: Verify Edit allowed for Draft/Partially Paid, blocked for Paid
+      SCENARIO 5: Multiple payments accumulate correctly
+      SCENARIO 6: Payment validation (amount, account, overpayment prevention)
+      
+      🚀 SERVICES: Backend restarted, Frontend running, MongoDB running
+      
+      Ready for comprehensive backend testing.
 
 user_problem_statement: |
   BUG REPORT & FIX: PURCHASE PAYMENT + STATUS FLOW IS BROKEN
