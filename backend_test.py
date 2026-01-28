@@ -604,7 +604,15 @@ class BackendTester:
     def test_previously_fixed_features(self):
         """Test previously fixed features"""
         print("\n" + "="*60)
-        print("TESTING PREVIOUSLY FIXED FEATURES")
+        print("TESTING NET FLOW / CASH FLOW / BANK FLOW CALCULATIONS")
+        print("="*60)
+        
+        # Test Finance Dashboard Net Flow Calculations (Primary Focus)
+        self.test_finance_dashboard_net_flow_calculations()
+        
+        # Test other previously fixed features
+        print("\n" + "="*60)
+        print("TESTING OTHER PREVIOUSLY FIXED FEATURES")
         print("="*60)
         
         # Test Purchases Add Payment
@@ -612,9 +620,6 @@ class BackendTester:
         
         # Test Invoice Stock Movements
         self.test_invoice_stock_movements()
-        
-        # Test Finance Dashboard
-        self.test_finance_dashboard()
     
     def test_purchases_add_payment(self):
         """Test Purchases Add Payment workflow"""
