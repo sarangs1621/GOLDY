@@ -83,6 +83,23 @@ export default function PartiesPage() {
     return '';
   };
   
+  // Validation function for Oman ID
+  const validateOmanId = (omanId) => {
+    if (!omanId || !omanId.trim()) {
+      return ''; // Oman ID is optional
+    }
+    
+    const trimmedOmanId = omanId.trim();
+    
+    // Must be numeric only (allow leading zeros)
+    const omanIdPattern = /^[0-9]+$/;
+    if (!omanIdPattern.test(trimmedOmanId)) {
+      return 'Oman ID must contain only numbers';
+    }
+    
+    return '';
+  };
+  
   // Validation function for phone
   const validatePhone = (phone) => {
     if (!phone || !phone.trim()) {
@@ -109,6 +126,15 @@ export default function PartiesPage() {
     setValidationErrors({...validationErrors, name: error});
   };
   
+  // Handle Oman ID change with validation
+  const handleOmanIdChange = (e) => {
+    const value = e.target.value;
+    setFormData({...formData, oman_id: value});
+    
+    const error = validateOmanId(value);
+    setValidationErrors({...validationErrors, oman_id: error});
+  };
+  
   // Handle phone change with validation
   const handlePhoneChange = (e) => {
     const value = e.target.value;
@@ -121,8 +147,9 @@ export default function PartiesPage() {
   // Check if form is valid
   const isFormValid = () => {
     const nameError = validateName(formData.name);
+    const omanIdError = validateOmanId(formData.oman_id);
     const phoneError = validatePhone(formData.phone);
-    return !nameError && !phoneError;
+    return !nameError && !omanIdError && !phoneError;
   };
 
   const loadParties = async () => {
