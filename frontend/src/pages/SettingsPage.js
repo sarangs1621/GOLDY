@@ -208,6 +208,47 @@ export default function SettingsPage() {
     }
   };
 
+  // Shop Settings Functions
+  const loadShopSettings = async () => {
+    try {
+      setShopSettingsLoading(true);
+      const response = await API.get('/api/settings/shop');
+      if (response.data) {
+        setShopSettings(response.data);
+        setShopSettingsData({
+          purchase_conversion_factor: response.data.purchase_conversion_factor || 0.920
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load shop settings:', error);
+      toast.error('Failed to load shop settings');
+    } finally {
+      setShopSettingsLoading(false);
+    }
+  };
+
+  const handleShopSettingsSave = async () => {
+    const factor = parseFloat(shopSettingsData.purchase_conversion_factor);
+    
+    if (!factor || factor <= 0) {
+      toast.error('Conversion factor must be a positive number');
+      return;
+    }
+    
+    if (factor < 0.900 || factor > 0.930) {
+      toast.error('Conversion factor should typically be between 0.900 and 0.930');
+      return;
+    }
+
+    try {
+      await API.put('/api/settings/shop', shopSettingsData);
+      toast.success('Shop settings updated successfully');
+      loadShopSettings();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update shop settings');
+    }
+  };
+
   const canManageUsers = user?.role === 'admin' || user?.role === 'manager';
 
   return (
