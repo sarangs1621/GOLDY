@@ -954,7 +954,16 @@ agent_communication:
       5. Pagination controls (Previous/Next/First/Last buttons)
       6. Page numbers display and navigation
 
-user_problem_statement: "Test the newly created Work Types Management feature to verify users can add custom work types."
+user_problem_statement: |
+  Purchase Module Enhancements - Add multiple items support, walk-in vendor support, 22K valuation, and conversion factor settings.
+  
+  Requirements:
+  1. Multiple Items Support - Allow adding multiple items in a single purchase with individual descriptions, weights, purities, and rates
+  2. Walk-in Vendor Support - Support walk-in purchases without creating party records (with Customer ID and Vendor Name)
+  3. 22K (916) Valuation Formula - All purchases valued using: Amount = (Weight × Rate) ÷ Conversion Factor
+  4. Conversion Factor Setting - Configurable in Settings page (default 0.920, can be 0.917)
+  5. 3 Decimal Precision - All weights and money amounts with 3 decimal precision
+  6. Display Enhancements - Show multiple items in table and view dialog, show walk-in vendor info
 
 backend:
   - task: "Permission System - Constants and Role Mappings (Phase 1)"
