@@ -3883,47 +3883,58 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
         )
     
     # === OPERATION 3: Create GoldLedgerEntry OUT if advance_in_gold_grams > 0 ===
-    advance_gold = purchase_data.get("advance_in_gold_grams")
-    if advance_gold and advance_gold > 0:
-        advance_gold = round(advance_gold, 3)
-        
-        advance_entry = GoldLedgerEntry(
-            party_id=purchase.vendor_party_id,
-            date=purchase.date,
-            type="OUT",
-            weight_grams=advance_gold,
-            purity_entered=purchase.entered_purity,
-            purpose="advance_gold",
-            reference_type="purchase",
-            reference_id=purchase_id,
-            notes=f"Advance gold settled in purchase: {purchase.description}",
-            created_by=current_user.username
-        )
-        await db.gold_ledger.insert_one(advance_entry.model_dump())
+    # Only for saved vendors (walk-in vendors don't have gold ledger)
+    if not is_walk_in and vendor_party_id:
+        advance_gold = purchase_data.get("advance_in_gold_grams")
+        if advance_gold and advance_gold > 0:
+            advance_gold = round(advance_gold, 3)
+            
+            # Use first item's purity or legacy purity
+            purity = purchase_data["items"][0]["entered_purity"] if purchase_data["items"] else purchase.entered_purity
+            
+            advance_entry = GoldLedgerEntry(
+                party_id=vendor_party_id,
+                date=purchase.date,
+                type="OUT",
+                weight_grams=advance_gold,
+                purity_entered=purity,
+                purpose="advance_gold",
+                reference_type="purchase",
+                reference_id=purchase_id,
+                notes=f"Advance gold settled in purchase from {vendor_name}",
+                created_by=current_user.username
+            )
+            await db.gold_ledger.insert_one(advance_entry.model_dump())
     
     # === OPERATION 4: Create GoldLedgerEntry IN if exchange_in_gold_grams > 0 ===
-    exchange_gold = purchase_data.get("exchange_in_gold_grams")
-    if exchange_gold and exchange_gold > 0:
-        exchange_gold = round(exchange_gold, 3)
-        
-        exchange_entry = GoldLedgerEntry(
-            party_id=purchase.vendor_party_id,
-            date=purchase.date,
-            type="IN",
-            weight_grams=exchange_gold,
-            purity_entered=purchase.entered_purity,
-            purpose="exchange",
-            reference_type="purchase",
-            reference_id=purchase_id,
-            notes=f"Gold exchanged in purchase: {purchase.description}",
-            created_by=current_user.username
-        )
-        await db.gold_ledger.insert_one(exchange_entry.model_dump())
+    # Only for saved vendors (walk-in vendors don't have gold ledger)
+    if not is_walk_in and vendor_party_id:
+        exchange_gold = purchase_data.get("exchange_in_gold_grams")
+        if exchange_gold and exchange_gold > 0:
+            exchange_gold = round(exchange_gold, 3)
+            
+            # Use first item's purity or legacy purity
+            purity = purchase_data["items"][0]["entered_purity"] if purchase_data["items"] else purchase.entered_purity
+            
+            exchange_entry = GoldLedgerEntry(
+                party_id=vendor_party_id,
+                date=purchase.date,
+                type="IN",
+                weight_grams=exchange_gold,
+                purity_entered=purity,
+                purpose="exchange",
+                reference_type="purchase",
+                reference_id=purchase_id,
+                notes=f"Gold exchanged in purchase from {vendor_name}",
+                created_by=current_user.username
+            )
+            await db.gold_ledger.insert_one(exchange_entry.model_dump())
     
     # === OPERATION 5: Create vendor payable transaction ONLY for balance_due_money ===
+    # Only for saved vendors (walk-in vendors don't have payables)
     balance_due = purchase_data["balance_due_money"]
     
-    if balance_due > 0:
+    if balance_due > 0 and not is_walk_in and vendor_party_id:
         current_year = datetime.now(timezone.utc).year
         existing_txns = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{current_year}-"}})
         payable_txn_number = f"TXN-{current_year}-{existing_txns + 1:04d}"
@@ -3938,6 +3949,12 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
             )
             await db.accounts.insert_one(purchases_account.model_dump())
         
+        # Create description based on items or legacy
+        if purchase_data["items"]:
+            desc = f"Multiple items ({len(purchase_data['items'])} items)"
+        else:
+            desc = f"{purchase_data.get('description', '')} ({purchase.weight_grams}g @ {purchase.rate_per_gram}/g)"
+        
         payable_transaction = Transaction(
             transaction_number=payable_txn_number,
             date=purchase.date,
@@ -3945,13 +3962,13 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
             mode="Vendor Payable",
             account_id=purchases_account.get("id") if isinstance(purchases_account, dict) else purchases_account.id,
             account_name="Purchases",
-            party_id=purchase.vendor_party_id,
-            party_name=vendor["name"],
-            amount=round(balance_due, 2),
+            party_id=vendor_party_id,
+            party_name=vendor_name,
+            amount=round(balance_due, 3),
             category="Purchase",
             reference_type="purchase",
             reference_id=purchase_id,
-            notes=f"Vendor payable for purchase: {purchase.description} ({purchase.weight_grams}g @ {purchase.rate_per_gram}/g)",
+            notes=f"Vendor payable for purchase: {desc}",
             created_by=current_user.username
         )
         await db.transactions.insert_one(payable_transaction.model_dump())
