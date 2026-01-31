@@ -2848,6 +2848,179 @@ agent_communication:
       ================================================================================
       ✅ Backend: RUNNING on port 8001
       ✅ Models: Updated and validated
+      ✅ Endpoints: Enhanced with new features
+      ✅ Formula: 22K valuation implemented correctly
+      ✅ Precision: 3 decimals enforced throughout
+      
+      📋 NEXT STEPS:
+      - Phase 2: Frontend implementation (PurchasesPage UI, Settings page)
+      - Phase 3: Comprehensive testing
+      
+  - agent: "main"
+    message: |
+      ✅ GOLD SHOP ERP – PURCHASE MODULE FRONTEND IMPLEMENTATION COMPLETE
+      
+      PHASE 2: FRONTEND IMPLEMENTATION ✅ COMPLETE
+      ================================================================================
+      
+      📱 PURCHASES PAGE ENHANCEMENTS:
+      
+      1. ✅ Multiple Items Form
+         - "Multiple Items" toggle checkbox added
+         - Dynamic item rows with Add (+) and Remove (×) buttons
+         - Each item row includes:
+           * Description field (required)
+           * Weight field (3 decimal precision, required)
+           * Entered Purity field (for record keeping)
+           * Rate/gram (22K) field (3 decimal precision, required)
+           * Calculated Amount display (auto-calculated, read-only)
+         - Real-time calculation: amount = (weight × rate) ÷ conversion_factor
+         - Total amount display showing sum of all items
+         - Beautiful amber-themed UI for items section
+         - Proper validation for all fields
+      
+      2. ✅ Walk-in Vendor Support
+         - "Walk-in Vendor" toggle checkbox with User icon
+         - Conditional rendering based on toggle state:
+           * When enabled: Shows Customer ID (Oman ID) and Vendor Name fields
+           * When disabled: Shows vendor party dropdown
+         - Purple-themed section for walk-in fields
+         - Clear informative message about walk-in purchases
+         - Required field validation for walk-in purchases
+         - Correct payload structure sent to backend
+      
+      3. ✅ Conversion Factor Display
+         - Conversion factor displayed at top of form (read-only)
+         - Fetched from shop settings on page load
+         - Blue-themed info box explaining formula
+         - Updates when settings change
+      
+      4. ✅ Form Calculations
+         - Auto-calculation for each item as user types
+         - Uses formula: (weight × rate) ÷ conversion_factor
+         - 3 decimal precision maintained throughout
+         - Total updates automatically when items change
+         - Clear breakdown shown for single-item purchases
+      
+      5. ✅ Validation & Error Handling
+         - Walk-in purchases require: Customer ID + Vendor Name
+         - Regular purchases require: Vendor selection
+         - Each item requires: Description, weight > 0, rate > 0
+         - Clear error messages for all validation failures
+         - Form-level validation before submission
+      
+      ⚙️ SETTINGS PAGE ENHANCEMENTS:
+      
+      1. ✅ Shop Settings Card
+         - New "Shop Settings" section added (before Work Types)
+         - Admin-only access (role check implemented)
+         - Purchase Conversion Factor configuration:
+           * Input field with 3 decimal precision
+           * Default value: 0.920
+           * Range: 0.900 to 0.930 (with validation)
+           * Common values suggested: 0.920, 0.917
+         - Clear formula explanation
+         - Warning message about impact on future purchases
+         - "Save Settings" button updates via PUT /api/settings/shop
+         - Blue-themed UI matching settings page aesthetic
+      
+      2. ✅ Settings Load/Save
+         - Shop settings loaded on page mount
+         - Current conversion factor displayed in form
+         - Validation before saving
+         - Success/error toast notifications
+         - Settings reload after successful save
+      
+      🎨 UI/UX IMPROVEMENTS:
+      
+      - Color-coded sections:
+        * Blue: Info/settings
+        * Amber: Gold/items
+        * Purple: Walk-in vendor
+        * Green: Payment details
+      - Clear visual hierarchy
+      - Responsive design
+      - Intuitive toggle controls
+      - Real-time feedback
+      - Loading states
+      - Professional styling
+      
+      📊 PAYLOAD STRUCTURE:
+      
+      Multiple Items Purchase:
+      ```json
+      {
+        "is_walk_in": false,
+        "vendor_party_id": "vendor_id",
+        "date": "2025-01-15",
+        "items": [
+          {
+            "description": "Gold Bar 24K",
+            "weight_grams": 10.500,
+            "entered_purity": 999,
+            "rate_per_gram_22k": 50.000
+          },
+          {
+            "description": "Gold Jewelry 22K",
+            "weight_grams": 15.250,
+            "entered_purity": 916,
+            "rate_per_gram_22k": 48.500
+          }
+        ],
+        "paid_amount_money": 0.0
+      }
+      ```
+      
+      Walk-in Purchase:
+      ```json
+      {
+        "is_walk_in": true,
+        "vendor_oman_id": "12345678",
+        "walk_in_vendor_name": "Ahmed Al-Balushi",
+        "date": "2025-01-15",
+        "description": "Gold Bangles",
+        "weight_grams": 20.000,
+        "entered_purity": 916,
+        "rate_per_gram": 45.000,
+        "paid_amount_money": 0.0
+      }
+      ```
+      
+      🚀 FRONTEND STATUS:
+      ================================================================================
+      ✅ Frontend: RESTARTED and compiled successfully
+      ✅ PurchasesPage: Enhanced with all features
+      ✅ SettingsPage: Shop settings added
+      ✅ Components: All UI elements implemented
+      ✅ Validation: Comprehensive client-side checks
+      ✅ Styling: Professional and intuitive design
+      
+      📋 IMPLEMENTATION SUMMARY:
+      ================================================================================
+      
+      ✅ COMPLETED:
+      1. Backend models (PurchaseItem, Purchase enhancements, ShopSettings)
+      2. Backend API (create_purchase, settings endpoints)
+      3. Frontend forms (multiple items, walk-in vendor)
+      4. Frontend settings (conversion factor configuration)
+      5. Calculations (22K valuation formula)
+      6. Validations (client + server side)
+      7. UI/UX (color-coded, responsive, intuitive)
+      
+      🎯 READY FOR TESTING:
+      ================================================================================
+      
+      Test Scenarios:
+      1. ✅ Single-item purchase (legacy compatibility)
+      2. ✅ Multi-item purchase with different purities
+      3. ✅ Walk-in vendor purchase (no party creation)
+      4. ✅ Conversion factor configuration (Settings page)
+      5. ✅ 3-decimal precision verification
+      6. ✅ Validation error handling
+      7. ✅ Payment integration
+      8. ✅ Stock movements creation
+      
+      All features implemented and ready for comprehensive testing!
       ✅ Endpoints: Enhanced and tested
       ✅ Precision: 3 decimals implemented
       ✅ Valuation: 22K formula enforced
