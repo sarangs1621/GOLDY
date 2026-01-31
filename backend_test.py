@@ -69,38 +69,52 @@ class BackendTester:
             self.log_result("Authentication", False, f"Authentication error: {str(e)}")
             return False
     
-    def test_returns_module_workflow(self):
-        """Test complete Returns Module workflow"""
-        print("\n" + "="*60)
-        print("TESTING RETURNS MODULE COMPLETE WORKFLOW")
-        print("="*60)
+    def test_gold_shop_purchase_module(self):
+        """Test complete Gold Shop ERP Purchase Module workflow"""
+        print("\n" + "="*80)
+        print("TESTING GOLD SHOP ERP PURCHASE MODULE - ALL SCENARIOS")
+        print("="*80)
         
-        # Step 1: Get returnable invoices
-        self.test_get_returnable_invoices()
+        # PRIMARY FOCUS TESTS
+        print("\n🎯 PRIMARY FOCUS TESTS:")
         
-        # Step 2: Create test invoice if needed (for testing)
-        invoice_id = self.create_test_invoice_for_returns()
+        # Test 1: Shop Settings conversion factor (GET and UPDATE)
+        self.test_shop_settings_conversion_factor()
         
-        if invoice_id:
-            # Step 3: Get returnable items from invoice
-            returnable_items = self.test_get_returnable_items(invoice_id)
-            
-            if returnable_items:
-                # Step 4: Create draft return
-                return_id = self.test_create_draft_return(invoice_id, returnable_items)
-                
-                if return_id:
-                    # Step 5: Edit draft return (add refund details)
-                    self.test_edit_draft_return(return_id)
-                    
-                    # Step 6: Get finalize impact preview
-                    self.test_get_finalize_impact(return_id)
-                    
-                    # Step 7: Finalize return
-                    self.test_finalize_return(return_id)
-                    
-                    # Step 8: Validation tests
-                    self.test_return_validations(invoice_id, return_id)
+        # Test 2: Single-item purchase (legacy compatibility) with 22K valuation formula
+        self.test_single_item_purchase_legacy()
+        
+        # Test 3: Multi-item purchase with different purities
+        self.test_multi_item_purchase_different_purities()
+        
+        # Test 4: Walk-in vendor purchase (no party creation)
+        self.test_walk_in_vendor_purchase()
+        
+        # Test 5: Purchase with payment (partial and full)
+        self.test_purchase_with_payments()
+        
+        # Test 6: Verify 3-decimal precision for all money and weight fields
+        self.test_decimal_precision_verification()
+        
+        # Test 7: Test all validation scenarios (missing fields, invalid values)
+        self.test_purchase_validation_scenarios()
+        
+        print("\n🔍 CRITICAL VALIDATIONS:")
+        
+        # Test 8: Formula verification: amount = (weight × rate_per_gram_22k) ÷ conversion_factor
+        self.test_formula_verification()
+        
+        # Test 9: All purchases valued at 916 purity regardless of entered purity
+        self.test_purity_valuation_rule()
+        
+        # Test 10: Multiple items create separate stock movements
+        self.test_stock_movements_verification()
+        
+        # Test 11: Walk-in vendors: No party_id, no gold ledger, no payables
+        self.test_walk_in_vendor_restrictions()
+        
+        # Test 12: Status calculation and locking rules
+        self.test_status_calculation_and_locking()
     
     def test_get_returnable_invoices(self):
         """Test GET /api/invoices/returnable?type=sales"""
