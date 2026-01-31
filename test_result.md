@@ -954,7 +954,7 @@ agent_communication:
       5. Pagination controls (Previous/Next/First/Last buttons)
       6. Page numbers display and navigation
 
-user_problem_statement: "IMPLEMENT COMPREHENSIVE ROLE-BASED PERMISSION SYSTEM WITH RBAC (Role-Based Access Control). Create 5-phase implementation: (1) Backend permission constants and role mappings for admin/manager/staff roles, (2) Security features including account lockout, password complexity, token-based password reset, and auth audit logs, (3) Permission enforcement on all API endpoints, (4) Frontend permission components and hooks, (5) Frontend UI permission application with filtered navigation and route protection."
+user_problem_statement: "Test the newly created Work Types Management feature to verify users can add custom work types."
 
 backend:
   - task: "Permission System - Constants and Role Mappings (Phase 1)"
