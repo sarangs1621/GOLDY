@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import time
 
 # Configuration
-BACKEND_URL = "https://purchase-module.preview.emergentagent.com/api"
+BACKEND_URL = "https://goldmaster-erp.preview.emergentagent.com/api"
 TEST_USER = {
     "username": "admin_netflow_test",
     "password": "TestAdmin@123"  # Test admin user for purchase module testing
