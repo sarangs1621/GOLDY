@@ -2401,8 +2401,9 @@ async def create_stock_movement(movement_data: dict, current_user: User = Depend
         created_by=current_user.id
     )
     
-    # Insert stock movement for audit trail
-    await db.stock_movements.insert_one(movement.model_dump())
+    # Insert stock movement for audit trail with Decimal128 conversion
+    movement_dict = convert_stock_movement_to_decimal(movement.model_dump())
+    await db.stock_movements.insert_one(movement_dict)
     
     # Create audit log for manual inventory adjustment
     await create_audit_log(
