@@ -120,6 +120,7 @@ def validate_purity(purity: int) -> int:
 
 class PartyValidator(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
+    oman_id: Optional[str] = Field(None, max_length=30)  # Customer ID (Oman National ID / Resident ID) - Optional, numeric only
     phone: Optional[str] = Field(None, max_length=20)
     address: Optional[str] = Field(None, max_length=500)
     party_type: str = Field(..., pattern="^(customer|vendor|worker)$")
@@ -128,6 +129,16 @@ class PartyValidator(BaseModel):
     @validator('name')
     def sanitize_name(cls, v):
         return sanitize_text_field(v, max_length=100)
+    
+    @validator('oman_id')
+    def validate_oman_id(cls, v):
+        if v:
+            v = sanitize_html(v)
+            v = v.strip()
+            # Oman ID should be numeric only (allow leading zeros)
+            if v and not re.match(r'^[0-9]+$', v):
+                raise ValueError('Oman ID must contain only numbers')
+        return v if v else None
     
     @validator('phone')
     def validate_phone(cls, v):
