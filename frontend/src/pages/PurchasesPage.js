@@ -195,6 +195,55 @@ export default function PurchasesPage() {
     loadPurchases();
   }, [filterVendor, filterStatus, startDate, endDate, currentPage]);
 
+  // Helper functions for multiple items
+  const addItem = () => {
+    setItems([...items, {
+      id: Date.now().toString(),
+      description: '',
+      weight_grams: '',
+      entered_purity: '916',
+      rate_per_gram_22k: '',
+      calculated_amount: 0
+    }]);
+  };
+
+  const removeItem = (id) => {
+    if (items.length > 1) {
+      setItems(items.filter(item => item.id !== id));
+    }
+  };
+
+  const updateItem = (id, field, value) => {
+    const updated = items.map(item => {
+      if (item.id === id) {
+        const newItem = { ...item, [field]: value };
+        
+        // Calculate amount when weight or rate changes
+        if (field === 'weight_grams' || field === 'rate_per_gram_22k') {
+          const weight = parseFloat(newItem.weight_grams) || 0;
+          const rate = parseFloat(newItem.rate_per_gram_22k) || 0;
+          if (weight > 0 && rate > 0) {
+            newItem.calculated_amount = parseFloat(((weight * rate) / conversionFactor).toFixed(3));
+          } else {
+            newItem.calculated_amount = 0;
+          }
+        }
+        
+        return newItem;
+      }
+      return item;
+    });
+    setItems(updated);
+  };
+
+  // Calculate total from multiple items
+  useEffect(() => {
+    if (isMultipleItems) {
+      const total = items.reduce((sum, item) => sum + (item.calculated_amount || 0), 0);
+      setFormData(prev => ({ ...prev, amount_total: total.toFixed(3) }));
+    }
+  }, [items, isMultipleItems]);
+
   const handlePageChange = (newPage) => {
     setSearchParams({ page: newPage.toString() });
   };
