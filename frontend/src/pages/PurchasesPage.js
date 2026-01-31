@@ -1566,7 +1566,8 @@ export default function PurchasesPage() {
                 </div>
               )}
 
-              {/* ENHANCED Gold Details Section - Option C Improvements */}
+              {/* ENHANCED Gold Details Section - Option C Improvements (Single Item Only) */}
+              {(!viewPurchase.items || viewPurchase.items.length === 0) && (
               <div className="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-50 border-2 border-amber-300 rounded-xl p-5 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-lg text-amber-900 flex items-center gap-2">
