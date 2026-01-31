@@ -133,12 +133,25 @@ export default function PurchasesPage() {
       await Promise.all([
         loadPurchases(),
         loadVendors(),
-        loadAccounts()
+        loadAccounts(),
+        loadSettings()
       ]);
     } catch (error) {
       console.error('Error loading initial data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const response = await API.get('/api/settings/shop');
+      if (response.data) {
+        setConversionFactor(response.data.purchase_conversion_factor || 0.920);
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      setConversionFactor(0.920); // Default fallback
     }
   };
 
