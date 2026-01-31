@@ -1645,6 +1645,7 @@ export default function PurchasesPage() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Payment Breakdown Section */}
               <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-green-50 border-2 border-green-300 rounded-xl p-5 shadow-lg">
