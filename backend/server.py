@@ -878,6 +878,19 @@ class Worker(BaseModel):
     created_by: str
     is_deleted: bool = False
 
+class WorkType(BaseModel):
+    """Work Type model for customizable job card work types"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str  # e.g., "Polish", "Resize", "Repair", "Custom"
+    description: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str
+    is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None
+
 class JobCardItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     category: str
