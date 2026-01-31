@@ -1016,6 +1016,21 @@ export default function JobCardsPage() {
                         ⚠ Walk-in customers are NOT saved in Parties
                       </p>
                     </div>
+                    <div className="col-span-2">
+                      <Label>Customer ID (Oman ID) <span className="text-xs text-muted-foreground">(Optional)</span></Label>
+                      <Input
+                        value={formData.customer_oman_id || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, ''); // Only digits
+                          setFormData({...formData, customer_oman_id: value});
+                        }}
+                        placeholder="Enter Oman National ID or Resident ID (numbers only)"
+                        maxLength="15"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Enter customer's Oman National ID or Resident ID (numeric only)
+                      </p>
+                    </div>
                   </>
                 )}
               </div>
