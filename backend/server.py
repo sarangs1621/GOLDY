@@ -6268,7 +6268,8 @@ async def add_payment_to_invoice(
                                 reference_id=invoice.id,
                                 created_by=current_user.id
                             )
-                            await db.stock_movements.insert_one(movement.model_dump())
+                            movement_dict = convert_stock_movement_to_decimal(movement.model_dump())
+                            await db.stock_movements.insert_one(movement_dict)
             
             # If stock errors occurred, rollback finalization but keep payment
             if stock_errors:
