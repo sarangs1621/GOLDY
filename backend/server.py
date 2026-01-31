@@ -3897,8 +3897,9 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
     purchase = Purchase(**purchase_data)
     purchase_id = purchase.id
     
-    # Insert purchase
-    await db.purchases.insert_one(purchase.model_dump())
+    # Convert to Decimal128 for precise storage
+    purchase_data_dec = convert_purchase_to_decimal(purchase.model_dump())
+    await db.purchases.insert_one(purchase_data_dec)
     
     # ========== AUTO-FINALIZATION: CREATE ALL ACCOUNTING ENTRIES ==========
     
