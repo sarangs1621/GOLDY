@@ -1,0 +1,170 @@
+[
+  {
+    "test": "Authentication",
+    "success": true,
+    "details": "Successfully authenticated as admin_netflow_test",
+    "timestamp": "2026-01-31T11:39:40.676603",
+    "response_data": null
+  },
+  {
+    "test": "Get Test Customer",
+    "success": true,
+    "details": "Using existing customer: Perf Test Party 1 20260125073346",
+    "timestamp": "2026-01-31T11:39:41.305212",
+    "response_data": null
+  },
+  {
+    "test": "Get Test Worker",
+    "success": true,
+    "details": "Using existing worker: Jishnu",
+    "timestamp": "2026-01-31T11:39:41.729706",
+    "response_data": null
+  },
+  {
+    "test": "Create Job Card with Oman ID",
+    "success": true,
+    "details": "Created job card JC0013 with customer_oman_id: 12345678",
+    "timestamp": "2026-01-31T11:39:42.980831",
+    "response_data": {
+      "job_card_id": "397459ea-b9d4-48ef-85c0-d579967ae196",
+      "job_card_number": "JC0013"
+    }
+  },
+  {
+    "test": "GET Individual Job Card Endpoint",
+    "success": true,
+    "details": "Successfully retrieved job card JC0013 with 1 items",
+    "timestamp": "2026-01-31T11:39:43.407514",
+    "response_data": {
+      "job_card_id": "397459ea-b9d4-48ef-85c0-d579967ae196",
+      "job_card_number": "JC0013",
+      "status": "created",
+      "items_count": 1
+    }
+  },
+  {
+    "test": "GET Individual Job Card - 404 Test",
+    "success": true,
+    "details": "Correctly returned 404 for non-existent job card",
+    "timestamp": "2026-01-31T11:39:43.825738",
+    "response_data": null
+  },
+  {
+    "test": "Get Test Customer",
+    "success": true,
+    "details": "Using existing customer: Perf Test Party 1 20260125073346",
+    "timestamp": "2026-01-31T11:39:44.453234",
+    "response_data": null
+  },
+  {
+    "test": "Get Test Worker",
+    "success": true,
+    "details": "Using existing worker: Jishnu",
+    "timestamp": "2026-01-31T11:39:44.873903",
+    "response_data": null
+  },
+  {
+    "test": "Create Job Card with Oman ID",
+    "success": true,
+    "details": "Created job card JC0014 with customer_oman_id: 12345678",
+    "timestamp": "2026-01-31T11:39:46.122580",
+    "response_data": {
+      "job_card_id": "a7ec44d0-3cff-4701-a332-0231723d5edb",
+      "job_card_number": "JC0014"
+    }
+  },
+  {
+    "test": "Customer Oman ID - Job Card Storage",
+    "success": true,
+    "details": "Job card correctly stores customer_oman_id: 12345678",
+    "timestamp": "2026-01-31T11:39:46.541828",
+    "response_data": null
+  },
+  {
+    "test": "Convert Job Card to Invoice",
+    "success": false,
+    "details": "Failed: 422 - {\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\"],\"msg\":\"Field required\",\"input\":null}]}",
+    "timestamp": "2026-01-31T11:39:46.760760",
+    "response_data": null
+  },
+  {
+    "test": "Get Test Customer",
+    "success": true,
+    "details": "Using existing customer: Perf Test Party 1 20260125073346",
+    "timestamp": "2026-01-31T11:39:47.385365",
+    "response_data": null
+  },
+  {
+    "test": "Get Test Worker",
+    "success": true,
+    "details": "Using existing worker: Jishnu",
+    "timestamp": "2026-01-31T11:39:47.806016",
+    "response_data": null
+  },
+  {
+    "test": "Create Job Card with Per-Inch Charge",
+    "success": true,
+    "details": "Created job card JC0015 with per-inch making charge (50 OMR \u00d7 8.5 inches = 425 OMR)",
+    "timestamp": "2026-01-31T11:39:49.093763",
+    "response_data": {
+      "job_card_id": "92c32f44-af8b-469e-b4de-31a05de30a49",
+      "job_card_number": "JC0015"
+    }
+  },
+  {
+    "test": "Per-Inch Making Charge - Job Card Storage",
+    "success": true,
+    "details": "Job card correctly stores per-inch fields: type=per_inch, value=50.0, inches=8.5",
+    "timestamp": "2026-01-31T11:39:49.511078",
+    "response_data": null
+  },
+  {
+    "test": "Convert Job Card to Invoice",
+    "success": false,
+    "details": "Failed: 422 - {\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\"],\"msg\":\"Field required\",\"input\":null}]}",
+    "timestamp": "2026-01-31T11:39:49.764829",
+    "response_data": null
+  },
+  {
+    "test": "Work Types - Create",
+    "success": true,
+    "details": "Created work type: Test Work Type 93ddd0d4",
+    "timestamp": "2026-01-31T11:39:50.596994",
+    "response_data": {
+      "work_type_id": "3c2d6032-1b26-4d60-a656-ea6e9e34ab74",
+      "name": "Test Work Type 93ddd0d4"
+    }
+  },
+  {
+    "test": "Work Types - Read",
+    "success": true,
+    "details": "Retrieved 5 work types",
+    "timestamp": "2026-01-31T11:39:51.015591",
+    "response_data": {
+      "count": 5
+    }
+  },
+  {
+    "test": "Work Types - Update",
+    "success": true,
+    "details": "Updated work type: None",
+    "timestamp": "2026-01-31T11:39:52.056278",
+    "response_data": {
+      "updated_name": null
+    }
+  },
+  {
+    "test": "Work Types - Duplicate Prevention",
+    "success": true,
+    "details": "Correctly prevented duplicate work type: Work type 'Duplicate Test Work Type' already exists",
+    "timestamp": "2026-01-31T11:39:53.311686",
+    "response_data": null
+  },
+  {
+    "test": "Work Types - Delete",
+    "success": true,
+    "details": "Successfully deleted work type",
+    "timestamp": "2026-01-31T11:39:54.147959",
+    "response_data": null
+  }
+]
