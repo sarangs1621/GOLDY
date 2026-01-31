@@ -510,6 +510,158 @@ def float_to_decimal128(value):
         return None
     return Decimal128(Decimal(str(value)))
 
+# ============================================================================
+# DECIMAL128 CONVERSION UTILITIES FOR PRODUCTION PRECISION
+# ============================================================================
+# All financial and weight calculations MUST use Decimal128 for:
+# - Weights: 3 decimal precision (0.001g = 1 milligram accuracy)
+# - Money: 3 decimal precision (0.001 OMR = 1 Baisa accuracy)
+# - Rates: 3 decimal precision for consistency
+# ============================================================================
+
+def _safe_decimal128(value, precision: str = '0.001') -> Decimal128:
+    """
+    Safely convert any value to Decimal128 with specified precision.
+    Handles None, float, int, str, and existing Decimal128 values.
+    """
+    if value is None:
+        return Decimal128(Decimal('0'))
+    if isinstance(value, Decimal128):
+        return value
+    try:
+        return Decimal128(Decimal(str(value)).quantize(Decimal(precision), rounding='ROUND_HALF_UP'))
+    except Exception:
+        return Decimal128(Decimal('0'))
+
+def convert_invoice_to_decimal(invoice_data: dict) -> dict:
+    """
+    Convert float values in invoice data to Decimal128 for precise storage.
+    Money fields use 3 decimal precision (Oman Baisa).
+    Weight fields use 3 decimal precision.
+    """
+    # Money fields (3 decimal precision for Oman Baisa)
+    money_fields = [
+        'subtotal', 'discount_amount', 'cgst_total', 'sgst_total', 'igst_total',
+        'vat_total', 'grand_total', 'paid_amount', 'balance_due',
+        'gold_received_rate', 'gold_received_value'
+    ]
+    for field in money_fields:
+        if field in invoice_data and invoice_data[field] is not None:
+            invoice_data[field] = _safe_decimal128(invoice_data[field], '0.001')
+    
+    # Weight fields (3 decimal precision)
+    weight_fields = ['gold_received_weight']
+    for field in weight_fields:
+        if field in invoice_data and invoice_data[field] is not None:
+            invoice_data[field] = _safe_decimal128(invoice_data[field], '0.001')
+    
+    # Convert items
+    if 'items' in invoice_data and invoice_data['items']:
+        for item in invoice_data['items']:
+            item_weight_fields = ['gross_weight', 'stone_weight', 'net_gold_weight', 'weight', 'inches']
+            item_money_fields = ['metal_rate', 'gold_value', 'making_value', 'stone_charges', 
+                               'wastage_charges', 'item_discount', 'vat_amount', 'line_total']
+            
+            for field in item_weight_fields:
+                if field in item and item[field] is not None:
+                    item[field] = _safe_decimal128(item[field], '0.001')
+            
+            for field in item_money_fields:
+                if field in item and item[field] is not None:
+                    item[field] = _safe_decimal128(item[field], '0.001')
+    
+    return invoice_data
+
+def convert_purchase_to_decimal(purchase_data: dict) -> dict:
+    """
+    Convert float values in purchase data to Decimal128 for precise storage.
+    All money amounts use 3 decimal precision (Oman Baisa).
+    All weights use 3 decimal precision.
+    """
+    # Money fields (3 decimal precision)
+    money_fields = [
+        'rate_per_gram', 'amount_total', 'paid_amount_money', 'balance_due_money'
+    ]
+    for field in money_fields:
+        if field in purchase_data and purchase_data[field] is not None:
+            purchase_data[field] = _safe_decimal128(purchase_data[field], '0.001')
+    
+    # Weight fields (3 decimal precision)
+    weight_fields = [
+        'weight_grams', 'advance_in_gold_grams', 'exchange_in_gold_grams'
+    ]
+    for field in weight_fields:
+        if field in purchase_data and purchase_data[field] is not None:
+            purchase_data[field] = _safe_decimal128(purchase_data[field], '0.001')
+    
+    # Conversion factor (3 decimal precision)
+    if 'conversion_factor' in purchase_data and purchase_data['conversion_factor'] is not None:
+        purchase_data['conversion_factor'] = _safe_decimal128(purchase_data['conversion_factor'], '0.001')
+    
+    # Convert items
+    if 'items' in purchase_data and purchase_data['items']:
+        for item in purchase_data['items']:
+            if 'weight_grams' in item and item['weight_grams'] is not None:
+                item['weight_grams'] = _safe_decimal128(item['weight_grams'], '0.001')
+            if 'rate_per_gram_22k' in item and item['rate_per_gram_22k'] is not None:
+                item['rate_per_gram_22k'] = _safe_decimal128(item['rate_per_gram_22k'], '0.001')
+            if 'calculated_amount' in item and item['calculated_amount'] is not None:
+                item['calculated_amount'] = _safe_decimal128(item['calculated_amount'], '0.001')
+    
+    return purchase_data
+
+def convert_transaction_to_decimal(transaction_data: dict) -> dict:
+    """
+    Convert float values in transaction data to Decimal128 for precise storage.
+    Amount uses 3 decimal precision (Oman Baisa).
+    """
+    if 'amount' in transaction_data and transaction_data['amount'] is not None:
+        transaction_data['amount'] = _safe_decimal128(transaction_data['amount'], '0.001')
+    return transaction_data
+
+def convert_account_to_decimal(account_data: dict) -> dict:
+    """
+    Convert float values in account data to Decimal128 for precise storage.
+    Balances use 3 decimal precision (Oman Baisa).
+    """
+    balance_fields = ['opening_balance', 'current_balance']
+    for field in balance_fields:
+        if field in account_data and account_data[field] is not None:
+            account_data[field] = _safe_decimal128(account_data[field], '0.001')
+    return account_data
+
+def convert_stock_movement_to_decimal(movement_data: dict) -> dict:
+    """
+    Convert float values in stock movement data to Decimal128 for precise storage.
+    Weight uses 3 decimal precision.
+    """
+    weight_fields = ['weight_delta', 'unit_weight']
+    for field in weight_fields:
+        if field in movement_data and movement_data[field] is not None:
+            movement_data[field] = _safe_decimal128(movement_data[field], '0.001')
+    return movement_data
+
+def convert_gold_ledger_to_decimal(ledger_data: dict) -> dict:
+    """
+    Convert float values in gold ledger data to Decimal128 for precise storage.
+    Weight uses 3 decimal precision.
+    """
+    if 'weight_grams' in ledger_data and ledger_data['weight_grams'] is not None:
+        ledger_data['weight_grams'] = _safe_decimal128(ledger_data['weight_grams'], '0.001')
+    return ledger_data
+
+def convert_daily_closing_to_decimal(closing_data: dict) -> dict:
+    """
+    Convert float values in daily closing data to Decimal128 for precise storage.
+    All amounts use 3 decimal precision (Oman Baisa).
+    """
+    money_fields = ['opening_cash', 'total_credit', 'total_debit', 'expected_closing', 
+                    'actual_closing', 'difference']
+    for field in money_fields:
+        if field in closing_data and closing_data[field] is not None:
+            closing_data[field] = _safe_decimal128(closing_data[field], '0.001')
+    return closing_data
+
 def convert_return_to_decimal(return_data: dict) -> dict:
     """
     Convert float values in return data to Decimal128 for precise storage.
@@ -522,33 +674,21 @@ def convert_return_to_decimal(return_data: dict) -> dict:
     """
     # Convert top-level fields
     if 'total_weight_grams' in return_data:
-        return_data['total_weight_grams'] = Decimal128(
-            Decimal(str(return_data['total_weight_grams'])).quantize(Decimal('0.001'))
-        )
+        return_data['total_weight_grams'] = _safe_decimal128(return_data['total_weight_grams'], '0.001')
     if 'total_amount' in return_data:
-        return_data['total_amount'] = Decimal128(
-            Decimal(str(return_data['total_amount'])).quantize(Decimal('0.01'))
-        )
+        return_data['total_amount'] = _safe_decimal128(return_data['total_amount'], '0.001')
     if 'refund_money_amount' in return_data:
-        return_data['refund_money_amount'] = Decimal128(
-            Decimal(str(return_data['refund_money_amount'])).quantize(Decimal('0.01'))
-        )
+        return_data['refund_money_amount'] = _safe_decimal128(return_data['refund_money_amount'], '0.001')
     if 'refund_gold_grams' in return_data:
-        return_data['refund_gold_grams'] = Decimal128(
-            Decimal(str(return_data['refund_gold_grams'])).quantize(Decimal('0.001'))
-        )
+        return_data['refund_gold_grams'] = _safe_decimal128(return_data['refund_gold_grams'], '0.001')
     
     # Convert items
     if 'items' in return_data:
         for item in return_data['items']:
             if 'weight_grams' in item:
-                item['weight_grams'] = Decimal128(
-                    Decimal(str(item['weight_grams'])).quantize(Decimal('0.001'))
-                )
+                item['weight_grams'] = _safe_decimal128(item['weight_grams'], '0.001')
             if 'amount' in item:
-                item['amount'] = Decimal128(
-                    Decimal(str(item['amount'])).quantize(Decimal('0.01'))
-                )
+                item['amount'] = _safe_decimal128(item['amount'], '0.001')
     
     return return_data
 
