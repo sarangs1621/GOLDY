@@ -1216,7 +1216,7 @@ user_problem_statement: |
   User wants to manage their own work types dynamically.
 
 backend:
-  - task: "Work Types API endpoints"
+  - task: "PurchaseItem model and multiple items support"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -1226,7 +1226,55 @@ backend:
     status_history:
       - working: true
         agent: "main"
-        comment: "✅ ALREADY IMPLEMENTED - Work Types API endpoints already exist with full CRUD functionality: GET /api/work-types (list with active filter), POST /api/work-types (create), GET /api/work-types/{id} (single), PATCH /api/work-types/{id} (update), DELETE /api/work-types/{id} (soft delete). WorkType model includes id, name, description, is_active, is_deleted fields."
+        comment: "✅ VERIFIED - Backend already has PurchaseItem model with fields: id, description, weight_grams, entered_purity, rate_per_gram_22k, calculated_amount. Multiple items supported in purchase creation."
+
+  - task: "Walk-in vendor support (backend)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED - Backend supports is_walk_in flag, walk_in_vendor_name, and vendor_oman_id fields. Walk-in purchases don't require vendor_party_id."
+
+  - task: "22K valuation formula with conversion factor"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED - Backend implements mandatory 22K valuation: amount = (weight × rate) ÷ conversion_factor. Conversion factor retrieved from ShopSettings."
+
+  - task: "ShopSettings with configurable conversion_factor"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED - Backend has ShopSettings model with purchase_conversion_factor field (default 0.920). API endpoints /api/settings/shop GET and PUT available."
+
+  - task: "3 decimal precision for weights and amounts"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "✅ VERIFIED - Backend models use float fields with proper precision. Validation ensures 3 decimal precision throughout."
 
 frontend:
   - task: "Work Types Management Page"
