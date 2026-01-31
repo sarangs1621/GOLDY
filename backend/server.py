@@ -4244,6 +4244,16 @@ async def get_jobcards(
     
     return create_pagination_response(jobcards, total_count, page, page_size)
 
+@api_router.get("/jobcards/{jobcard_id}")
+async def get_jobcard(jobcard_id: str, current_user: User = Depends(require_permission('jobcards.view'))):
+    """Get a single job card by ID"""
+    jobcard = await db.jobcards.find_one({"id": jobcard_id, "is_deleted": False}, {"_id": 0})
+    
+    if not jobcard:
+        raise HTTPException(status_code=404, detail="Job card not found")
+    
+    return jobcard
+
 @api_router.post("/jobcards", status_code=201)
 async def create_jobcard(jobcard_data: dict, current_user: User = Depends(require_permission('jobcards.create'))):
     """Create a new job card"""
