@@ -614,8 +614,13 @@ export default function PurchasesPage() {
     }
   };
 
-  const getVendorName = (vendorId) => {
-    const vendor = vendors.find(v => v.id === vendorId);
+  const getVendorName = (purchase) => {
+    // Handle walk-in vendors
+    if (purchase.is_walk_in) {
+      return purchase.walk_in_vendor_name || 'Walk-in Vendor';
+    }
+    // Handle saved vendors
+    const vendor = vendors.find(v => v.id === purchase.vendor_party_id);
     return vendor ? vendor.name : 'Unknown Vendor';
   };
 
