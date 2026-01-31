@@ -805,8 +805,19 @@ export default function PurchasesPage() {
                   purchases.map((purchase) => (
                     <tr key={purchase.id} className="border-b hover:bg-gray-50">
                       <td className="p-3">{formatDate(purchase.date)}</td>
-                      <td className="p-3">{getVendorName(purchase.vendor_party_id)}</td>
-                      <td className="p-3">{purchase.description}</td>
+                      <td className="p-3">
+                        {getVendorName(purchase)}
+                        {purchase.is_walk_in && <Badge className="ml-2 bg-purple-100 text-purple-800 text-xs">Walk-in</Badge>}
+                      </td>
+                      <td className="p-3">
+                        {purchase.items && purchase.items.length > 0 ? (
+                          <span className="text-sm">
+                            <Badge className="bg-amber-100 text-amber-800">{purchase.items.length} items</Badge>
+                          </span>
+                        ) : (
+                          purchase.description
+                        )}
+                      </td>
                       <td className="p-3 text-right font-mono">{safeToFixed(purchase.weight_grams, 3)}</td>
                       <td className="p-3 text-right">{purchase.entered_purity}K</td>
                       <td className="p-3 text-right font-mono">{safeToFixed(purchase.rate_per_gram, 2)}</td>
