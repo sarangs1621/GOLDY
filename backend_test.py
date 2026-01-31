@@ -1191,6 +1191,1157 @@ class BackendTester:
             self.log_result(f"Create Test Transaction ({transaction_type.upper()})", False, f"Error: {str(e)}")
             return None
     
+    def test_gold_received_feature(self):
+        """Test NEW Sales - Advance Gold & Gold Exchange Feature"""
+        print("\n" + "="*80)
+        print("TESTING NEW SALES - ADVANCE GOLD & GOLD EXCHANGE FEATURE")
+        print("="*80)
+        
+        # Test 1: Invoice Creation with Gold Received (Advance Gold)
+        self.test_invoice_with_advance_gold()
+        
+        # Test 2: Gold value exceeds invoice total
+        self.test_gold_exceeds_invoice_total()
+        
+        # Test 3: Partial gold payment
+        self.test_partial_gold_payment()
+        
+        # Test 4: Gold exchange purpose
+        self.test_gold_exchange_purpose()
+        
+        # Test 5: Gold Ledger Verification
+        self.test_gold_ledger_verification()
+        
+        # Test 6: Transaction Records Verification
+        self.test_transaction_records_verification()
+        
+        # Test 7: Account Balance Verification
+        self.test_account_balance_verification()
+        
+        # Test 8: Edge Cases & Validation
+        self.test_gold_edge_cases_validation()
+        
+        # Test 9: Existing Gold Exchange Payment Mode (Verify Still Works)
+        self.test_existing_gold_exchange_payment()
+    
+    def test_invoice_with_advance_gold(self):
+        """TEST SCENARIO 1: Create invoice with advance gold"""
+        try:
+            # Get or create customer
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return None
+            
+            # Create invoice with gold received fields
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Gold Necklace 22K",
+                        "qty": 1,
+                        "gross_weight": 15.750,
+                        "stone_weight": 0.250,
+                        "net_gold_weight": 15.500,
+                        "weight": 15.500,
+                        "purity": 916,
+                        "metal_rate": 185.50,
+                        "gold_value": 2875.25,
+                        "making_charge_type": "per_gram",
+                        "making_value": 310.00,
+                        "stone_charges": 50.00,
+                        "wastage_charges": 30.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 163.26,
+                        "line_total": 3428.51
+                    }
+                ],
+                "subtotal": 3265.25,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 81.63,
+                "sgst_total": 81.63,
+                "igst_total": 0.00,
+                "vat_total": 163.26,
+                "grand_total": 3428.51,
+                "paid_amount": 0.00,
+                "balance_due": 3428.51,
+                # Gold Received fields (NEW FEATURE)
+                "gold_received_weight": 10.500,  # 10.500 grams
+                "gold_received_rate": 25.00,     # 25.00 OMR/gram
+                "gold_received_purity": 916,
+                "gold_received_purpose": "advance_gold",
+                "gold_received_value": 262.50,   # Expected: 10.500 × 25.00 = 262.50 OMR
+                "notes": "Test invoice with advance gold received"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            if response.status_code in [200, 201]:
+                invoice = response.json()
+                invoice_id = invoice.get("id")
+                
+                # Verify gold calculations
+                paid_amount = invoice.get("paid_amount", 0)
+                balance_due = invoice.get("balance_due", 0)
+                payment_status = invoice.get("payment_status", "unpaid")
+                gold_value = invoice.get("gold_received_value", 0)
+                
+                # Expected calculations
+                expected_gold_value = 10.500 * 25.00  # 262.50
+                expected_paid_amount = expected_gold_value  # 262.50
+                expected_balance_due = 3428.51 - expected_gold_value  # 3166.01
+                
+                # Verify calculations
+                gold_value_correct = abs(gold_value - expected_gold_value) < 0.01
+                paid_amount_correct = abs(paid_amount - expected_paid_amount) < 0.01
+                balance_due_correct = abs(balance_due - expected_balance_due) < 0.01
+                payment_status_correct = payment_status == "partial"
+                
+                all_correct = all([gold_value_correct, paid_amount_correct, balance_due_correct, payment_status_correct])
+                
+                details = f"Gold Value: {'✓' if gold_value_correct else '✗'} ({gold_value} vs {expected_gold_value}), "
+                details += f"Paid Amount: {'✓' if paid_amount_correct else '✗'} ({paid_amount} vs {expected_paid_amount}), "
+                details += f"Balance Due: {'✓' if balance_due_correct else '✗'} ({balance_due} vs {expected_balance_due}), "
+                details += f"Payment Status: {'✓' if payment_status_correct else '✗'} ({payment_status})"
+                
+                self.log_result(
+                    "Invoice with Advance Gold - Calculations",
+                    all_correct,
+                    details,
+                    {
+                        "invoice_id": invoice_id,
+                        "gold_value": gold_value,
+                        "paid_amount": paid_amount,
+                        "balance_due": balance_due,
+                        "payment_status": payment_status
+                    }
+                )
+                
+                return invoice_id if all_correct else None
+            else:
+                self.log_result("Invoice with Advance Gold - Creation", False, f"Failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Invoice with Advance Gold", False, f"Error: {str(e)}")
+            return None
+    
+    def test_gold_exceeds_invoice_total(self):
+        """TEST SCENARIO 2: Gold value exceeds invoice total"""
+        try:
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return None
+            
+            # Create small invoice (100 OMR grand_total)
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Small Gold Ring",
+                        "qty": 1,
+                        "gross_weight": 2.000,
+                        "stone_weight": 0.000,
+                        "net_gold_weight": 2.000,
+                        "weight": 2.000,
+                        "purity": 916,
+                        "metal_rate": 45.00,
+                        "gold_value": 90.00,
+                        "making_charge_type": "flat",
+                        "making_value": 5.00,
+                        "stone_charges": 0.00,
+                        "wastage_charges": 0.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 4.75,
+                        "line_total": 99.75
+                    }
+                ],
+                "subtotal": 95.00,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 2.38,
+                "sgst_total": 2.37,
+                "igst_total": 0.00,
+                "vat_total": 4.75,
+                "grand_total": 99.75,
+                "paid_amount": 0.00,
+                "balance_due": 99.75,
+                # Gold worth 150 OMR (exceeds invoice total)
+                "gold_received_weight": 6.000,
+                "gold_received_rate": 25.00,
+                "gold_received_purity": 916,
+                "gold_received_purpose": "advance_gold",
+                "gold_received_value": 150.00,
+                "notes": "Test gold value exceeding invoice total"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            if response.status_code in [200, 201]:
+                invoice = response.json()
+                
+                paid_amount = invoice.get("paid_amount", 0)
+                balance_due = invoice.get("balance_due", 0)
+                payment_status = invoice.get("payment_status", "unpaid")
+                paid_at = invoice.get("paid_at")
+                
+                # Verify expectations
+                paid_amount_correct = paid_amount == 150.00  # Can exceed grand_total
+                balance_due_correct = balance_due == -50.25  # Customer credit (150 - 99.75)
+                payment_status_correct = payment_status == "paid"
+                paid_at_exists = paid_at is not None
+                
+                all_correct = all([paid_amount_correct, balance_due_correct, payment_status_correct, paid_at_exists])
+                
+                details = f"Paid Amount: {'✓' if paid_amount_correct else '✗'} ({paid_amount} = 150.00), "
+                details += f"Balance Due: {'✓' if balance_due_correct else '✗'} ({balance_due} = -50.25), "
+                details += f"Payment Status: {'✓' if payment_status_correct else '✗'} ({payment_status} = paid), "
+                details += f"Paid At: {'✓' if paid_at_exists else '✗'} ({paid_at})"
+                
+                self.log_result(
+                    "Gold Exceeds Invoice Total",
+                    all_correct,
+                    details,
+                    {
+                        "paid_amount": paid_amount,
+                        "balance_due": balance_due,
+                        "payment_status": payment_status,
+                        "paid_at": paid_at
+                    }
+                )
+                
+                return all_correct
+            else:
+                self.log_result("Gold Exceeds Invoice Total", False, f"Failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Gold Exceeds Invoice Total", False, f"Error: {str(e)}")
+            return False
+    
+    def test_partial_gold_payment(self):
+        """TEST SCENARIO 3: Partial gold payment"""
+        try:
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return None
+            
+            # Create invoice with 500 OMR grand_total
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Gold Bracelet 22K",
+                        "qty": 1,
+                        "gross_weight": 8.000,
+                        "stone_weight": 0.000,
+                        "net_gold_weight": 8.000,
+                        "weight": 8.000,
+                        "purity": 916,
+                        "metal_rate": 55.00,
+                        "gold_value": 440.00,
+                        "making_charge_type": "flat",
+                        "making_value": 35.00,
+                        "stone_charges": 0.00,
+                        "wastage_charges": 0.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 23.75,
+                        "line_total": 498.75
+                    }
+                ],
+                "subtotal": 475.00,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 11.88,
+                "sgst_total": 11.87,
+                "igst_total": 0.00,
+                "vat_total": 23.75,
+                "grand_total": 498.75,
+                "paid_amount": 0.00,
+                "balance_due": 498.75,
+                # Gold worth 200 OMR (partial payment)
+                "gold_received_weight": 8.000,
+                "gold_received_rate": 25.00,
+                "gold_received_purity": 916,
+                "gold_received_purpose": "advance_gold",
+                "gold_received_value": 200.00,
+                "notes": "Test partial gold payment"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            if response.status_code in [200, 201]:
+                invoice = response.json()
+                
+                paid_amount = invoice.get("paid_amount", 0)
+                balance_due = invoice.get("balance_due", 0)
+                payment_status = invoice.get("payment_status", "unpaid")
+                
+                # Verify expectations
+                paid_amount_correct = paid_amount == 200.00
+                balance_due_correct = abs(balance_due - 298.75) < 0.01  # 498.75 - 200.00
+                payment_status_correct = payment_status == "partial"
+                
+                all_correct = all([paid_amount_correct, balance_due_correct, payment_status_correct])
+                
+                details = f"Paid Amount: {'✓' if paid_amount_correct else '✗'} ({paid_amount} = 200.00), "
+                details += f"Balance Due: {'✓' if balance_due_correct else '✗'} ({balance_due} ≈ 298.75), "
+                details += f"Payment Status: {'✓' if payment_status_correct else '✗'} ({payment_status} = partial)"
+                
+                self.log_result(
+                    "Partial Gold Payment",
+                    all_correct,
+                    details,
+                    {
+                        "paid_amount": paid_amount,
+                        "balance_due": balance_due,
+                        "payment_status": payment_status
+                    }
+                )
+                
+                return all_correct
+            else:
+                self.log_result("Partial Gold Payment", False, f"Failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Partial Gold Payment", False, f"Error: {str(e)}")
+            return False
+    
+    def test_gold_exchange_purpose(self):
+        """TEST SCENARIO 4: Gold exchange purpose"""
+        try:
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return None
+            
+            # Create invoice with gold_received_purpose: "exchange"
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Gold Chain 22K",
+                        "qty": 1,
+                        "gross_weight": 12.000,
+                        "stone_weight": 0.000,
+                        "net_gold_weight": 12.000,
+                        "weight": 12.000,
+                        "purity": 916,
+                        "metal_rate": 185.50,
+                        "gold_value": 2226.00,
+                        "making_charge_type": "per_gram",
+                        "making_value": 240.00,
+                        "stone_charges": 0.00,
+                        "wastage_charges": 20.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 124.30,
+                        "line_total": 2610.30
+                    }
+                ],
+                "subtotal": 2486.00,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 62.15,
+                "sgst_total": 62.15,
+                "igst_total": 0.00,
+                "vat_total": 124.30,
+                "grand_total": 2610.30,
+                "paid_amount": 0.00,
+                "balance_due": 2610.30,
+                # Gold exchange
+                "gold_received_weight": 10.500,
+                "gold_received_rate": 25.00,
+                "gold_received_purity": 916,
+                "gold_received_purpose": "exchange",  # Different purpose
+                "gold_received_value": 262.50,
+                "notes": "Test gold exchange purpose"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            if response.status_code in [200, 201]:
+                invoice = response.json()
+                invoice_id = invoice.get("id")
+                
+                # Verify gold purpose is set correctly
+                gold_purpose = invoice.get("gold_received_purpose")
+                purpose_correct = gold_purpose == "exchange"
+                
+                self.log_result(
+                    "Gold Exchange Purpose",
+                    purpose_correct,
+                    f"Gold purpose: {'✓' if purpose_correct else '✗'} ({gold_purpose} = exchange)",
+                    {
+                        "invoice_id": invoice_id,
+                        "gold_received_purpose": gold_purpose
+                    }
+                )
+                
+                return invoice_id if purpose_correct else None
+            else:
+                self.log_result("Gold Exchange Purpose", False, f"Failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Gold Exchange Purpose", False, f"Error: {str(e)}")
+            return None
+    
+    def test_gold_ledger_verification(self):
+        """Test Gold Ledger Verification"""
+        try:
+            # Create an invoice with gold received first
+            invoice_id = self.test_invoice_with_advance_gold()
+            if not invoice_id:
+                self.log_result("Gold Ledger Verification - Setup", False, "Failed to create test invoice")
+                return False
+            
+            # Get customer ID from the invoice
+            invoice_response = self.session.get(f"{BACKEND_URL}/invoices/{invoice_id}")
+            if invoice_response.status_code != 200:
+                self.log_result("Gold Ledger Verification - Get Invoice", False, "Failed to get invoice")
+                return False
+            
+            invoice_data = invoice_response.json()
+            customer_id = invoice_data.get("customer_id")
+            
+            if not customer_id:
+                self.log_result("Gold Ledger Verification - Customer ID", False, "No customer ID in invoice")
+                return False
+            
+            # Check GET /api/gold-ledger endpoint
+            response = self.session.get(f"{BACKEND_URL}/gold-ledger?party_id={customer_id}")
+            
+            if response.status_code == 200:
+                ledger_entries = response.json()
+                if isinstance(ledger_entries, dict) and 'items' in ledger_entries:
+                    ledger_entries = ledger_entries['items']
+                
+                # Find entry for our invoice
+                invoice_entries = [entry for entry in ledger_entries if entry.get('reference_id') == invoice_id]
+                
+                if invoice_entries:
+                    entry = invoice_entries[0]
+                    
+                    # Verify entry details
+                    type_correct = entry.get('type') == 'IN'
+                    weight_correct = abs(entry.get('weight_grams', 0) - 10.500) < 0.001
+                    purity_correct = entry.get('purity_entered') == 916
+                    purpose_correct = entry.get('purpose') == 'advance_gold'
+                    reference_type_correct = entry.get('reference_type') == 'invoice'
+                    reference_id_correct = entry.get('reference_id') == invoice_id
+                    
+                    all_correct = all([
+                        type_correct, weight_correct, purity_correct, 
+                        purpose_correct, reference_type_correct, reference_id_correct
+                    ])
+                    
+                    details = f"Type: {'✓' if type_correct else '✗'} ({entry.get('type')}), "
+                    details += f"Weight: {'✓' if weight_correct else '✗'} ({entry.get('weight_grams')}g), "
+                    details += f"Purity: {'✓' if purity_correct else '✗'} ({entry.get('purity_entered')}), "
+                    details += f"Purpose: {'✓' if purpose_correct else '✗'} ({entry.get('purpose')}), "
+                    details += f"Reference: {'✓' if reference_type_correct and reference_id_correct else '✗'}"
+                    
+                    self.log_result(
+                        "Gold Ledger Verification",
+                        all_correct,
+                        details,
+                        {
+                            "entry": entry,
+                            "verifications": {
+                                "type_correct": type_correct,
+                                "weight_correct": weight_correct,
+                                "purity_correct": purity_correct,
+                                "purpose_correct": purpose_correct,
+                                "reference_correct": reference_type_correct and reference_id_correct
+                            }
+                        }
+                    )
+                    
+                    return all_correct
+                else:
+                    self.log_result("Gold Ledger Verification", False, "No gold ledger entry found for invoice")
+                    return False
+            else:
+                self.log_result("Gold Ledger Verification", False, f"Failed to get gold ledger: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Gold Ledger Verification", False, f"Error: {str(e)}")
+            return False
+    
+    def test_transaction_records_verification(self):
+        """Test Transaction Records Verification"""
+        try:
+            # Create an invoice with gold received first
+            invoice_id = self.test_invoice_with_advance_gold()
+            if not invoice_id:
+                self.log_result("Transaction Records Verification - Setup", False, "Failed to create test invoice")
+                return False
+            
+            # Check GET /api/transactions endpoint
+            response = self.session.get(f"{BACKEND_URL}/transactions?reference_type=invoice&reference_id={invoice_id}")
+            
+            if response.status_code == 200:
+                transactions = response.json()
+                if isinstance(transactions, dict) and 'items' in transactions:
+                    transactions = transactions['items']
+                
+                # Find gold transaction for our invoice
+                gold_transactions = [
+                    txn for txn in transactions 
+                    if txn.get('reference_id') == invoice_id and 
+                       'gold' in txn.get('notes', '').lower()
+                ]
+                
+                if gold_transactions:
+                    transaction = gold_transactions[0]
+                    
+                    # Verify transaction details
+                    transaction_type_correct = transaction.get('transaction_type') == 'debit'
+                    account_name_correct = transaction.get('account_name') == 'Gold Received'
+                    amount_correct = abs(transaction.get('amount', 0) - 262.50) < 0.01
+                    category_correct = transaction.get('category') == 'sales'
+                    reference_id_correct = transaction.get('reference_id') == invoice_id
+                    
+                    all_correct = all([
+                        transaction_type_correct, account_name_correct, amount_correct,
+                        category_correct, reference_id_correct
+                    ])
+                    
+                    details = f"Type: {'✓' if transaction_type_correct else '✗'} ({transaction.get('transaction_type')}), "
+                    details += f"Account: {'✓' if account_name_correct else '✗'} ({transaction.get('account_name')}), "
+                    details += f"Amount: {'✓' if amount_correct else '✗'} ({transaction.get('amount')}), "
+                    details += f"Category: {'✓' if category_correct else '✗'} ({transaction.get('category')}), "
+                    details += f"Reference: {'✓' if reference_id_correct else '✗'}"
+                    
+                    self.log_result(
+                        "Transaction Records Verification",
+                        all_correct,
+                        details,
+                        {
+                            "transaction": transaction,
+                            "verifications": {
+                                "transaction_type_correct": transaction_type_correct,
+                                "account_name_correct": account_name_correct,
+                                "amount_correct": amount_correct,
+                                "category_correct": category_correct,
+                                "reference_id_correct": reference_id_correct
+                            }
+                        }
+                    )
+                    
+                    return all_correct
+                else:
+                    self.log_result("Transaction Records Verification", False, "No gold transaction found for invoice")
+                    return False
+            else:
+                self.log_result("Transaction Records Verification", False, f"Failed to get transactions: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Transaction Records Verification", False, f"Error: {str(e)}")
+            return False
+    
+    def test_account_balance_verification(self):
+        """Test Account Balance Verification"""
+        try:
+            # Get initial Gold Received account balance
+            accounts_response = self.session.get(f"{BACKEND_URL}/accounts")
+            if accounts_response.status_code != 200:
+                self.log_result("Account Balance Verification - Get Accounts", False, "Failed to get accounts")
+                return False
+            
+            accounts_data = accounts_response.json()
+            if isinstance(accounts_data, dict) and 'items' in accounts_data:
+                accounts = accounts_data['items']
+            else:
+                accounts = accounts_data
+            
+            # Find Gold Received account
+            gold_account = None
+            for account in accounts:
+                if account.get('name') == 'Gold Received':
+                    gold_account = account
+                    break
+            
+            initial_balance = gold_account.get('current_balance', 0) if gold_account else 0
+            
+            # Create an invoice with gold received
+            invoice_id = self.test_invoice_with_advance_gold()
+            if not invoice_id:
+                self.log_result("Account Balance Verification - Setup", False, "Failed to create test invoice")
+                return False
+            
+            # Wait a moment for balance update
+            time.sleep(1)
+            
+            # Get updated accounts
+            updated_accounts_response = self.session.get(f"{BACKEND_URL}/accounts")
+            if updated_accounts_response.status_code != 200:
+                self.log_result("Account Balance Verification - Get Updated Accounts", False, "Failed to get updated accounts")
+                return False
+            
+            updated_accounts_data = updated_accounts_response.json()
+            if isinstance(updated_accounts_data, dict) and 'items' in updated_accounts_data:
+                updated_accounts = updated_accounts_data['items']
+            else:
+                updated_accounts = updated_accounts_data
+            
+            # Find updated Gold Received account
+            updated_gold_account = None
+            for account in updated_accounts:
+                if account.get('name') == 'Gold Received':
+                    updated_gold_account = account
+                    break
+            
+            if updated_gold_account:
+                new_balance = updated_gold_account.get('current_balance', 0)
+                account_type = updated_gold_account.get('account_type')
+                
+                # Verify account details
+                account_exists = True
+                account_type_correct = account_type == 'asset'
+                balance_updated = abs(new_balance - (initial_balance + 262.50)) < 0.01
+                
+                all_correct = all([account_exists, account_type_correct, balance_updated])
+                
+                details = f"Account Exists: {'✓' if account_exists else '✗'}, "
+                details += f"Type: {'✓' if account_type_correct else '✗'} ({account_type}), "
+                details += f"Balance Updated: {'✓' if balance_updated else '✗'} ({initial_balance} + 262.50 = {new_balance})"
+                
+                self.log_result(
+                    "Account Balance Verification",
+                    all_correct,
+                    details,
+                    {
+                        "initial_balance": initial_balance,
+                        "new_balance": new_balance,
+                        "expected_balance": initial_balance + 262.50,
+                        "account_type": account_type
+                    }
+                )
+                
+                return all_correct
+            else:
+                self.log_result("Account Balance Verification", False, "Gold Received account not found after transaction")
+                return False
+                
+        except Exception as e:
+            self.log_result("Account Balance Verification", False, f"Error: {str(e)}")
+            return False
+    
+    def test_gold_edge_cases_validation(self):
+        """Test Edge Cases & Validation"""
+        print("\n--- Testing Gold Edge Cases & Validation ---")
+        
+        # Test 1: Walk-in customer with gold (should work but no gold ledger)
+        self.test_walk_in_customer_gold()
+        
+        # Test 2: Invoice without gold fields (should work normally)
+        self.test_invoice_without_gold()
+        
+        # Test 3: Gold weight without rate (should handle gracefully)
+        self.test_gold_weight_without_rate()
+        
+        # Test 4: Negative gold values (should reject or handle)
+        self.test_negative_gold_values()
+    
+    def test_walk_in_customer_gold(self):
+        """Test walk-in customer with gold (should work but no gold ledger)"""
+        try:
+            invoice_data = {
+                "customer_type": "walk_in",
+                "walk_in_name": "Ahmed Al-Zahra",
+                "walk_in_phone": "+968 9988 7766",
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Gold Ring 18K",
+                        "qty": 1,
+                        "gross_weight": 3.000,
+                        "stone_weight": 0.000,
+                        "net_gold_weight": 3.000,
+                        "weight": 3.000,
+                        "purity": 750,
+                        "metal_rate": 150.00,
+                        "gold_value": 450.00,
+                        "making_charge_type": "flat",
+                        "making_value": 50.00,
+                        "stone_charges": 0.00,
+                        "wastage_charges": 0.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 25.00,
+                        "line_total": 525.00
+                    }
+                ],
+                "subtotal": 500.00,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 12.50,
+                "sgst_total": 12.50,
+                "igst_total": 0.00,
+                "vat_total": 25.00,
+                "grand_total": 525.00,
+                "paid_amount": 0.00,
+                "balance_due": 525.00,
+                # Gold received from walk-in customer
+                "gold_received_weight": 2.000,
+                "gold_received_rate": 25.00,
+                "gold_received_purity": 916,
+                "gold_received_purpose": "advance_gold",
+                "gold_received_value": 50.00,
+                "notes": "Test walk-in customer with gold"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            if response.status_code in [200, 201]:
+                invoice = response.json()
+                
+                # Should work but no gold ledger entry should be created
+                paid_amount = invoice.get("paid_amount", 0)
+                balance_due = invoice.get("balance_due", 0)
+                
+                # Verify calculations still work
+                paid_amount_correct = paid_amount == 50.00
+                balance_due_correct = abs(balance_due - 475.00) < 0.01  # 525 - 50
+                
+                success = paid_amount_correct and balance_due_correct
+                
+                details = f"Walk-in gold payment processed: Paid {paid_amount} OMR, Balance {balance_due} OMR"
+                
+                self.log_result(
+                    "Walk-in Customer Gold",
+                    success,
+                    details,
+                    {
+                        "paid_amount": paid_amount,
+                        "balance_due": balance_due,
+                        "customer_type": "walk_in"
+                    }
+                )
+                
+                return success
+            else:
+                self.log_result("Walk-in Customer Gold", False, f"Failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Walk-in Customer Gold", False, f"Error: {str(e)}")
+            return False
+    
+    def test_invoice_without_gold(self):
+        """Test invoice without gold fields (should work normally)"""
+        try:
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return False
+            
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Gold Earrings 22K",
+                        "qty": 1,
+                        "gross_weight": 4.000,
+                        "stone_weight": 0.100,
+                        "net_gold_weight": 3.900,
+                        "weight": 3.900,
+                        "purity": 916,
+                        "metal_rate": 185.50,
+                        "gold_value": 723.45,
+                        "making_charge_type": "per_gram",
+                        "making_value": 78.00,
+                        "stone_charges": 20.00,
+                        "wastage_charges": 15.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 41.82,
+                        "line_total": 878.27
+                    }
+                ],
+                "subtotal": 836.45,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 20.91,
+                "sgst_total": 20.91,
+                "igst_total": 0.00,
+                "vat_total": 41.82,
+                "grand_total": 878.27,
+                "paid_amount": 0.00,
+                "balance_due": 878.27,
+                # No gold fields
+                "notes": "Test invoice without gold fields"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            if response.status_code in [200, 201]:
+                invoice = response.json()
+                
+                # Should work normally
+                paid_amount = invoice.get("paid_amount", 0)
+                balance_due = invoice.get("balance_due", 0)
+                payment_status = invoice.get("payment_status", "unpaid")
+                
+                # Verify normal behavior
+                paid_amount_correct = paid_amount == 0.00
+                balance_due_correct = abs(balance_due - 878.27) < 0.01
+                payment_status_correct = payment_status == "unpaid"
+                
+                success = paid_amount_correct and balance_due_correct and payment_status_correct
+                
+                details = f"Normal invoice without gold: Paid {paid_amount} OMR, Balance {balance_due} OMR, Status {payment_status}"
+                
+                self.log_result(
+                    "Invoice Without Gold",
+                    success,
+                    details,
+                    {
+                        "paid_amount": paid_amount,
+                        "balance_due": balance_due,
+                        "payment_status": payment_status
+                    }
+                )
+                
+                return success
+            else:
+                self.log_result("Invoice Without Gold", False, f"Failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Invoice Without Gold", False, f"Error: {str(e)}")
+            return False
+    
+    def test_gold_weight_without_rate(self):
+        """Test gold weight without rate (should handle gracefully)"""
+        try:
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return False
+            
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Gold Pendant 22K",
+                        "qty": 1,
+                        "gross_weight": 5.000,
+                        "stone_weight": 0.200,
+                        "net_gold_weight": 4.800,
+                        "weight": 4.800,
+                        "purity": 916,
+                        "metal_rate": 185.50,
+                        "gold_value": 890.40,
+                        "making_charge_type": "flat",
+                        "making_value": 100.00,
+                        "stone_charges": 30.00,
+                        "wastage_charges": 20.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 52.02,
+                        "line_total": 1092.42
+                    }
+                ],
+                "subtotal": 1040.40,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 26.01,
+                "sgst_total": 26.01,
+                "igst_total": 0.00,
+                "vat_total": 52.02,
+                "grand_total": 1092.42,
+                "paid_amount": 0.00,
+                "balance_due": 1092.42,
+                # Gold weight without rate
+                "gold_received_weight": 3.000,
+                "gold_received_purity": 916,
+                "gold_received_purpose": "advance_gold",
+                # No gold_received_rate or gold_received_value
+                "notes": "Test gold weight without rate"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            # Should either succeed with 0 gold value or handle gracefully
+            if response.status_code in [200, 201]:
+                invoice = response.json()
+                
+                paid_amount = invoice.get("paid_amount", 0)
+                balance_due = invoice.get("balance_due", 0)
+                gold_value = invoice.get("gold_received_value", 0)
+                
+                # Should handle gracefully - no gold value calculated
+                handled_gracefully = (
+                    paid_amount == 0.00 and 
+                    abs(balance_due - 1092.42) < 0.01 and
+                    gold_value == 0.00
+                )
+                
+                details = f"Handled gracefully: Gold value {gold_value}, Paid {paid_amount}, Balance {balance_due}"
+                
+                self.log_result(
+                    "Gold Weight Without Rate",
+                    handled_gracefully,
+                    details,
+                    {
+                        "gold_received_value": gold_value,
+                        "paid_amount": paid_amount,
+                        "balance_due": balance_due
+                    }
+                )
+                
+                return handled_gracefully
+            else:
+                # Check if it's a validation error (acceptable)
+                if response.status_code == 400:
+                    error_detail = response.json().get('detail', response.text)
+                    self.log_result(
+                        "Gold Weight Without Rate",
+                        True,
+                        f"Properly validated and rejected: {error_detail}",
+                        {"validation_error": error_detail}
+                    )
+                    return True
+                else:
+                    self.log_result("Gold Weight Without Rate", False, f"Unexpected error: {response.status_code} - {response.text}")
+                    return False
+                
+        except Exception as e:
+            self.log_result("Gold Weight Without Rate", False, f"Error: {str(e)}")
+            return False
+    
+    def test_negative_gold_values(self):
+        """Test negative gold values (should reject or handle)"""
+        try:
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return False
+            
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Gold Ring 22K",
+                        "qty": 1,
+                        "gross_weight": 3.000,
+                        "stone_weight": 0.000,
+                        "net_gold_weight": 3.000,
+                        "weight": 3.000,
+                        "purity": 916,
+                        "metal_rate": 185.50,
+                        "gold_value": 556.50,
+                        "making_charge_type": "flat",
+                        "making_value": 50.00,
+                        "stone_charges": 0.00,
+                        "wastage_charges": 0.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 30.33,
+                        "line_total": 636.83
+                    }
+                ],
+                "subtotal": 606.50,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 15.16,
+                "sgst_total": 15.17,
+                "igst_total": 0.00,
+                "vat_total": 30.33,
+                "grand_total": 636.83,
+                "paid_amount": 0.00,
+                "balance_due": 636.83,
+                # Negative gold values
+                "gold_received_weight": -2.000,  # Negative weight
+                "gold_received_rate": 25.00,
+                "gold_received_purity": 916,
+                "gold_received_purpose": "advance_gold",
+                "gold_received_value": -50.00,  # Negative value
+                "notes": "Test negative gold values"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            # Should either reject with validation error or handle gracefully
+            if response.status_code == 400:
+                error_detail = response.json().get('detail', response.text)
+                self.log_result(
+                    "Negative Gold Values",
+                    True,
+                    f"Properly rejected negative values: {error_detail}",
+                    {"validation_error": error_detail}
+                )
+                return True
+            elif response.status_code in [200, 201]:
+                invoice = response.json()
+                
+                # If accepted, should handle gracefully (ignore negative values)
+                paid_amount = invoice.get("paid_amount", 0)
+                balance_due = invoice.get("balance_due", 0)
+                
+                handled_gracefully = (
+                    paid_amount == 0.00 and 
+                    abs(balance_due - 636.83) < 0.01
+                )
+                
+                details = f"Handled gracefully: Ignored negative values, Paid {paid_amount}, Balance {balance_due}"
+                
+                self.log_result(
+                    "Negative Gold Values",
+                    handled_gracefully,
+                    details,
+                    {
+                        "paid_amount": paid_amount,
+                        "balance_due": balance_due
+                    }
+                )
+                
+                return handled_gracefully
+            else:
+                self.log_result("Negative Gold Values", False, f"Unexpected error: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Negative Gold Values", False, f"Error: {str(e)}")
+            return False
+    
+    def test_existing_gold_exchange_payment(self):
+        """Test Existing Gold Exchange Payment Mode (Verify Still Works)"""
+        try:
+            # First create a regular invoice
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return False
+            
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "invoice_type": "sale",
+                "items": [
+                    {
+                        "description": "Gold Bangle 22K",
+                        "qty": 1,
+                        "gross_weight": 20.000,
+                        "stone_weight": 0.000,
+                        "net_gold_weight": 20.000,
+                        "weight": 20.000,
+                        "purity": 916,
+                        "metal_rate": 185.50,
+                        "gold_value": 3710.00,
+                        "making_charge_type": "per_gram",
+                        "making_value": 400.00,
+                        "stone_charges": 0.00,
+                        "wastage_charges": 50.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 208.00,
+                        "line_total": 4368.00
+                    }
+                ],
+                "subtotal": 4160.00,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 104.00,
+                "sgst_total": 104.00,
+                "igst_total": 0.00,
+                "vat_total": 208.00,
+                "grand_total": 4368.00,
+                "paid_amount": 0.00,
+                "balance_due": 4368.00,
+                "notes": "Test invoice for existing gold exchange payment"
+            }
+            
+            # Create invoice
+            response = self.session.post(f"{BACKEND_URL}/invoices", json=invoice_data)
+            
+            if response.status_code in [200, 201]:
+                invoice = response.json()
+                invoice_id = invoice.get("id")
+                
+                # Now test existing gold exchange payment mode
+                payment_data = {
+                    "payment_mode": "GOLD_EXCHANGE",
+                    "gold_weight_grams": 15.000,
+                    "rate_per_gram": 180.00,
+                    "notes": "Gold exchange payment - existing functionality test"
+                }
+                
+                payment_response = self.session.post(f"{BACKEND_URL}/invoices/{invoice_id}/add-payment", json=payment_data)
+                
+                if payment_response.status_code == 200:
+                    updated_invoice = payment_response.json()
+                    
+                    # Verify payment was processed
+                    paid_amount = updated_invoice.get("paid_amount", 0)
+                    balance_due = updated_invoice.get("balance_due", 0)
+                    payment_status = updated_invoice.get("payment_status", "unpaid")
+                    
+                    # Expected: 15.000 * 180.00 = 2700.00 OMR payment
+                    expected_paid_amount = 2700.00
+                    expected_balance_due = 4368.00 - 2700.00  # 1668.00
+                    
+                    paid_amount_correct = abs(paid_amount - expected_paid_amount) < 0.01
+                    balance_due_correct = abs(balance_due - expected_balance_due) < 0.01
+                    payment_status_correct = payment_status == "partial"
+                    
+                    all_correct = all([paid_amount_correct, balance_due_correct, payment_status_correct])
+                    
+                    details = f"Gold exchange payment: Paid {paid_amount} OMR (expected {expected_paid_amount}), "
+                    details += f"Balance {balance_due} OMR (expected {expected_balance_due}), Status {payment_status}"
+                    
+                    self.log_result(
+                        "Existing Gold Exchange Payment",
+                        all_correct,
+                        details,
+                        {
+                            "paid_amount": paid_amount,
+                            "expected_paid_amount": expected_paid_amount,
+                            "balance_due": balance_due,
+                            "expected_balance_due": expected_balance_due,
+                            "payment_status": payment_status
+                        }
+                    )
+                    
+                    return all_correct
+                else:
+                    self.log_result("Existing Gold Exchange Payment", False, f"Payment failed: {payment_response.status_code} - {payment_response.text}")
+                    return False
+            else:
+                self.log_result("Existing Gold Exchange Payment - Invoice Creation", False, f"Failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Existing Gold Exchange Payment", False, f"Error: {str(e)}")
+            return False
+
     def print_summary(self):
         """Print test summary"""
         print("\n" + "="*80)
