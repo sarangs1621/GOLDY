@@ -1881,7 +1881,7 @@ export default function PurchasesPage() {
         onOpenChange={setShowDeleteConfirm}
         onConfirm={confirmDeletePurchase}
         title="Delete Purchase?"
-        description={`Are you sure you want to delete this purchase from ${confirmPurchase ? getVendorName(confirmPurchase.vendor_party_id) : ''}?`}
+        description={`Are you sure you want to delete this purchase from ${confirmPurchase ? getVendorName(confirmPurchase) : ''}?`}
         impact={impactData}
         actionLabel="Delete Purchase"
         actionType="danger"
