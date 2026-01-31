@@ -32,6 +32,7 @@ const allNavItems = [
   { path: '/reports', icon: BarChart3, label: 'Reports', permission: 'reports.view' },
   { path: '/audit-logs', icon: History, label: 'Audit Logs', permission: 'audit.view' },
   { path: '/workers', icon: UserCog, label: 'Workers', permission: null }, // Everyone can access workers
+  { path: '/work-types', icon: Wrench, label: 'Work Types', permission: null }, // Everyone can access work types
   { path: '/settings', icon: Settings, label: 'Settings', permission: null } // Everyone can access settings
 ];
 
