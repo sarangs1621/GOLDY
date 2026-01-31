@@ -1144,6 +1144,7 @@ class Return(BaseModel):
     reference_number: Optional[str] = None  # Display number of invoice/purchase
     party_id: str  # Customer (for sale_return) or Vendor (for purchase_return)
     party_name: str  # Party name for display
+    party_oman_id: Optional[str] = None  # Party ID (Oman National ID / Resident ID) - Optional, for display
     party_type: str  # "customer" or "vendor"
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     items: List[ReturnItem] = []
