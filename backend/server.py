@@ -6716,7 +6716,9 @@ async def create_invoice(invoice_data: dict, current_user: User = Depends(requir
                 {"$inc": {"current_balance": gold_value}}
             )
     
-    await db.invoices.insert_one(invoice.model_dump())
+    # Convert to Decimal128 for precise storage
+    invoice_data = convert_invoice_to_decimal(invoice.model_dump())
+    await db.invoices.insert_one(invoice_data)
     
     # Stock movements will ONLY happen when invoice is finalized via /invoices/{id}/finalize endpoint
     
