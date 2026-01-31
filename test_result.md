@@ -1133,66 +1133,138 @@ backend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 0
   run_ui: true
 
 test_plan:
   current_focus:
-    - "Work Types Management Page - UI Layout and Functionality"
-    - "Work Types Integration with Job Cards"
-    - "Work Types API Endpoints"
+    - "PurchasesPage - Multiple Items Form"
+    - "PurchasesPage - Walk-in Vendor Support"
+    - "PurchasesPage - Display Enhancements"
+    - "PurchasesPage - Calculations & Validations"
+    - "SettingsPage - Conversion Factor"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
 
 agent_communication:
-  - agent: "testing"
+  - agent: "main"
     message: |
-      ✅ WORK TYPES MANAGEMENT FEATURE TESTING COMPLETED SUCCESSFULLY
+      ✅ PURCHASE MODULE ENHANCEMENTS COMPLETE
       
-      COMPREHENSIVE TEST RESULTS:
+      IMPLEMENTATION SUMMARY:
       ================================================================================
       
-      🎯 PRIMARY FOCUS: Work Types Management Feature Testing
-      - Successfully tested all major functionality as requested in test scope
-      - All navigation, UI layout, create functionality, and integration working correctly
-      - No critical issues found, feature is production-ready
+      📦 BACKEND STATUS: FULLY COMPLETE (All features already implemented)
+      - PurchaseItem model with multiple items support
+      - Walk-in vendor fields (is_walk_in, walk_in_vendor_name, vendor_oman_id)
+      - 22K valuation formula: amount = (weight × rate) ÷ conversion_factor
+      - ShopSettings with configurable purchase_conversion_factor
+      - 3 decimal precision throughout
+      - Proper validation and backwards compatibility
       
-      📊 TEST EXECUTION RESULTS:
-      - Navigation & Access: ✅ PASSED
-      - Page Layout & UI: ✅ PASSED  
-      - Create Work Type: ✅ PASSED
-      - Form Validation: ✅ PASSED
-      - Job Cards Integration: ✅ PASSED
-      - Backend API: ✅ PASSED
+      🎨 FRONTEND IMPLEMENTATION: COMPLETE
       
-      🔍 SPECIFIC VERIFICATIONS:
-      1. ✅ Work Types menu item appears in sidebar navigation (after Workers)
-      2. ✅ Successfully navigates to /work-types page
-      3. ✅ Page title "Work Types" and subtitle "Manage work types for job cards" displayed
-      4. ✅ "Add Work Type" button visible and functional
-      5. ✅ Search input box present
-      6. ✅ "All Status" filter dropdown present
-      7. ✅ Table with correct columns (NAME, DESCRIPTION, STATUS, ACTIONS)
-      8. ✅ Create dialog opens with "Add Work Type" title
-      9. ✅ Form fields work correctly (Name, Description, Active checkbox)
-      10. ✅ Active checkbox checked by default
-      11. ✅ Create button successfully creates work type
-      12. ✅ Success toast "Work type created successfully" appears
-      13. ✅ New work type appears in table with Active status badge
-      14. ✅ Existing work types display correctly (Custom, Polish, Repair, Resize)
-      15. ✅ Work types integrate with Job Cards dropdown
+      1. ✅ PurchasesPage - Multiple Items Form
+         - Added "Multiple Items" toggle checkbox
+         - Dynamic item rows with add/remove buttons (Plus/X icons)
+         - Each item has: Description, Weight (3 decimals), Purity, Rate/g (3 decimals)
+         - Auto-calculated amount per item: (weight × rate) ÷ conversion_factor
+         - Total amount displayed as sum of all items
+         - Items managed with updateItem(), addItem(), removeItem() functions
+         - useEffect auto-calculates total when items change
       
-      🏆 CONCLUSION:
-      The Work Types Management feature is FULLY WORKING and production ready.
-      All requested test scenarios completed successfully with no critical issues found.
-      Feature meets all requirements specified in the test scope.
+      2. ✅ PurchasesPage - Walk-in Vendor Support
+         - Added "Walk-in Vendor" toggle checkbox with User icon
+         - Walk-in mode shows:
+           * Customer ID (Oman ID) input - REQUIRED
+           * Vendor Name input - REQUIRED
+           * Hides vendor party dropdown
+         - Regular mode shows:
+           * Vendor party dropdown - REQUIRED
+           * Hides Customer ID and Vendor name fields
+         - Validation enforces required fields for each mode
+         - Purple-themed UI section for walk-in fields
       
-      📸 SCREENSHOTS CAPTURED:
-      - work-types-page-loaded.png: Main Work Types page
-      - add-work-type-dialog-open.png: Create dialog
-      - form-filled-custom-engraving.png: Filled form
-      - work-types-testing-final.png: Final state with created work type
+      3. ✅ PurchasesPage - Display Enhancements
+         - **getVendorName() updated** to accept full purchase object:
+           * Checks is_walk_in flag
+           * Returns walk_in_vendor_name for walk-in purchases
+           * Returns party name for regular purchases
+         - **Table enhancements**:
+           * Shows walk-in vendor name with purple "Walk-in" badge
+           * Shows item count badge for multiple items purchases
+           * Maintains all existing columns
+         - **View Dialog enhancements**:
+           * Displays walk-in badge and Customer ID for walk-in vendors
+           * New "Purchase Items" section for multiple items
+           * Shows each item in individual card with all details
+           * Total summary card for multiple items
+           * Single-item section conditionally shown (legacy purchases)
+           * All vendor names display correctly throughout
+      
+      4. ✅ PurchasesPage - Calculations & Validations
+         - Auto-calculation for each item: amount = (weight × rate) ÷ conversion_factor
+         - 3 decimal precision: step="0.001" in inputs, toFixed(3) in displays
+         - Walk-in validation: requires vendor_oman_id AND walk_in_vendor_name
+         - Regular vendor validation: requires vendor_party_id
+         - Multiple items validation: each item requires description, weight > 0, rate > 0
+         - Proper payload construction for both single and multiple items
+         - Error messages for all validation failures
+      
+      5. ✅ SettingsPage - Conversion Factor Configuration
+         - Shop Settings section (Admin-only access)
+         - Input for purchase_conversion_factor with:
+           * Default value: 0.920
+           * Allowed range: 0.900 - 0.930
+           * 3 decimal precision (step="0.001")
+           * Font-mono display for clarity
+         - Save button calls PUT /api/settings/shop
+         - Blue-themed info box explains formula usage
+         - Warning box about affecting future purchases only
+         - Loads current setting from GET /api/settings/shop on page load
+      
+      🎯 KEY FEATURES:
+      - Conversion factor loaded from settings and displayed in form
+      - Multiple items and walk-in toggles work independently
+      - Backwards compatible with existing single-item purchases
+      - All existing functionality preserved (edit, delete, payments, etc.)
+      - Consistent 3 decimal precision throughout
+      - Professional UI with color-coded sections (amber for gold, purple for walk-in)
+      - Proper form reset when switching between modes
+      
+      📋 UI/UX IMPROVEMENTS:
+      - Conversion factor display shows current setting (read-only in form)
+      - Formula explanation visible to users
+      - Walk-in purchases clearly marked with badge
+      - Multiple items purchases show count at a glance
+      - View dialog adapts based on purchase type
+      - Color-coded sections for better visual organization
+      
+      🔧 TECHNICAL DETAILS:
+      - Form state managed with useState hooks
+      - useEffect for auto-calculations
+      - Proper error handling and validation
+      - Toast notifications for all actions
+      - Clean conditional rendering (no redundant fields)
+      - getVendorName() refactored to be context-aware
+      
+      READY FOR TESTING:
+      1. Create purchase with multiple items (2-3 items)
+      2. Create walk-in purchase (with Customer ID + Vendor Name)
+      3. Verify conversion factor loads from settings
+      4. Test calculations with different conversion factors
+      5. Verify all 3 decimal precision displays
+      6. Check table displays (badges, item counts)
+      7. Check view dialog (items display, walk-in info)
+      8. Admin: Change conversion factor in Settings
+      9. Verify new factor applies to new purchases
+      10. Test edit/delete for both purchase types
+      
+      SERVICES:
+      ✅ Backend: Running on port 8001
+      ✅ Frontend: Compiled successfully (webpack compiled with 1 warning - only license field warning)
+      ✅ MongoDB: Running
 
 
 backend:
