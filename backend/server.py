@@ -1083,6 +1083,7 @@ class Purchase(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     vendor_party_id: str  # Must be a vendor type party
+    vendor_oman_id: Optional[str] = None  # Vendor ID (Oman National ID / Resident ID) - Optional
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     description: str
     weight_grams: float  # 3 decimal precision - actual weight
