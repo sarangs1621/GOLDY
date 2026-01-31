@@ -3573,8 +3573,8 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
     if not user_has_permission(current_user, 'purchases.create'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to create purchases")
     
-    # Get conversion factor from settings
-    settings = await db.settings.find_one({})
+    # Get conversion factor from shop settings
+    settings = await db.shop_settings.find_one({})
     conversion_factor = settings.get("purchase_conversion_factor", 0.920) if settings else 0.920
     purchase_data["conversion_factor"] = conversion_factor
     
