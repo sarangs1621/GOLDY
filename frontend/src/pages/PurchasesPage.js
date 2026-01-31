@@ -1158,52 +1158,6 @@ export default function PurchasesPage() {
             <div className="space-y-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
               <h3 className="font-semibold text-sm text-amber-900">Gold Details</h3>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Vendor *</Label>
-                  <Select 
-                    value={formData.vendor_party_id} 
-                    onValueChange={(value) => {
-                      setFormData({...formData, vendor_party_id: value});
-                      validateField('vendor_party_id', value);
-                    }}
-                  >
-                    <SelectTrigger className={errors.vendor_party_id ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Select vendor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vendors.map(vendor => (
-                        <SelectItem key={vendor.id} value={vendor.id}>{vendor.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormErrorMessage error={errors.vendor_party_id} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Date *</Label>
-                  <Input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Input
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Purchase description or notes"
-                />
-              </div>
-            </div>
-
-            {/* Gold Details */}
-            <div className="space-y-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <h3 className="font-semibold text-sm text-amber-900">Gold Details</h3>
-              
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Weight (grams) *</Label>
