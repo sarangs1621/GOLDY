@@ -11517,7 +11517,7 @@ async def finalize_return(
                     reference_id=return_id,
                     created_by=current_user.id
                 )
-                await db.transactions.insert_one(transaction.model_dump())
+                await db.transactions.insert_one(convert_transaction_to_decimal(transaction.model_dump()))
                 
                 # Update account balance (debit = increase balance for asset accounts)
                 await db.accounts.update_one(
