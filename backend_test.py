@@ -2984,6 +2984,39 @@ class BackendTester:
             self.log_result(f"Create Test Account ({name})", False, f"Error: {str(e)}")
             return None
 
+    
+    def print_summary(self):
+        """Print comprehensive test summary"""
+        print("\n" + "="*80)
+        print("GOLD SHOP ERP PURCHASE MODULE - TEST SUMMARY")
+        print("="*80)
+        
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for result in self.test_results if result["success"])
+        failed_tests = total_tests - passed_tests
+        success_rate = (passed_tests / total_tests * 100) if total_tests > 0 else 0
+        
+        print(f"\n📊 OVERALL RESULTS:")
+        print(f"   Total Tests: {total_tests}")
+        print(f"   Passed: {passed_tests} ✅")
+        print(f"   Failed: {failed_tests} ❌")
+        print(f"   Success Rate: {success_rate:.1f}%")
+        
+        if failed_tests > 0:
+            print(f"\n❌ FAILED TESTS:")
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"   • {result['test']}: {result['details']}")
+        
+        print(f"\n✅ PASSED TESTS:")
+        for result in self.test_results:
+            if result["success"]:
+                print(f"   • {result['test']}: {result['details']}")
+        
+        print("\n" + "="*80)
+        print("TESTING COMPLETED")
+        print("="*80)
+
 def main():
     """Main test execution - Focus on Gold Shop ERP Purchase Module"""
     print("Starting Gold Shop ERP Purchase Module Testing")
