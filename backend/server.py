@@ -6792,6 +6792,8 @@ async def update_account(account_id: str, update_data: dict, current_user: User 
             )
         update_data['account_type'] = account_type
     
+    # Convert to Decimal128 for precise storage
+    update_data = convert_account_to_decimal(update_data)
     await db.accounts.update_one({"id": account_id}, {"$set": update_data})
     await create_audit_log(current_user.id, current_user.full_name, "account", account_id, "update", update_data)
     return {"message": "Account updated successfully"}
