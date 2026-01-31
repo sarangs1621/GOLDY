@@ -3849,7 +3849,7 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
             }}
         )
     
-    # === OPERATION 2: Create DEBIT transaction if paid_amount_money > 0 ===
+    # === OPERATION 2: Create CREDIT transaction if paid_amount_money > 0 ===
     if purchase_data["paid_amount_money"] > 0:
         current_year = datetime.now(timezone.utc).year
         existing_txns = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{current_year}-"}})
@@ -3864,13 +3864,13 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
             mode=purchase_data.get("payment_mode", "Cash"),
             account_id=purchase_data["account_id"],
             account_name=account["name"],
-            party_id=purchase.vendor_party_id,
-            party_name=vendor["name"],
-            amount=round(purchase_data["paid_amount_money"], 2),
+            party_id=vendor_party_id,
+            party_name=vendor_name,
+            amount=round(purchase_data["paid_amount_money"], 3),
             category="Purchase Payment",
             reference_type="purchase",
             reference_id=purchase_id,
-            notes=f"Payment for purchase: {purchase.description} ({purchase.weight_grams}g)",
+            notes=f"Payment for purchase from {vendor_name} ({purchase_data['weight_grams']}g total)",
             created_by=current_user.username
         )
         await db.transactions.insert_one(payment_transaction.model_dump())
