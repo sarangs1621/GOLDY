@@ -1003,6 +1003,12 @@ class Invoice(BaseModel):
     grand_total: float = 0
     paid_amount: float = 0
     balance_due: float = 0
+    # Gold Exchange / Advance Gold fields
+    gold_received_weight: Optional[float] = None  # Weight in grams (3 decimal precision)
+    gold_received_purity: Optional[int] = None  # Purity (e.g., 916, 999)
+    gold_received_rate: Optional[float] = None  # Rate per gram (2 decimal precision)
+    gold_received_value: Optional[float] = None  # Calculated: weight × rate (2 decimal precision)
+    gold_received_purpose: Optional[str] = None  # "advance" or "exchange"
     notes: Optional[str] = None
     jobcard_id: Optional[str] = None
     created_by: str
