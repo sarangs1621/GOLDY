@@ -4274,7 +4274,8 @@ async def add_payment_to_purchase(
         notes=payment_data.get('notes', f"Payment for purchase: {purchase.description}"),
         created_by=current_user.username
     )
-    await db.transactions.insert_one(payment_transaction.model_dump())
+    # Convert to Decimal128 for precise storage
+    await db.transactions.insert_one(convert_transaction_to_decimal(payment_transaction.model_dump()))
     
     # Update account balance (CREDIT = money OUT)
     delta = -payment_amount
