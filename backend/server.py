@@ -859,6 +859,7 @@ class Party(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
+    oman_id: Optional[str] = None  # Customer ID (Oman National ID / Resident ID) - Optional, numeric only
     phone: Optional[str] = None
     address: Optional[str] = None
     party_type: str
