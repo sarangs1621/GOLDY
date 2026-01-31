@@ -4115,7 +4115,8 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
             notes=f"Vendor payable for purchase: {desc}",
             created_by=current_user.username
         )
-        await db.transactions.insert_one(payable_transaction.model_dump())
+        # Convert to Decimal128 for precise storage
+        await db.transactions.insert_one(convert_transaction_to_decimal(payable_transaction.model_dump()))
     
     # Create audit log
     audit_changes = {
