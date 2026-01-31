@@ -191,6 +191,8 @@ class JobCardEnhancementsTester:
                     if invoice_id:
                         # Step 4: Verify customer_oman_id is carried forward to invoice
                         self.verify_oman_id_in_invoice(invoice_id, stored_oman_id)
+                    else:
+                        self.log_result("Customer Oman ID Workflow - Invoice Conversion", False, "Failed to convert job card to invoice")
                     
                 else:
                     self.log_result("Customer Oman ID - Job Card Storage", False, f"Expected Oman ID '12345678' but got: {stored_oman_id}")
