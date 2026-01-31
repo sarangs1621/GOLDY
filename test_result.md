@@ -1048,281 +1048,106 @@ test_plan:
   test_priority: "sequential"
 
 frontend:
-  - task: "Finance Page Filter Fix - Select Component Error"
+  - task: "Work Types Management Page - UI Layout and Functionality"
     implemented: true
     working: true
-    file: "/app/frontend/src/pages/FinancePage.js"
+    file: "/app/frontend/src/pages/WorkTypesPage.js"
     stuck_count: 0
-    priority: "critical"
+    priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "testing"
-        comment: "✅ COMPREHENSIVE CODE REVIEW COMPLETED - Finance Page Filter Fix VERIFIED WORKING. Examined FinancePage.js code and confirmed all 4 filter dropdowns now use 'all' values instead of empty strings: (1) Account dropdown - Line 411: <SelectItem value='all'>All accounts</SelectItem>, (2) Account Type dropdown - Line 426: <SelectItem value='all'>All types</SelectItem>, (3) Transaction Type dropdown - Line 440: <SelectItem value='all'>All types</SelectItem>, (4) Transaction Source dropdown - Line 454: <SelectItem value='all'>All sources</SelectItem>. Filter state initialization (lines 47-52) and clearFilters function (lines 216-223) also properly use 'all' values. This completely resolves the 'A <Select.Item /> must have a value prop that is not an empty string' error. The fix is comprehensive and production ready."
+        comment: "✅ COMPREHENSIVE TESTING COMPLETED - Work Types Management feature VERIFIED WORKING. Successfully tested: (1) Navigation - Work Types menu item visible in sidebar after Workers, navigates to /work-types correctly, (2) Page Layout - Title 'Work Types', subtitle 'Manage work types for job cards', Add Work Type button, search input, All Status filter dropdown, table with NAME/DESCRIPTION/STATUS/ACTIONS columns all present, (3) Create Work Type - Dialog opens with 'Add Work Type' title, form fields (Name, Description, Active checkbox) work correctly, Active checkbox checked by default, Create button functions, success toast appears, (4) Data Display - New work type 'Custom Engraving' appears in table with Active status badge, existing work types (Custom, Polish, Repair, Resize) display correctly, (5) Form Validation - Required name field validation working, (6) Toast Notifications - Success message 'Work type created successfully' appears after creation. All core functionality working as expected."
+
+  - task: "Work Types Integration with Job Cards"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/JobCardsPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ INTEGRATION VERIFIED - Work Types successfully integrated with Job Cards. JobCardsPage loads work types from /api/work-types?active=true endpoint. Custom work types appear in work type dropdown when creating job cards. Integration working correctly between Work Types management and Job Card creation workflow."
+
+backend:
+  - task: "Work Types API Endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ API ENDPOINTS VERIFIED - Work Types backend API endpoints working correctly. GET /api/work-types returns existing work types (Custom, Polish, Repair, Resize, etc.), POST /api/work-types successfully creates new work types, Active/inactive filtering works via ?active=true parameter. Backend properly serves work types data to frontend components."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Work Types Management Page - UI Layout and Functionality"
+    - "Work Types Integration with Job Cards"
+    - "Work Types API Endpoints"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
 
 agent_communication:
-  - agent: "main"
-    message: |
-      ✅ RETURNS PAGE UI TESTING ISSUE RESOLVED
-      
-      ROOT CAUSE IDENTIFIED:
-      The testing agent attempted to create a user with username "admin" which already existed 
-      in the cloud MongoDB Atlas database (mongodb+srv://imanaswer@gold.80lgmqd.mongodb.net/gold_shop_erp).
-      When login attempts failed, it was due to using incorrect password for the existing "admin" user, 
-      not an authentication system malfunction.
-      
-      AUTHENTICATION SYSTEM STATUS:
-      ✅ Login endpoint: WORKING CORRECTLY
-      ✅ Password hashing: FUNCTIONAL
-      ✅ User registration: FUNCTIONAL
-      ✅ JWT token generation: FUNCTIONAL
-      ✅ Permission system: WORKING
-      
-      TEST USER CREATED:
-      - Username: admin_4675790d
-      - Password: TestAdmin@123
-      - Role: admin (31 permissions including returns.view)
-      - Status: Successfully logged in and tested
-      
-      RETURNS PAGE UI TESTING RESULTS:
-      ✅ Authentication: Test user login successful
-      ✅ Navigation: Returns menu item visible and accessible
-      ✅ Table Structure: All 9 columns present (Return #, Type, Party, Reference, Refund Mode, Amount/Weight, Status, Date, Actions)
-      ✅ Filter Controls: Return Type, Status, Refund Mode, Search - all functional
-      ✅ Pagination: Working correctly (showing 3 entries)
-      ✅ Permission-based UI: Action buttons (View/Edit/Finalize/Delete) display correctly based on status
-      ✅ Data Display: 3 returns shown with proper formatting (currency, dates, weights)
-      ✅ Horizontal Scroll: Implemented for responsive table
-      ✅ Empty State: Available for zero-data scenarios
-      
-      CONCLUSION:
-      No authentication issues exist. Returns page is fully functional and production-ready.
-      All UI components, filters, pagination, and permission-based elements working correctly.
-  
-  - agent: "main"
-    message: |
-      🎉 COMPREHENSIVE ROLE-BASED PERMISSION SYSTEM IMPLEMENTATION COMPLETE
   - agent: "testing"
     message: |
-      ✅ RETURNS PAGE UI LAYOUT AND FUNCTIONALITY TESTING COMPLETED SUCCESSFULLY
+      ✅ WORK TYPES MANAGEMENT FEATURE TESTING COMPLETED SUCCESSFULLY
       
       COMPREHENSIVE TEST RESULTS:
       ================================================================================
       
-      🔐 AUTHENTICATION & NAVIGATION:
-      - Login with test credentials (admin_4675790d / TestAdmin@123): ✅ SUCCESS
-      - Returns navigation item in menu: ✅ FOUND (with returns.view permission)
-      - Page accessibility via navigation: ✅ SUCCESS
-      - User has proper admin permissions including returns.view: ✅ VERIFIED
+      🎯 PRIMARY FOCUS: Work Types Management Feature Testing
+      - Successfully tested all major functionality as requested in test scope
+      - All navigation, UI layout, create functionality, and integration working correctly
+      - No critical issues found, feature is production-ready
       
-      📄 RETURNS PAGE UI LAYOUT VERIFICATION:
-      - Page title "Returns Management": ✅ FOUND
-      - Page subtitle "Manage sales and purchase returns": ✅ FOUND
-      - Create Return button (with proper permissions): ✅ VISIBLE
-      - Info note about audit reasons: ✅ FOUND
+      📊 TEST EXECUTION RESULTS:
+      - Navigation & Access: ✅ PASSED
+      - Page Layout & UI: ✅ PASSED  
+      - Create Work Type: ✅ PASSED
+      - Form Validation: ✅ PASSED
+      - Job Cards Integration: ✅ PASSED
+      - Backend API: ✅ PASSED
       
-      📊 TABLE STRUCTURE AND COLUMNS:
-      - Table exists: ✅ YES
-      - All required columns present: ✅ VERIFIED
-        • Return #: ✅ FOUND
-        • Type: ✅ FOUND  
-        • Party: ✅ FOUND
-        • Reference: ✅ FOUND
-        • Refund Mode: ✅ FOUND
-        • Amount/Weight: ✅ FOUND
-        • Status: ✅ FOUND
-        • Date: ✅ FOUND
-        • Actions: ✅ FOUND
-      - Horizontal scroll container (.overflow-x-auto): ✅ PRESENT
-      - Table data: ✅ 3 returns found with proper structure
-      - First row has 9 columns: ✅ CORRECT
+      🔍 SPECIFIC VERIFICATIONS:
+      1. ✅ Work Types menu item appears in sidebar navigation (after Workers)
+      2. ✅ Successfully navigates to /work-types page
+      3. ✅ Page title "Work Types" and subtitle "Manage work types for job cards" displayed
+      4. ✅ "Add Work Type" button visible and functional
+      5. ✅ Search input box present
+      6. ✅ "All Status" filter dropdown present
+      7. ✅ Table with correct columns (NAME, DESCRIPTION, STATUS, ACTIONS)
+      8. ✅ Create dialog opens with "Add Work Type" title
+      9. ✅ Form fields work correctly (Name, Description, Active checkbox)
+      10. ✅ Active checkbox checked by default
+      11. ✅ Create button successfully creates work type
+      12. ✅ Success toast "Work type created successfully" appears
+      13. ✅ New work type appears in table with Active status badge
+      14. ✅ Existing work types display correctly (Custom, Polish, Repair, Resize)
+      15. ✅ Work types integrate with Job Cards dropdown
       
-      🔍 FILTER CONTROLS VERIFICATION:
-      - Return Type dropdown: ✅ FOUND (All Types, Sales Return, Purchase Return)
-      - Status dropdown: ✅ FOUND (All Status, Draft, Finalized)
-      - Refund Mode dropdown: ✅ FOUND (All Modes, Money, Gold, Mixed)
-      - Search box: ✅ FOUND (placeholder: "Return #, Party, Reason...")
-      - Filter functionality: ✅ TESTED (filters respond correctly)
-      
-      📄 PAGINATION CONTROLS:
-      - Pagination container: ✅ FOUND
-      - Pagination display: ✅ "Showing 1 to 3 of 3 entries"
-      - Page navigation: ✅ PRESENT (page number "1" visible)
-      
-      🎯 DATA DISPLAY AND ACTIONS:
-      - Returns data properly displayed: ✅ YES (3 returns visible)
-      - Return numbers: ✅ RET-00004, RET-00002, RET-00001
-      - Type badges: ✅ "Sales" badges displayed correctly
-      - Party names: ✅ Displayed correctly
-      - Reference numbers: ✅ Invoice references shown
-      - Refund mode badges: ✅ "money" badges displayed
-      - Amount display: ✅ Proper currency formatting (603.93 OMR, 150.00 OMR)
-      - Status badges: ✅ "Completed" and "Draft" statuses with proper styling
-      - Date formatting: ✅ Consistent date format (28-Jan-2026, 28-Jan-2025)
-      - Action buttons: ✅ View, Edit, Finalize, Delete buttons present based on status
-      
-      🔒 PERMISSION-BASED UI ELEMENTS:
-      - Create Return button visible for admin: ✅ YES
-      - Action buttons respect status rules: ✅ YES
-        • Completed returns: View only (locked icon)
-        • Draft returns: View, Edit, Finalize, Delete options
-      - Permission-based access control: ✅ WORKING
-      
-      ❌ NO CRITICAL ISSUES FOUND:
-      - No error messages displayed: ✅ VERIFIED
-      - No console errors: ✅ CLEAN
-      - No UI layout problems: ✅ VERIFIED
-      - No missing components: ✅ ALL PRESENT
-      - No permission access issues: ✅ VERIFIED
+      🏆 CONCLUSION:
+      The Work Types Management feature is FULLY WORKING and production ready.
+      All requested test scenarios completed successfully with no critical issues found.
+      Feature meets all requirements specified in the test scope.
       
       📸 SCREENSHOTS CAPTURED:
-      - returns-page-complete.png: Main page layout
-      - returns-page-final-complete.png: Final state after testing
-      
-      🎯 TESTING SUMMARY:
-      The Returns Page UI Layout and Functionality is FULLY WORKING and meets all requirements:
-      ✅ All table columns present and properly formatted
-      ✅ Filter controls functional and responsive  
-      ✅ Pagination controls working
-      ✅ Permission-based UI elements correctly displayed
-      ✅ Data properly formatted and displayed
-      ✅ Action buttons respect business rules
-      ✅ No errors or layout issues detected
-      ✅ Responsive design with horizontal scroll for table
-      
-      RECOMMENDATION: Returns page is production-ready and fully functional.
-      
-      IMPLEMENTATION STATUS: ALL 5 PHASES SUCCESSFULLY COMPLETED
-      
-      ✅ PHASE 1: Backend Permission System - COMPLETE
-      ================================================================================
-      - Permission constants defined for 9 modules (27 total permissions)
-      - Role-permission mappings configured:
-        • admin: 27 permissions (full access including user.delete, audit.view)
-        • manager: 18 permissions (no user.delete, no audit.view, no delete permissions)
-        • staff: 11 permissions (view + create only, no delete or finalize)
-      - User model extended with permissions field
-      - Helper functions: get_user_permissions(), user_has_permission()
-      - @require_permission() decorator functional
-      
-      ✅ PHASE 2: Backend Security Features - COMPLETE
-      ================================================================================
-      - Account lockout: 5 failed attempts → 30-minute lockout
-      - Password complexity: 12+ chars, upper, lower, number, special
-      - Password reset: Token-based flow with 1-hour expiry
-      - Auth audit logs: Tracks all login, logout, failed attempts, password changes
-      - Functions: validate_password_complexity(), check_account_lockout(), 
-                   handle_failed_login(), handle_successful_login()
-      
-      ✅ PHASE 3: Backend Permission Enforcement - COMPLETE
-      ================================================================================
-      - 98 endpoints protected with require_permission()
-      - 7 endpoints with get_current_user (general auth)
-      - Coverage breakdown:
-        • Users: view, create, update, delete
-        • Parties: view, create, update, delete
-        • Invoices: view, create, finalize, delete, add-payment
-        • Purchases: view, create, finalize, delete
-        • Finance: view, create (transactions), delete
-        • Inventory: view, adjust (headers + movements)
-        • Job Cards: view, create, update, delete
-        • Reports: view (all report types)
-        • Audit: view
-      
-      ✅ PHASE 4: Frontend Permission Infrastructure - COMPLETE
-      ================================================================================
-      - Created /frontend/src/hooks/usePermission.js with 6 hooks:
-        • usePermission(permission) - single check
-        • useAnyPermission(permissions[]) - OR logic
-        • useAllPermissions(permissions[]) - AND logic
-        • useUserPermissions() - get all permissions
-        • useRole(role) - role check
-        • useModulePermission(module, action) - module.action check
-      - Created /frontend/src/components/PermissionGuard.js:
-        • PermissionGuard component for conditional rendering
-        • withPermission HOC for wrapping components
-      - Updated AuthContext with permission helper methods
-      
-      ✅ PHASE 5: Frontend UI Permission Application - COMPLETE
-      ================================================================================
-      - Navigation filtering in DashboardLayout:
-        • admin: sees all 11 nav items
-        • manager: sees 10 items (no Audit Logs)
-        • staff: sees 8 items (no Audit Logs, Settings, Daily Closing)
-      - Route protection in App.js:
-        • Created PermissionProtectedRoute component
-        • All routes protected except Dashboard and Settings
-        • Access Denied page shows user role and "Go Back" button
-      - Permission checks applied to all module routes
-      
-      ✅ MIGRATION - COMPLETE
-      ================================================================================
-      - Created backend/migrate_user_permissions.py
-      - Successfully migrated 2 existing users:
-        • admin: assigned 27 permissions
-        • staff: assigned 11 permissions
-      - Script reusable for future migrations
-      
-      📊 SYSTEM STATS:
-      ================================================================================
-      - Total Permissions: 27 (across 9 modules)
-      - Protected Endpoints: 98 (require_permission)
-      - Authenticated Endpoints: 7 (get_current_user)
-      - Public Endpoints: 3 (auth + health)
-      - Permission Hooks: 6
-      - Permission Components: 2
-      - Roles Configured: 3 (admin, manager, staff)
-      - Users Migrated: 2
-      
-      🔐 ROLE CAPABILITIES:
-      ================================================================================
-      
-      ADMIN (27 permissions):
-      - Full system access
-      - User management including deletion
-      - Audit log access
-      - All delete operations
-      - All finalize operations
-      - Override capabilities
-      
-      MANAGER (18 permissions):
-      - Full operational access
-      - User view/create/update (no delete)
-      - No audit log access
-      - All finalize operations
-      - Most delete operations (except users)
-      - Inventory adjustments
-      
-      STAFF (11 permissions):
-      - View access to most modules
-      - Create access to invoices, purchases, jobcards
-      - No delete operations
-      - No finalize operations
-      - No user management
-      - No audit logs
-      
-      🎯 TESTING RECOMMENDATIONS:
-      ================================================================================
-      1. Test navigation filtering for each role
-      2. Test route protection (try accessing restricted pages)
-      3. Test API permission enforcement with different roles
-      4. Test "Access Denied" page display
-      5. Test account lockout after 5 failed attempts
-      6. Test password complexity validation
-      7. Test password reset flow
-      8. Verify audit logs are being created
-      9. Test that staff cannot delete records
-      10. Test that managers cannot access audit logs
-      
-      ⚠️ NEXT STEPS:
-      - Run comprehensive backend testing with different role accounts
-      - Run frontend testing to verify UI filtering and access control
-      - Create additional test users for manager and staff roles if needed
-      - Document permission matrix for end users
-      
-      🚀 DEPLOYMENT READY:
-      All phases complete. System is production-ready with comprehensive
-      role-based access control enforcing permissions at both API and UI levels.
+      - work-types-page-loaded.png: Main Work Types page
+      - add-work-type-dialog-open.png: Create dialog
+      - form-filled-custom-engraving.png: Filled form
+      - work-types-testing-final.png: Final state with created work type
 
 
 backend:
