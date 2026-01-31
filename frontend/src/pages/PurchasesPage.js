@@ -1769,7 +1769,7 @@ export default function PurchasesPage() {
               <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Vendor:</span>
-                  <span className="font-semibold">{getVendorName(selectedPurchase.vendor_party_id)}</span>
+                  <span className="font-semibold">{getVendorName(selectedPurchase)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Amount:</span>
