@@ -6673,7 +6673,7 @@ async def create_invoice(invoice_data: dict, current_user: User = Depends(requir
                 notes=f"Gold received for invoice {invoice_number}. Rate: {invoice.gold_received_rate:.2f} OMR/g, Value: {gold_value:.2f} OMR",
                 created_by=current_user.id
             )
-            await db.gold_ledger.insert_one(gold_ledger_entry.model_dump())
+            await db.gold_ledger.insert_one(convert_gold_ledger_to_decimal(gold_ledger_entry.model_dump()))
             
             # Create Money Transaction for gold value (DEBIT - money IN equivalent)
             year = datetime.now(timezone.utc).year
