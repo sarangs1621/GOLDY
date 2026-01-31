@@ -6279,6 +6279,87 @@ async def create_invoice(invoice_data: dict, current_user: User = Depends(requir
     # Remove conflicting keys and add required fields
     invoice_data_clean = {k: v for k, v in invoice_data.items() if k not in ['invoice_number', 'created_by']}
     invoice = Invoice(**invoice_data_clean, invoice_number=invoice_number, created_by=current_user.id)
+    
+    # Handle Gold Received (Advance Gold or Exchange)
+    if invoice.gold_received_weight and invoice.gold_received_weight > 0:
+        # Calculate gold value if not provided
+        if not invoice.gold_received_value and invoice.gold_received_rate:
+            invoice.gold_received_value = round(invoice.gold_received_weight * invoice.gold_received_rate, 2)
+        
+        # Validate gold value
+        gold_value = invoice.gold_received_value or 0
+        
+        # Adjust paid_amount and balance_due based on gold received
+        invoice.paid_amount = invoice.paid_amount + gold_value
+        invoice.balance_due = invoice.grand_total - invoice.paid_amount
+        
+        # Update payment_status based on balance
+        if invoice.balance_due <= 0:
+            invoice.payment_status = "paid"
+            invoice.paid_at = datetime.now(timezone.utc)
+        elif invoice.paid_amount > 0:
+            invoice.payment_status = "partial"
+        
+        # Create Gold Ledger Entry (only for saved customers)
+        if invoice.customer_type == "saved" and invoice.customer_id:
+            gold_ledger_entry = GoldLedgerEntry(
+                party_id=invoice.customer_id,
+                type="IN",  # Shop receives gold from customer
+                weight_grams=round(invoice.gold_received_weight, 3),
+                purity_entered=invoice.gold_received_purity or 916,
+                purpose=invoice.gold_received_purpose or "advance_gold",
+                reference_type="invoice",
+                reference_id=invoice.id,
+                notes=f"Gold received for invoice {invoice_number}. Rate: {invoice.gold_received_rate:.2f} OMR/g, Value: {gold_value:.2f} OMR",
+                created_by=current_user.id
+            )
+            await db.gold_ledger.insert_one(gold_ledger_entry.model_dump())
+            
+            # Create Money Transaction for gold value (DEBIT - money IN equivalent)
+            year = datetime.now(timezone.utc).year
+            txn_count = await db.transactions.count_documents({"transaction_number": {"$regex": f"^TXN-{year}"}})
+            transaction_number = f"TXN-{year}-{str(txn_count + 1).zfill(4)}"
+            
+            # Find or create Gold Received account
+            gold_account = await db.accounts.find_one({"name": "Gold Received", "is_deleted": False}, {"_id": 0})
+            if not gold_account:
+                gold_account = {
+                    "id": str(uuid.uuid4()),
+                    "name": "Gold Received",
+                    "account_type": "asset",
+                    "opening_balance": 0,
+                    "current_balance": 0,
+                    "created_at": datetime.now(timezone.utc),
+                    "created_by": current_user.id,
+                    "is_deleted": False
+                }
+                await db.accounts.insert_one(gold_account)
+            
+            # Create transaction record
+            transaction = Transaction(
+                transaction_number=transaction_number,
+                date=datetime.now(timezone.utc),
+                transaction_type="debit",  # Money IN equivalent
+                mode="Gold Exchange",
+                account_id=gold_account['id'],
+                account_name=gold_account['name'],
+                party_id=invoice.customer_id,
+                party_name=invoice.customer_name,
+                amount=gold_value,
+                category="sales",
+                notes=f"Gold received ({invoice.gold_received_weight:.3f}g at {invoice.gold_received_rate:.2f} OMR/g) for invoice {invoice_number}",
+                reference_type="invoice",
+                reference_id=invoice.id,
+                created_by=current_user.id
+            )
+            await db.transactions.insert_one(transaction.model_dump())
+            
+            # Update account balance
+            await db.accounts.update_one(
+                {"id": gold_account['id']},
+                {"$inc": {"current_balance": gold_value}}
+            )
+    
     await db.invoices.insert_one(invoice.model_dump())
     
     # Stock movements will ONLY happen when invoice is finalized via /invoices/{id}/finalize endpoint
