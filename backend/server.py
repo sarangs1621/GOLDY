@@ -909,6 +909,7 @@ class JobCard(BaseModel):
     customer_type: str = "saved"  # "saved" or "walk_in"
     customer_id: Optional[str] = None  # For saved customers only
     customer_name: Optional[str] = None  # For saved customers only
+    customer_oman_id: Optional[str] = None  # Customer ID (Oman National ID / Resident ID) - Optional
     walk_in_name: Optional[str] = None  # For walk-in customers only
     walk_in_phone: Optional[str] = None  # For walk-in customers only
     worker_id: Optional[str] = None
