@@ -966,33 +966,56 @@ export default function PurchasesPage() {
               
               {isWalkIn ? (
                 /* Walk-in Vendor Fields */
-                <div className="grid grid-cols-2 gap-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                  <div className="space-y-2">
-                    <Label>Customer ID (Oman ID) *</Label>
-                    <Input
-                      value={formData.vendor_oman_id}
-                      onChange={(e) => setFormData({...formData, vendor_oman_id: e.target.value})}
-                      placeholder="12345678"
-                      className={errors.vendor_oman_id ? 'border-red-500' : ''}
-                    />
-                    <FormErrorMessage error={errors.vendor_oman_id} />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="space-y-2">
+                      <Label>Customer ID (Oman ID) *</Label>
+                      <Input
+                        value={formData.vendor_oman_id}
+                        onChange={(e) => setFormData({...formData, vendor_oman_id: e.target.value})}
+                        placeholder="12345678"
+                        className={errors.vendor_oman_id ? 'border-red-500' : ''}
+                      />
+                      <FormErrorMessage error={errors.vendor_oman_id} />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Vendor Name *</Label>
+                      <Input
+                        value={formData.walk_in_vendor_name}
+                        onChange={(e) => setFormData({...formData, walk_in_vendor_name: e.target.value})}
+                        placeholder="Ahmed Al-Balushi"
+                        className={errors.walk_in_vendor_name ? 'border-red-500' : ''}
+                      />
+                      <FormErrorMessage error={errors.walk_in_vendor_name} />
+                    </div>
+                    
+                    <div className="col-span-2">
+                      <p className="text-xs text-purple-700">
+                        <strong>Walk-in Purchase:</strong> No party record will be created. This purchase is tracked for inventory and finance only.
+                      </p>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Vendor Name *</Label>
-                    <Input
-                      value={formData.walk_in_vendor_name}
-                      onChange={(e) => setFormData({...formData, walk_in_vendor_name: e.target.value})}
-                      placeholder="Ahmed Al-Balushi"
-                      className={errors.walk_in_vendor_name ? 'border-red-500' : ''}
-                    />
-                    <FormErrorMessage error={errors.walk_in_vendor_name} />
-                  </div>
-                  
-                  <div className="col-span-2">
-                    <p className="text-xs text-purple-700">
-                      <strong>Walk-in Purchase:</strong> No party record will be created. This purchase is tracked for inventory and finance only.
-                    </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Date *</Label>
+                      <Input
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      />
+                    </div>
+                    {!isMultipleItems && (
+                      <div className="space-y-2">
+                        <Label>Description</Label>
+                        <Input
+                          value={formData.description}
+                          onChange={(e) => setFormData({...formData, description: e.target.value})}
+                          placeholder="Purchase description or notes"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
