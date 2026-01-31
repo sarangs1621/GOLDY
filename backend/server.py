@@ -1237,7 +1237,7 @@ class Return(BaseModel):
     deleted_by: Optional[str] = None
 
 class ShopSettings(BaseModel):
-    """Shop/Company settings for invoice printing"""
+    """Shop/Company settings for invoice printing and purchase valuation"""
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     shop_name: str = "Gold Jewellery ERP"
@@ -1248,6 +1248,10 @@ class ShopSettings(BaseModel):
     logo_url: Optional[str] = None
     terms_and_conditions: str = "1. Goods once sold cannot be returned.\n2. Gold purity as per invoice.\n3. Making charges are non-refundable."
     authorized_signatory: str = "Authorized Signatory"
+    
+    # PURCHASE VALUATION SETTINGS (NEW)
+    purchase_conversion_factor: float = 0.920  # 0.920 or 0.917 - Used in purchase valuation formula
+    
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
 
