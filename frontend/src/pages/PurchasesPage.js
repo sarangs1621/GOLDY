@@ -1466,7 +1466,15 @@ export default function PurchasesPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Vendor</p>
-                    <p className="font-semibold text-lg">{getVendorName(viewPurchase.vendor_party_id)}</p>
+                    <p className="font-semibold text-lg">
+                      {getVendorName(viewPurchase)}
+                      {viewPurchase.is_walk_in && <Badge className="ml-2 bg-purple-100 text-purple-800 text-xs">Walk-in</Badge>}
+                    </p>
+                    {viewPurchase.is_walk_in && viewPurchase.vendor_oman_id && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Customer ID: <span className="font-mono">{viewPurchase.vendor_oman_id}</span>
+                      </p>
+                    )}
                   </div>
                   {viewPurchase.description && (
                     <div>
