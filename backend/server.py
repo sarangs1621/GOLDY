@@ -963,6 +963,7 @@ class Invoice(BaseModel):
     customer_type: str = "saved"  # "saved" or "walk_in"
     customer_id: Optional[str] = None  # For saved customers only
     customer_name: Optional[str] = None  # For saved customers only
+    customer_oman_id: Optional[str] = None  # Customer ID (Oman National ID / Resident ID) - Optional
     customer_phone: Optional[str] = None  # Customer phone (from party or walk-in)
     customer_address: Optional[str] = None  # Customer address (from party)
     customer_gstin: Optional[str] = None  # Customer GSTIN (from party)
