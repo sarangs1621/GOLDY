@@ -3392,7 +3392,7 @@ async def create_gold_ledger_entry(entry_data: dict, current_user: User = Depend
         created_by=current_user.id
     )
     
-    await db.gold_ledger.insert_one(entry.model_dump())
+    await db.gold_ledger.insert_one(convert_gold_ledger_to_decimal(entry.model_dump()))
     await create_audit_log(current_user.id, current_user.full_name, "gold_ledger", entry.id, "create")
     return entry
 
