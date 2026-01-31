@@ -40,6 +40,7 @@ export default function PartiesPage() {
   
   const [formData, setFormData] = useState({
     name: '',
+    oman_id: '',
     phone: '',
     address: '',
     party_type: 'customer',
@@ -49,6 +50,7 @@ export default function PartiesPage() {
   // Validation errors state
   const [validationErrors, setValidationErrors] = useState({
     name: '',
+    oman_id: '',
     phone: ''
   });
   
