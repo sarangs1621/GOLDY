@@ -6712,7 +6712,7 @@ async def create_invoice(invoice_data: dict, current_user: User = Depends(requir
                 reference_id=invoice.id,
                 created_by=current_user.id
             )
-            await db.transactions.insert_one(transaction.model_dump())
+            await db.transactions.insert_one(convert_transaction_to_decimal(transaction.model_dump()))
             
             # Update account balance
             await db.accounts.update_one(
