@@ -116,7 +116,425 @@ class BackendTester:
         # Test 12: Status calculation and locking rules
         self.test_status_calculation_and_locking()
     
-    def test_get_returnable_invoices(self):
+    
+    def test_shop_settings_conversion_factor(self):
+        """Test Shop Settings conversion factor GET and UPDATE"""
+        print("\n--- Testing Shop Settings Conversion Factor ---")
+        
+        try:
+            # Test 1: GET shop settings
+            response = self.session.get(f"{BACKEND_URL}/settings/shop")
+            
+            if response.status_code == 200:
+                settings = response.json()
+                current_factor = settings.get("purchase_conversion_factor", 0.920)
+                
+                self.log_result(
+                    "Get Shop Settings", 
+                    True, 
+                    f"Retrieved shop settings with conversion factor: {current_factor}",
+                    {"conversion_factor": current_factor, "shop_name": settings.get("shop_name")}
+                )
+                
+                # Test 2: UPDATE conversion factor
+                new_factor = 0.917 if current_factor == 0.920 else 0.920
+                update_data = {
+                    "purchase_conversion_factor": new_factor,
+                    "shop_name": settings.get("shop_name", "Gold Jewellery ERP")
+                }
+                
+                update_response = self.session.put(f"{BACKEND_URL}/settings/shop", json=update_data)
+                
+                if update_response.status_code == 200:
+                    # Verify the update
+                    verify_response = self.session.get(f"{BACKEND_URL}/settings/shop")
+                    if verify_response.status_code == 200:
+                        updated_settings = verify_response.json()
+                        updated_factor = updated_settings.get("purchase_conversion_factor")
+                        
+                        factor_updated = abs(updated_factor - new_factor) < 0.001
+                        
+                        self.log_result(
+                            "Update Shop Settings Conversion Factor", 
+                            factor_updated, 
+                            f"Updated conversion factor from {current_factor} to {updated_factor}",
+                            {"old_factor": current_factor, "new_factor": updated_factor}
+                        )
+                        
+                        return updated_factor
+                    else:
+                        self.log_result("Verify Shop Settings Update", False, f"Failed to verify: {verify_response.status_code}")
+                else:
+                    self.log_result("Update Shop Settings", False, f"Failed: {update_response.status_code} - {update_response.text}")
+            else:
+                self.log_result("Get Shop Settings", False, f"Failed: {response.status_code} - {response.text}")
+                
+        except Exception as e:
+            self.log_result("Shop Settings Conversion Factor", False, f"Error: {str(e)}")
+        
+        return 0.920  # Default fallback
+    
+    def test_single_item_purchase_legacy(self):
+        """Test single-item purchase (legacy compatibility) with 22K valuation formula"""
+        print("\n--- Testing Single-Item Purchase (Legacy) ---")
+        
+        try:
+            # Get or create vendor
+            vendor_id = self.get_or_create_test_vendor()
+            if not vendor_id:
+                return None
+            
+            # Test data: 10.5g @ 50 OMR/g ÷ 0.920 = 570.652 OMR
+            purchase_data = {
+                "vendor_party_id": vendor_id,
+                "description": "22K Gold Bars - Single Item Legacy Test",
+                "weight_grams": 10.500,  # 3 decimal precision
+                "entered_purity": 999,   # Entered as 999 but valued at 916
+                "rate_per_gram": 50.000, # Rate per gram for 22K
+                "amount_total": 570.652, # Expected: (10.5 × 50) ÷ 0.920 = 570.652
+                "paid_amount_money": 0.0,
+                "balance_due_money": 570.652
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/purchases", json=purchase_data)
+            
+            if response.status_code == 201:
+                purchase = response.json()
+                purchase_id = purchase.get("id")
+                
+                # Verify calculations
+                actual_amount = purchase.get("amount_total", 0)
+                actual_conversion_factor = purchase.get("conversion_factor", 0)
+                actual_valuation_purity = purchase.get("valuation_purity_fixed", 0)
+                actual_status = purchase.get("status", "")
+                
+                # Expected calculations with conversion factor from settings
+                expected_amount = (10.500 * 50.000) / actual_conversion_factor
+                
+                # Validations
+                amount_correct = abs(actual_amount - expected_amount) < 0.001
+                purity_correct = actual_valuation_purity == 916
+                status_correct = actual_status == "Draft"
+                precision_correct = len(str(actual_amount).split('.')[-1]) <= 3
+                
+                all_correct = all([amount_correct, purity_correct, status_correct, precision_correct])
+                
+                details = f"Amount: {'✓' if amount_correct else '✗'} ({actual_amount} vs {expected_amount:.3f}), "
+                details += f"Purity: {'✓' if purity_correct else '✗'} (916), "
+                details += f"Status: {'✓' if status_correct else '✗'} ({actual_status}), "
+                details += f"Precision: {'✓' if precision_correct else '✗'}"
+                
+                self.log_result(
+                    "Single-Item Purchase Legacy - Formula Verification",
+                    all_correct,
+                    details,
+                    {
+                        "purchase_id": purchase_id,
+                        "formula": f"({purchase_data['weight_grams']} × {purchase_data['rate_per_gram']}) ÷ {actual_conversion_factor} = {actual_amount}",
+                        "expected_amount": expected_amount,
+                        "actual_amount": actual_amount,
+                        "conversion_factor": actual_conversion_factor
+                    }
+                )
+                
+                return purchase_id if all_correct else None
+            else:
+                self.log_result("Single-Item Purchase Legacy - Creation", False, f"Failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Single-Item Purchase Legacy", False, f"Error: {str(e)}")
+            return None
+    
+    def test_multi_item_purchase_different_purities(self):
+        """Test multi-item purchase with different purities"""
+        print("\n--- Testing Multi-Item Purchase with Different Purities ---")
+        
+        try:
+            vendor_id = self.get_or_create_test_vendor()
+            if not vendor_id:
+                return None
+            
+            # Test data: Multi-item with different purities
+            # Item 1: 10g @ 50 ÷ 0.920 = 543.478 OMR
+            # Item 2: 15.5g @ 48 ÷ 0.920 = 808.696 OMR
+            # Total: 1352.174 OMR
+            purchase_data = {
+                "vendor_party_id": vendor_id,
+                "items": [
+                    {
+                        "description": "22K Gold Chain",
+                        "weight_grams": 10.000,
+                        "entered_purity": 916,
+                        "rate_per_gram_22k": 50.000,
+                        "calculated_amount": 543.478  # (10 × 50) ÷ 0.920
+                    },
+                    {
+                        "description": "18K Gold Bracelet", 
+                        "weight_grams": 15.500,
+                        "entered_purity": 750,  # Different purity
+                        "rate_per_gram_22k": 48.000,
+                        "calculated_amount": 808.696  # (15.5 × 48) ÷ 0.920
+                    }
+                ],
+                "valuation_purity_fixed": 916,  # Always 916 regardless of entered purity
+                "conversion_factor": 0.920,
+                "amount_total": 1352.174,  # Sum of both items
+                "paid_amount_money": 0.0,
+                "balance_due_money": 1352.174
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/purchases", json=purchase_data)
+            
+            if response.status_code == 201:
+                purchase = response.json()
+                purchase_id = purchase.get("id")
+                
+                # Verify multi-item calculations
+                actual_amount = purchase.get("amount_total", 0)
+                actual_items = purchase.get("items", [])
+                actual_valuation_purity = purchase.get("valuation_purity_fixed", 0)
+                
+                # Verify each item calculation
+                item1_correct = False
+                item2_correct = False
+                
+                if len(actual_items) >= 2:
+                    item1_amount = actual_items[0].get("calculated_amount", 0)
+                    item2_amount = actual_items[1].get("calculated_amount", 0)
+                    
+                    item1_correct = abs(item1_amount - 543.478) < 0.001
+                    item2_correct = abs(item2_amount - 808.696) < 0.001
+                
+                # Verify total
+                total_correct = abs(actual_amount - 1352.174) < 0.001
+                purity_correct = actual_valuation_purity == 916
+                items_count_correct = len(actual_items) == 2
+                
+                all_correct = all([item1_correct, item2_correct, total_correct, purity_correct, items_count_correct])
+                
+                details = f"Item1: {'✓' if item1_correct else '✗'} (543.478), "
+                details += f"Item2: {'✓' if item2_correct else '✗'} (808.696), "
+                details += f"Total: {'✓' if total_correct else '✗'} ({actual_amount}), "
+                details += f"Purity: {'✓' if purity_correct else '✗'} (916), "
+                details += f"Items Count: {'✓' if items_count_correct else '✗'} ({len(actual_items)})"
+                
+                self.log_result(
+                    "Multi-Item Purchase - Different Purities",
+                    all_correct,
+                    details,
+                    {
+                        "purchase_id": purchase_id,
+                        "items_count": len(actual_items),
+                        "total_amount": actual_amount,
+                        "expected_total": 1352.174
+                    }
+                )
+                
+                return purchase_id if all_correct else None
+            else:
+                self.log_result("Multi-Item Purchase - Creation", False, f"Failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Multi-Item Purchase Different Purities", False, f"Error: {str(e)}")
+            return None
+    
+    def test_walk_in_vendor_purchase(self):
+        """Test walk-in vendor purchase (no party creation)"""
+        print("\n--- Testing Walk-in Vendor Purchase ---")
+        
+        try:
+            # Walk-in vendor purchase data
+            purchase_data = {
+                "is_walk_in": True,
+                "walk_in_vendor_name": "Ahmed Al-Mansouri",
+                "vendor_oman_id": "12345678",  # Required for walk-in
+                "description": "Gold Jewelry - Walk-in Vendor",
+                "weight_grams": 8.750,
+                "entered_purity": 916,
+                "rate_per_gram": 52.000,
+                "amount_total": 494.565,  # (8.75 × 52) ÷ 0.920 = 494.565
+                "paid_amount_money": 0.0,
+                "balance_due_money": 494.565
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/purchases", json=purchase_data)
+            
+            if response.status_code == 201:
+                purchase = response.json()
+                purchase_id = purchase.get("id")
+                
+                # Verify walk-in vendor properties
+                is_walk_in = purchase.get("is_walk_in", False)
+                vendor_party_id = purchase.get("vendor_party_id")
+                walk_in_name = purchase.get("walk_in_vendor_name", "")
+                vendor_oman_id = purchase.get("vendor_oman_id", "")
+                
+                # Validations for walk-in vendor
+                walk_in_correct = is_walk_in == True
+                no_party_id = vendor_party_id is None
+                name_correct = walk_in_name == "Ahmed Al-Mansouri"
+                oman_id_correct = vendor_oman_id == "12345678"
+                
+                all_correct = all([walk_in_correct, no_party_id, name_correct, oman_id_correct])
+                
+                details = f"Walk-in: {'✓' if walk_in_correct else '✗'} ({is_walk_in}), "
+                details += f"No Party ID: {'✓' if no_party_id else '✗'} ({vendor_party_id}), "
+                details += f"Name: {'✓' if name_correct else '✗'} ({walk_in_name}), "
+                details += f"Oman ID: {'✓' if oman_id_correct else '✗'} ({vendor_oman_id})"
+                
+                self.log_result(
+                    "Walk-in Vendor Purchase - Properties",
+                    all_correct,
+                    details,
+                    {
+                        "purchase_id": purchase_id,
+                        "is_walk_in": is_walk_in,
+                        "vendor_party_id": vendor_party_id,
+                        "walk_in_vendor_name": walk_in_name
+                    }
+                )
+                
+                return purchase_id if all_correct else None
+            else:
+                self.log_result("Walk-in Vendor Purchase - Creation", False, f"Failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Walk-in Vendor Purchase", False, f"Error: {str(e)}")
+            return None
+    
+    def test_purchase_with_payments(self):
+        """Test purchase with payment (partial and full)"""
+        print("\n--- Testing Purchase with Payments ---")
+        
+        try:
+            # Create a purchase first
+            vendor_id = self.get_or_create_test_vendor()
+            if not vendor_id:
+                return None
+            
+            purchase_data = {
+                "vendor_party_id": vendor_id,
+                "description": "Gold Purchase for Payment Testing",
+                "weight_grams": 12.000,
+                "entered_purity": 916,
+                "rate_per_gram": 48.000,
+                "amount_total": 626.087,  # (12 × 48) ÷ 0.920 = 626.087
+                "paid_amount_money": 0.0,
+                "balance_due_money": 626.087
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/purchases", json=purchase_data)
+            
+            if response.status_code == 201:
+                purchase = response.json()
+                purchase_id = purchase.get("id")
+                
+                # Test 1: Partial Payment
+                account_id = self.get_or_create_test_account()
+                if not account_id:
+                    return None
+                
+                partial_payment_data = {
+                    "payment_amount": 300.000,  # Partial payment
+                    "payment_mode": "Cash",
+                    "account_id": account_id,
+                    "notes": "Partial payment for gold purchase"
+                }
+                
+                payment_response = self.session.post(f"{BACKEND_URL}/purchases/{purchase_id}/add-payment", json=partial_payment_data)
+                
+                if payment_response.status_code == 200:
+                    updated_purchase = payment_response.json()
+                    
+                    # Verify partial payment calculations
+                    paid_amount = updated_purchase.get("paid_amount_money", 0)
+                    balance_due = updated_purchase.get("balance_due_money", 0)
+                    status = updated_purchase.get("status", "")
+                    locked = updated_purchase.get("locked", False)
+                    
+                    # Expected values after partial payment
+                    expected_paid = 300.000
+                    expected_balance = 626.087 - 300.000  # 326.087
+                    expected_status = "Partially Paid"
+                    expected_locked = False  # Not locked until balance_due = 0
+                    
+                    partial_correct = (
+                        abs(paid_amount - expected_paid) < 0.001 and
+                        abs(balance_due - expected_balance) < 0.001 and
+                        status == expected_status and
+                        locked == expected_locked
+                    )
+                    
+                    self.log_result(
+                        "Purchase Partial Payment",
+                        partial_correct,
+                        f"Paid: {paid_amount}/{expected_paid}, Balance: {balance_due:.3f}/{expected_balance:.3f}, Status: {status}, Locked: {locked}",
+                        {
+                            "paid_amount": paid_amount,
+                            "balance_due": balance_due,
+                            "status": status,
+                            "locked": locked
+                        }
+                    )
+                    
+                    # Test 2: Full Payment (complete the remaining balance)
+                    remaining_payment_data = {
+                        "payment_amount": balance_due,  # Pay remaining balance
+                        "payment_mode": "Bank Transfer",
+                        "account_id": account_id,
+                        "notes": "Final payment to complete purchase"
+                    }
+                    
+                    final_payment_response = self.session.post(f"{BACKEND_URL}/purchases/{purchase_id}/add-payment", json=remaining_payment_data)
+                    
+                    if final_payment_response.status_code == 200:
+                        final_purchase = final_payment_response.json()
+                        
+                        # Verify full payment calculations
+                        final_paid = final_purchase.get("paid_amount_money", 0)
+                        final_balance = final_purchase.get("balance_due_money", 0)
+                        final_status = final_purchase.get("status", "")
+                        final_locked = final_purchase.get("locked", False)
+                        
+                        # Expected values after full payment
+                        expected_final_paid = 626.087
+                        expected_final_balance = 0.000
+                        expected_final_status = "Paid"
+                        expected_final_locked = True  # Should be locked when balance_due = 0
+                        
+                        full_payment_correct = (
+                            abs(final_paid - expected_final_paid) < 0.001 and
+                            abs(final_balance - expected_final_balance) < 0.001 and
+                            final_status == expected_final_status and
+                            final_locked == expected_final_locked
+                        )
+                        
+                        self.log_result(
+                            "Purchase Full Payment & Locking",
+                            full_payment_correct,
+                            f"Final Paid: {final_paid:.3f}, Balance: {final_balance:.3f}, Status: {final_status}, Locked: {final_locked}",
+                            {
+                                "final_paid_amount": final_paid,
+                                "final_balance_due": final_balance,
+                                "final_status": final_status,
+                                "final_locked": final_locked
+                            }
+                        )
+                        
+                        return purchase_id if (partial_correct and full_payment_correct) else None
+                    else:
+                        self.log_result("Purchase Full Payment", False, f"Failed: {final_payment_response.status_code} - {final_payment_response.text}")
+                else:
+                    self.log_result("Purchase Partial Payment", False, f"Failed: {payment_response.status_code} - {payment_response.text}")
+            else:
+                self.log_result("Create Purchase for Payment Testing", False, f"Failed: {response.status_code} - {response.text}")
+                
+        except Exception as e:
+            self.log_result("Purchase with Payments", False, f"Error: {str(e)}")
+            return None
         """Test GET /api/invoices/returnable?type=sales"""
         try:
             response = self.session.get(f"{BACKEND_URL}/invoices/returnable?type=sales")
