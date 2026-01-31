@@ -6119,8 +6119,8 @@ async def add_payment_to_invoice(
             created_by=current_user.id
         )
         
-        # Insert debit transaction
-        await db.transactions.insert_one(debit_transaction.model_dump())
+        # Insert debit transaction with Decimal128 conversion
+        await db.transactions.insert_one(convert_transaction_to_decimal(debit_transaction.model_dump()))
         
         # Update Cash/Bank account balance (increase for debit on asset)
         await db.accounts.update_one(
