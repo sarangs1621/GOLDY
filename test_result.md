@@ -2572,6 +2572,142 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      🚀 STARTING BACKEND TESTING FOR PURCHASE MODULE ENHANCEMENTS
+      
+      TESTING AGENT - PLEASE TEST THE FOLLOWING SCENARIOS:
+      ================================================================================
+      
+      **AUTHENTICATION SETUP:**
+      - Use existing admin user or create test user with purchases.create permission
+      - Login and get auth token for all API calls
+      
+      **TEST SCENARIO 1: Shop Settings - Conversion Factor**
+      - GET /api/settings/shop
+      - Verify purchase_conversion_factor exists (should be 0.920)
+      - Test updating: PUT /api/settings/shop with purchase_conversion_factor: 0.917
+      - Verify the change persists
+      
+      **TEST SCENARIO 2: Single-Item Purchase (Legacy Compatibility)**
+      - Create a test vendor party if needed
+      - POST /api/purchases with single item:
+        ```json
+        {
+          "vendor_party_id": "test_vendor_id",
+          "description": "Gold Bar 24K",
+          "weight_grams": 10.500,
+          "entered_purity": 999,
+          "rate_per_gram": 50.000,
+          "paid_amount_money": 0.0
+        }
+        ```
+      - Expected: amount_total = (10.5 × 50) ÷ 0.920 = 570.652 OMR (3 decimals)
+      - Verify status = "Draft", locked = false
+      - Verify stock movement created with valuation_purity = 916
+      
+      **TEST SCENARIO 3: Multi-Item Purchase**
+      - POST /api/purchases with multiple items:
+        ```json
+        {
+          "vendor_party_id": "test_vendor_id",
+          "items": [
+            {
+              "description": "24K Gold Coins",
+              "weight_grams": 10.000,
+              "entered_purity": 999,
+              "rate_per_gram_22k": 50.000
+            },
+            {
+              "description": "22K Gold Jewelry",
+              "weight_grams": 15.500,
+              "entered_purity": 916,
+              "rate_per_gram_22k": 48.000
+            }
+          ],
+          "paid_amount_money": 0.0
+        }
+        ```
+      - Expected Item 1: (10 × 50) ÷ 0.920 = 543.478 OMR
+      - Expected Item 2: (15.5 × 48) ÷ 0.920 = 808.696 OMR
+      - Expected Total: 1352.174 OMR (3 decimals)
+      - Verify each item stored with entered_purity but valued at 916
+      - Verify separate stock movements created for each item
+      
+      **TEST SCENARIO 4: Walk-in Vendor Purchase**
+      - POST /api/purchases with walk-in vendor:
+        ```json
+        {
+          "is_walk_in": true,
+          "vendor_oman_id": "12345678",
+          "walk_in_vendor_name": "Ahmed Al-Balushi",
+          "description": "Gold Bangles",
+          "weight_grams": 20.000,
+          "entered_purity": 916,
+          "rate_per_gram": 45.000,
+          "paid_amount_money": 0.0
+        }
+        ```
+      - Expected: amount_total = (20 × 45) ÷ 0.920 = 978.261 OMR
+      - Verify vendor_party_id = None
+      - Verify NO gold ledger entry created
+      - Verify NO vendor payable transaction
+      - Verify stock movement created correctly
+      
+      **TEST SCENARIO 5: Purchase with Payment**
+      - Create purchase with partial payment:
+        ```json
+        {
+          "vendor_party_id": "test_vendor_id",
+          "weight_grams": 5.000,
+          "entered_purity": 916,
+          "rate_per_gram": 50.000,
+          "paid_amount_money": 150.000,
+          "payment_mode": "Cash",
+          "account_id": "test_cash_account_id"
+        }
+        ```
+      - Expected: amount_total = (5 × 50) ÷ 0.920 = 271.739 OMR
+      - Expected: balance_due_money = 271.739 - 150.000 = 121.739 OMR
+      - Expected: status = "Partially Paid", locked = false
+      - Verify payment transaction created (CREDIT to cash account)
+      
+      **TEST SCENARIO 6: 3-Decimal Precision Verification**
+      - For all above tests, verify:
+        * weight_grams: 3 decimals (e.g., 10.125)
+        * rate_per_gram: 3 decimals (e.g., 50.750)
+        * calculated_amount: 3 decimals (e.g., 543.478)
+        * amount_total: 3 decimals
+        * paid_amount_money: 3 decimals
+        * balance_due_money: 3 decimals
+      
+      **TEST SCENARIO 7: Validation Tests**
+      - Test without vendor_party_id and is_walk_in=false → Should fail
+      - Test walk-in without vendor_oman_id → Should fail with "Customer ID required"
+      - Test walk-in without walk_in_vendor_name → Should fail with "Vendor name required"
+      - Test with weight_grams = 0 → Should fail
+      - Test with rate_per_gram = 0 → Should fail
+      - Test multi-item with invalid purity → Should fail
+      
+      **CRITICAL VERIFICATIONS:**
+      1. ✅ All purchases use 22K (916) valuation regardless of entered purity
+      2. ✅ Formula applied: amount = (weight × rate) ÷ conversion_factor
+      3. ✅ Conversion factor from settings used correctly
+      4. ✅ Multiple items create multiple stock movements
+      5. ✅ Walk-in vendors don't create party/ledger/payables
+      6. ✅ 3-decimal precision maintained throughout
+      7. ✅ Legacy single-item purchases still work
+      8. ✅ Status calculation works (Draft/Partially Paid/Paid)
+      9. ✅ Locking only when balance_due = 0
+      
+      ⚠️ IMPORTANT NOTES:
+      - Test vendor party may need to be created first
+      - Test cash account may need to be created first
+      - Use GET /api/parties?party_type=vendor to find existing vendors
+      - Use GET /api/accounts to find existing accounts
+      
+      Please run comprehensive tests and report results with actual values, calculations verified, and any issues found.
+      
+  - agent: "main"
+    message: |
       ✅ GOLD SHOP ERP – PURCHASE MODULE BACKEND IMPLEMENTATION COMPLETE
       
       PHASE 1: BACKEND IMPLEMENTATION ✅ COMPLETE
