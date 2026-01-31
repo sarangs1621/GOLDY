@@ -65,6 +65,52 @@ async def initialize_database():
         else:
             print("✅ Staff user already exists")
         
+        # Seed default work types if none exist
+        work_type_count = await db.work_types.count_documents({"is_deleted": False})
+        if work_type_count == 0:
+            default_work_types = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Polish",
+                    "description": "Polishing work",
+                    "is_active": True,
+                    "created_at": datetime.now(timezone.utc),
+                    "created_by": "system",
+                    "is_deleted": False
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Resize",
+                    "description": "Resizing work",
+                    "is_active": True,
+                    "created_at": datetime.now(timezone.utc),
+                    "created_by": "system",
+                    "is_deleted": False
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Repair",
+                    "description": "Repair work",
+                    "is_active": True,
+                    "created_at": datetime.now(timezone.utc),
+                    "created_by": "system",
+                    "is_deleted": False
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Custom",
+                    "description": "Custom work",
+                    "is_active": True,
+                    "created_at": datetime.now(timezone.utc),
+                    "created_by": "system",
+                    "is_deleted": False
+                }
+            ]
+            await db.work_types.insert_many(default_work_types)
+            print("✅ Default work types created (Polish, Resize, Repair, Custom)")
+        else:
+            print(f"✅ Work types already exist ({work_type_count} types)")
+        
         print("✅ Database initialization complete\n")
         
         client.close()
