@@ -274,6 +274,7 @@ export default function PurchasesPage() {
       setEditingPurchase(purchase);
       setIsWalkIn(purchase.is_walk_in || false);
       setIsMultipleItems(purchase.items && purchase.items.length > 0);
+      setSelectedConversionFactor(purchase.conversion_factor ? purchase.conversion_factor.toString() : '0.920');
       
       if (purchase.items && purchase.items.length > 0) {
         setItems(purchase.items);
@@ -304,6 +305,7 @@ export default function PurchasesPage() {
       setEditingPurchase(null);
       setIsWalkIn(false);
       setIsMultipleItems(false);
+      setSelectedConversionFactor('0.920'); // Default to 0.920 for new purchases
       setItems([
         { id: '1', description: '', weight_grams: '', entered_purity: '916', rate_per_gram_22k: '', calculated_amount: 0 }
       ]);
