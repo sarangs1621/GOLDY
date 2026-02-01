@@ -5024,6 +5024,27 @@ async def convert_jobcard_to_invoice(jobcard_id: str, invoice_data: dict, curren
     # MODULE 7: Calculate grand total = taxable + VAT
     grand_total = round(taxable + vat_total, 3)
     
+    # Calculate gold settlement deductions from job card
+    advance_gold_value = 0.0
+    exchange_gold_value = 0.0
+    
+    advance_grams = jobcard.get('advance_in_gold_grams')
+    advance_rate = jobcard.get('advance_gold_rate')
+    if advance_grams and advance_rate and advance_grams > 0 and advance_rate > 0:
+        advance_gold_value = round(float(advance_grams) * float(advance_rate), 3)
+    
+    exchange_grams = jobcard.get('exchange_in_gold_grams')
+    exchange_rate = jobcard.get('exchange_gold_rate')
+    if exchange_grams and exchange_rate and exchange_grams > 0 and exchange_rate > 0:
+        exchange_gold_value = round(float(exchange_grams) * float(exchange_rate), 3)
+    
+    # Adjust balance_due by deducting gold settlement values
+    balance_due = round(grand_total - advance_gold_value - exchange_gold_value, 3)
+    
+    # Ensure balance_due doesn't go negative
+    if balance_due < 0:
+        balance_due = 0.0
+    
     # Second pass: Finalize invoice items with proportional VAT distribution
     # VAT is distributed proportionally across items based on their subtotal contribution
     final_invoice_items = []
