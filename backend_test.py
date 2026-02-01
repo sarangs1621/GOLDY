@@ -141,7 +141,527 @@ class BackendTester:
         self.test_status_calculation_and_locking()
     
     
-    def test_shop_settings_conversion_factor(self):
+    def test_create_jobcard_with_gold_settlement(self):
+        """Test creating a job card with gold settlement fields"""
+        print("\n--- Testing Create Job Card with Gold Settlement ---")
+        
+        try:
+            # Get or create customer and worker
+            customer_id = self.get_or_create_test_customer()
+            worker_id = self.get_or_create_test_worker()
+            
+            if not customer_id or not worker_id:
+                return None
+            
+            # Create job card with gold settlement as per test requirements
+            jobcard_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "worker_id": worker_id,
+                "items": [
+                    {
+                        "category": "Rings",
+                        "description": "Gold Ring Repair with Settlement",
+                        "qty": 1,
+                        "weight_in": 15.500,
+                        "purity": 916,
+                        "work_type": "Repair",
+                        "making_charge_type": "flat",
+                        "making_charge_value": 50.00,
+                        "vat_percent": 5.0
+                    }
+                ],
+                # Gold Settlement fields as per test requirements
+                "advance_in_gold_grams": 5.500,  # 3 decimal precision
+                "advance_gold_rate": 25.00,      # 2 decimal precision
+                "exchange_in_gold_grams": 3.250, # 3 decimal precision
+                "exchange_gold_rate": 24.50,     # 2 decimal precision
+                "notes": "Job card with gold settlement for testing"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/jobcards", json=jobcard_data)
+            
+            if response.status_code == 201:
+                result = response.json()
+                jobcard_id = result.get("id")
+                
+                # Verify the job card was created and retrieve it
+                get_response = self.session.get(f"{BACKEND_URL}/jobcards/{jobcard_id}")
+                
+                if get_response.status_code == 200:
+                    jobcard = get_response.json()
+                    
+                    # Verify gold settlement values with proper precision
+                    advance_grams = jobcard.get("advance_in_gold_grams")
+                    advance_rate = jobcard.get("advance_gold_rate")
+                    exchange_grams = jobcard.get("exchange_in_gold_grams")
+                    exchange_rate = jobcard.get("exchange_gold_rate")
+                    
+                    # Precision checks (3 decimals for grams, 2 decimals for rates)
+                    advance_grams_correct = abs(advance_grams - 5.500) < 0.001 if advance_grams else False
+                    advance_rate_correct = abs(advance_rate - 25.00) < 0.01 if advance_rate else False
+                    exchange_grams_correct = abs(exchange_grams - 3.250) < 0.001 if exchange_grams else False
+                    exchange_rate_correct = abs(exchange_rate - 24.50) < 0.01 if exchange_rate else False
+                    
+                    all_correct = all([advance_grams_correct, advance_rate_correct, 
+                                     exchange_grams_correct, exchange_rate_correct])
+                    
+                    details = f"Advance: {advance_grams}g @ {advance_rate} OMR/g ({'✓' if advance_grams_correct and advance_rate_correct else '✗'}), "
+                    details += f"Exchange: {exchange_grams}g @ {exchange_rate} OMR/g ({'✓' if exchange_grams_correct and exchange_rate_correct else '✗'})"
+                    
+                    self.log_result(
+                        "Create Job Card with Gold Settlement",
+                        all_correct,
+                        details,
+                        {
+                            "jobcard_id": jobcard_id,
+                            "advance_in_gold_grams": advance_grams,
+                            "advance_gold_rate": advance_rate,
+                            "exchange_in_gold_grams": exchange_grams,
+                            "exchange_gold_rate": exchange_rate,
+                            "precision_check": "3 decimals for grams, 2 decimals for rates"
+                        }
+                    )
+                    
+                    return jobcard_id if all_correct else None
+                else:
+                    self.log_result("Retrieve Created Job Card", False, f"Failed to retrieve: {get_response.status_code}")
+                    return None
+            else:
+                self.log_result("Create Job Card with Gold Settlement", False, f"Failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Create Job Card with Gold Settlement", False, f"Error: {str(e)}")
+            return None
+    
+    def test_update_jobcard_gold_settlement(self, jobcard_id):
+        """Test updating job card gold settlement values"""
+        print("\n--- Testing Update Job Card Gold Settlement ---")
+        
+        try:
+            # Update gold settlement values
+            update_data = {
+                "advance_in_gold_grams": 6.750,  # Updated value
+                "advance_gold_rate": 26.50,     # Updated value
+                "exchange_in_gold_grams": 4.125, # Updated value
+                "exchange_gold_rate": 25.75,    # Updated value
+                "notes": "Updated gold settlement values for testing"
+            }
+            
+            response = self.session.patch(f"{BACKEND_URL}/jobcards/{jobcard_id}", json=update_data)
+            
+            if response.status_code == 200:
+                # Verify the update by retrieving the job card
+                get_response = self.session.get(f"{BACKEND_URL}/jobcards/{jobcard_id}")
+                
+                if get_response.status_code == 200:
+                    updated_jobcard = get_response.json()
+                    
+                    # Verify updated values
+                    advance_grams = updated_jobcard.get("advance_in_gold_grams")
+                    advance_rate = updated_jobcard.get("advance_gold_rate")
+                    exchange_grams = updated_jobcard.get("exchange_in_gold_grams")
+                    exchange_rate = updated_jobcard.get("exchange_gold_rate")
+                    
+                    # Check if values were updated correctly
+                    advance_grams_updated = abs(advance_grams - 6.750) < 0.001 if advance_grams else False
+                    advance_rate_updated = abs(advance_rate - 26.50) < 0.01 if advance_rate else False
+                    exchange_grams_updated = abs(exchange_grams - 4.125) < 0.001 if exchange_grams else False
+                    exchange_rate_updated = abs(exchange_rate - 25.75) < 0.01 if exchange_rate else False
+                    
+                    all_updated = all([advance_grams_updated, advance_rate_updated, 
+                                     exchange_grams_updated, exchange_rate_updated])
+                    
+                    details = f"Updated Advance: {advance_grams}g @ {advance_rate} OMR/g ({'✓' if advance_grams_updated and advance_rate_updated else '✗'}), "
+                    details += f"Updated Exchange: {exchange_grams}g @ {exchange_rate} OMR/g ({'✓' if exchange_grams_updated and exchange_rate_updated else '✗'})"
+                    
+                    self.log_result(
+                        "Update Job Card Gold Settlement",
+                        all_updated,
+                        details,
+                        {
+                            "updated_advance_grams": advance_grams,
+                            "updated_advance_rate": advance_rate,
+                            "updated_exchange_grams": exchange_grams,
+                            "updated_exchange_rate": exchange_rate
+                        }
+                    )
+                    
+                    return all_updated
+                else:
+                    self.log_result("Retrieve Updated Job Card", False, f"Failed to retrieve: {get_response.status_code}")
+                    return False
+            else:
+                self.log_result("Update Job Card Gold Settlement", False, f"Failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Update Job Card Gold Settlement", False, f"Error: {str(e)}")
+            return False
+    
+    def test_convert_jobcard_to_invoice_with_gold_settlement(self, jobcard_id):
+        """Test converting job card to invoice and verify gold settlement calculations"""
+        print("\n--- Testing Convert Job Card to Invoice with Gold Settlement ---")
+        
+        try:
+            # First, complete the job card (required before conversion)
+            complete_data = {"status": "completed"}
+            complete_response = self.session.patch(f"{BACKEND_URL}/jobcards/{jobcard_id}", json=complete_data)
+            
+            if complete_response.status_code != 200:
+                self.log_result("Complete Job Card", False, f"Failed to complete job card: {complete_response.status_code}")
+                return False
+            
+            # Get the completed job card to verify gold settlement values
+            jobcard_response = self.session.get(f"{BACKEND_URL}/jobcards/{jobcard_id}")
+            if jobcard_response.status_code != 200:
+                self.log_result("Get Job Card for Conversion", False, f"Failed to get job card: {jobcard_response.status_code}")
+                return False
+            
+            jobcard = jobcard_response.json()
+            
+            # Extract gold settlement values for calculation verification
+            advance_grams = jobcard.get("advance_in_gold_grams", 0)
+            advance_rate = jobcard.get("advance_gold_rate", 0)
+            exchange_grams = jobcard.get("exchange_in_gold_grams", 0)
+            exchange_rate = jobcard.get("exchange_gold_rate", 0)
+            
+            # Calculate expected gold settlement deductions
+            # advance_gold_value = 6.750 × 26.50 = 178.875 OMR
+            # exchange_gold_value = 4.125 × 25.75 = 106.219 OMR
+            # Total deduction = 285.094 OMR
+            expected_advance_value = advance_grams * advance_rate
+            expected_exchange_value = exchange_grams * exchange_rate
+            expected_total_deduction = expected_advance_value + expected_exchange_value
+            
+            # Create invoice data for conversion
+            invoice_data = {
+                "customer_type": "saved",
+                "customer_id": jobcard.get("customer_id"),
+                "items": [
+                    {
+                        "description": "Gold Ring Repair - Converted from Job Card",
+                        "qty": 1,
+                        "gross_weight": 15.500,
+                        "stone_weight": 0.000,
+                        "net_gold_weight": 15.500,
+                        "weight": 15.500,
+                        "purity": 916,
+                        "metal_rate": 185.00,
+                        "gold_value": 2867.50,  # 15.5 * 185
+                        "making_charge_type": "flat",
+                        "making_value": 150.00,
+                        "stone_charges": 0.00,
+                        "wastage_charges": 0.00,
+                        "item_discount": 0.00,
+                        "vat_percent": 5.0,
+                        "vat_amount": 150.88,  # 5% of (2867.50 + 150.00)
+                        "line_total": 3168.38
+                    }
+                ],
+                "subtotal": 3017.50,
+                "discount_amount": 0.00,
+                "tax_type": "cgst_sgst",
+                "gst_percent": 5.0,
+                "cgst_total": 75.44,
+                "sgst_total": 75.44,
+                "vat_total": 150.88,
+                "grand_total": 3168.38,
+                "paid_amount": 0.00,
+                "balance_due": 3168.38  # This should be reduced by gold settlement
+            }
+            
+            # Convert job card to invoice
+            convert_response = self.session.post(f"{BACKEND_URL}/jobcards/{jobcard_id}/convert-to-invoice", json=invoice_data)
+            
+            if convert_response.status_code == 200:
+                conversion_result = convert_response.json()
+                invoice_id = conversion_result.get("invoice_id")
+                
+                # Get the created invoice to verify calculations
+                invoice_response = self.session.get(f"{BACKEND_URL}/invoices/{invoice_id}")
+                
+                if invoice_response.status_code == 200:
+                    invoice = invoice_response.json()
+                    
+                    # Verify gold settlement calculations
+                    actual_balance_due = invoice.get("balance_due", 0)
+                    invoice_notes = invoice.get("notes", "")
+                    
+                    # Expected balance_due = grand_total - gold_settlement_deduction
+                    expected_balance_due = 3168.38 - expected_total_deduction
+                    
+                    # Check if balance_due is calculated correctly
+                    balance_correct = abs(actual_balance_due - expected_balance_due) < 0.01
+                    
+                    # Check if notes contain gold settlement breakdown
+                    notes_contain_settlement = (
+                        "advance" in invoice_notes.lower() or 
+                        "exchange" in invoice_notes.lower() or
+                        "gold settlement" in invoice_notes.lower()
+                    )
+                    
+                    # Verify precision of calculations
+                    advance_value_precise = abs(expected_advance_value - (advance_grams * advance_rate)) < 0.001
+                    exchange_value_precise = abs(expected_exchange_value - (exchange_grams * exchange_rate)) < 0.001
+                    
+                    all_correct = balance_correct and notes_contain_settlement and advance_value_precise and exchange_value_precise
+                    
+                    details = f"Balance Due: {actual_balance_due:.3f} OMR (Expected: {expected_balance_due:.3f}) ({'✓' if balance_correct else '✗'}), "
+                    details += f"Advance Value: {expected_advance_value:.3f} OMR ({'✓' if advance_value_precise else '✗'}), "
+                    details += f"Exchange Value: {expected_exchange_value:.3f} OMR ({'✓' if exchange_value_precise else '✗'}), "
+                    details += f"Notes contain settlement: {'✓' if notes_contain_settlement else '✗'}"
+                    
+                    self.log_result(
+                        "Convert Job Card to Invoice - Gold Settlement Calculations",
+                        all_correct,
+                        details,
+                        {
+                            "invoice_id": invoice_id,
+                            "original_grand_total": 3168.38,
+                            "advance_gold_value": expected_advance_value,
+                            "exchange_gold_value": expected_exchange_value,
+                            "total_deduction": expected_total_deduction,
+                            "expected_balance_due": expected_balance_due,
+                            "actual_balance_due": actual_balance_due,
+                            "balance_calculation_correct": balance_correct,
+                            "notes_sample": invoice_notes[:100] if invoice_notes else "No notes"
+                        }
+                    )
+                    
+                    return all_correct
+                else:
+                    self.log_result("Get Created Invoice", False, f"Failed to get invoice: {invoice_response.status_code}")
+                    return False
+            else:
+                self.log_result("Convert Job Card to Invoice", False, f"Failed: {convert_response.status_code} - {convert_response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Convert Job Card to Invoice with Gold Settlement", False, f"Error: {str(e)}")
+            return False
+    
+    def test_gold_settlement_precision_validation(self):
+        """Test precision validation for gold settlement fields"""
+        print("\n--- Testing Gold Settlement Precision Validation ---")
+        
+        try:
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return
+            
+            # Test with high precision values to verify 3-decimal precision for grams
+            jobcard_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "items": [
+                    {
+                        "category": "Rings",
+                        "description": "Precision Test Job Card",
+                        "qty": 1,
+                        "weight_in": 10.000,
+                        "purity": 916,
+                        "work_type": "Polish"
+                    }
+                ],
+                # Test precision limits
+                "advance_in_gold_grams": 12.345,  # 3 decimal precision
+                "advance_gold_rate": 67.89,      # 2 decimal precision
+                "exchange_in_gold_grams": 8.765, # 3 decimal precision
+                "exchange_gold_rate": 43.21,     # 2 decimal precision
+                "notes": "Precision validation test"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/jobcards", json=jobcard_data)
+            
+            if response.status_code == 201:
+                result = response.json()
+                jobcard_id = result.get("id")
+                
+                # Retrieve and verify precision
+                get_response = self.session.get(f"{BACKEND_URL}/jobcards/{jobcard_id}")
+                
+                if get_response.status_code == 200:
+                    jobcard = get_response.json()
+                    
+                    advance_grams = jobcard.get("advance_in_gold_grams")
+                    advance_rate = jobcard.get("advance_gold_rate")
+                    exchange_grams = jobcard.get("exchange_in_gold_grams")
+                    exchange_rate = jobcard.get("exchange_gold_rate")
+                    
+                    # Verify precision is maintained
+                    precision_correct = (
+                        abs(advance_grams - 12.345) < 0.001 and
+                        abs(advance_rate - 67.89) < 0.01 and
+                        abs(exchange_grams - 8.765) < 0.001 and
+                        abs(exchange_rate - 43.21) < 0.01
+                    )
+                    
+                    self.log_result(
+                        "Gold Settlement Precision Validation",
+                        precision_correct,
+                        f"Advance: {advance_grams}g @ {advance_rate}, Exchange: {exchange_grams}g @ {exchange_rate}",
+                        {
+                            "advance_precision_check": f"{advance_grams} == 12.345",
+                            "exchange_precision_check": f"{exchange_grams} == 8.765",
+                            "rate_precision_check": f"{advance_rate} == 67.89, {exchange_rate} == 43.21"
+                        }
+                    )
+                    
+                    return precision_correct
+                else:
+                    self.log_result("Precision Validation - Get Job Card", False, f"Failed: {get_response.status_code}")
+                    return False
+            else:
+                self.log_result("Precision Validation - Create Job Card", False, f"Failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_result("Gold Settlement Precision Validation", False, f"Error: {str(e)}")
+            return False
+    
+    def test_gold_settlement_edge_cases(self):
+        """Test edge cases and error handling for gold settlement"""
+        print("\n--- Testing Gold Settlement Edge Cases ---")
+        
+        try:
+            customer_id = self.get_or_create_test_customer()
+            if not customer_id:
+                return
+            
+            # Test 1: Job card with zero gold settlement values
+            zero_settlement_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "items": [
+                    {
+                        "category": "Rings",
+                        "description": "Zero Settlement Test",
+                        "qty": 1,
+                        "weight_in": 5.000,
+                        "purity": 916,
+                        "work_type": "Repair"
+                    }
+                ],
+                "advance_in_gold_grams": 0.000,
+                "advance_gold_rate": 0.00,
+                "exchange_in_gold_grams": 0.000,
+                "exchange_gold_rate": 0.00,
+                "notes": "Zero settlement test"
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/jobcards", json=zero_settlement_data)
+            
+            zero_settlement_success = response.status_code == 201
+            
+            # Test 2: Job card with null/missing gold settlement values
+            null_settlement_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "items": [
+                    {
+                        "category": "Rings",
+                        "description": "Null Settlement Test",
+                        "qty": 1,
+                        "weight_in": 5.000,
+                        "purity": 916,
+                        "work_type": "Repair"
+                    }
+                ],
+                # Omit gold settlement fields entirely
+                "notes": "Null settlement test"
+            }
+            
+            response2 = self.session.post(f"{BACKEND_URL}/jobcards", json=null_settlement_data)
+            
+            null_settlement_success = response2.status_code == 201
+            
+            # Test 3: Job card with only partial gold settlement (advance only)
+            partial_settlement_data = {
+                "customer_type": "saved",
+                "customer_id": customer_id,
+                "items": [
+                    {
+                        "category": "Rings",
+                        "description": "Partial Settlement Test",
+                        "qty": 1,
+                        "weight_in": 5.000,
+                        "purity": 916,
+                        "work_type": "Repair"
+                    }
+                ],
+                "advance_in_gold_grams": 2.500,
+                "advance_gold_rate": 30.00,
+                # Omit exchange fields
+                "notes": "Partial settlement test"
+            }
+            
+            response3 = self.session.post(f"{BACKEND_URL}/jobcards", json=partial_settlement_data)
+            
+            partial_settlement_success = response3.status_code == 201
+            
+            all_edge_cases_passed = zero_settlement_success and null_settlement_success and partial_settlement_success
+            
+            details = f"Zero settlement: {'✓' if zero_settlement_success else '✗'}, "
+            details += f"Null settlement: {'✓' if null_settlement_success else '✗'}, "
+            details += f"Partial settlement: {'✓' if partial_settlement_success else '✗'}"
+            
+            self.log_result(
+                "Gold Settlement Edge Cases",
+                all_edge_cases_passed,
+                details,
+                {
+                    "zero_settlement": zero_settlement_success,
+                    "null_settlement": null_settlement_success,
+                    "partial_settlement": partial_settlement_success
+                }
+            )
+            
+            return all_edge_cases_passed
+            
+        except Exception as e:
+            self.log_result("Gold Settlement Edge Cases", False, f"Error: {str(e)}")
+            return False
+    
+    def get_or_create_test_worker(self):
+        """Get existing worker or create one for testing"""
+        try:
+            # Try to get existing workers
+            response = self.session.get(f"{BACKEND_URL}/workers")
+            
+            if response.status_code == 200:
+                workers = response.json()
+                if isinstance(workers, dict) and 'items' in workers:
+                    workers = workers['items']
+                
+                if workers:
+                    worker_id = workers[0].get('id')
+                    self.log_result("Get Test Worker", True, f"Using existing worker: {workers[0].get('name')}")
+                    return worker_id
+            
+            # Create new worker
+            worker_data = {
+                "name": "Mohammed Al-Kindi",
+                "phone": "+968 9123 4567",
+                "role": "Goldsmith",
+                "active": True
+            }
+            
+            response = self.session.post(f"{BACKEND_URL}/workers", json=worker_data)
+            
+            if response.status_code == 201:
+                worker = response.json()
+                worker_id = worker.get("id")
+                self.log_result("Create Test Worker", True, f"Created test worker: {worker.get('name')}")
+                return worker_id
+            else:
+                self.log_result("Create Test Worker", False, f"Failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Get/Create Test Worker", False, f"Error: {str(e)}")
+            return None
         """Test Shop Settings conversion factor GET and UPDATE"""
         print("\n--- Testing Shop Settings Conversion Factor ---")
         
