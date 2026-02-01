@@ -3739,9 +3739,22 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
     if not user_has_permission(current_user, 'purchases.create'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to create purchases")
     
-    # Get conversion factor from shop settings
-    settings = await db.shop_settings.find_one({})
-    conversion_factor = settings.get("purchase_conversion_factor", 0.920) if settings else 0.920
+    # Get conversion factor from request or shop settings
+    conversion_factor_from_request = purchase_data.get("conversion_factor")
+    
+    if conversion_factor_from_request is not None:
+        # Validate conversion factor if provided
+        try:
+            conversion_factor = float(conversion_factor_from_request)
+            if conversion_factor not in [0.920, 0.917]:
+                raise HTTPException(status_code=400, detail="Conversion factor must be either 0.920 or 0.917")
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid conversion factor value")
+    else:
+        # Fallback to shop settings
+        settings = await db.shop_settings.find_one({})
+        conversion_factor = settings.get("purchase_conversion_factor", 0.920) if settings else 0.920
+    
     purchase_data["conversion_factor"] = conversion_factor
     
     # Determine if walk-in or saved vendor
