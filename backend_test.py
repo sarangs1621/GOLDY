@@ -430,7 +430,7 @@ class BackendTester:
                     
                     return all_correct
                 else:
-                    self.log_result("Get Created Invoice", False, f"Failed to get invoice: {invoice_response.status_code}")
+                    self.log_result("Get Created Invoice", False, f"Invoice id not found in response")
                     return False
             else:
                 self.log_result("Convert Job Card to Invoice", False, f"Failed: {convert_response.status_code} - {convert_response.text}")
