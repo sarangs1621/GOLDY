@@ -14,7 +14,7 @@ import time
 BACKEND_URL = "https://dashboard-repair-53.preview.emergentagent.com/api"
 TEST_USER = {
     "username": "admin",
-    "password": "Admin@123456789"  # Try default admin password
+    "password": "admin123"  # Default admin password from init_db.py
 }
 
 class BackendTester:
