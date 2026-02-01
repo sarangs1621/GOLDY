@@ -4320,8 +4320,8 @@ async def add_payment_to_purchase(
         mode=payment_mode,
         account_id=account_id,
         account_name=account["name"],
-        party_id=purchase.vendor_party_id,
-        party_name=vendor["name"],
+        party_id=vendor_party_id,  # None for walk-in vendors
+        party_name=vendor_name,
         amount=payment_amount,
         category="Purchase Payment",
         reference_type="purchase",
