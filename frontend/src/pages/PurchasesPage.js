@@ -223,8 +223,9 @@ export default function PurchasesPage() {
         if (field === 'weight_grams' || field === 'rate_per_gram_22k') {
           const weight = parseFloat(newItem.weight_grams) || 0;
           const rate = parseFloat(newItem.rate_per_gram_22k) || 0;
-          if (weight > 0 && rate > 0) {
-            newItem.calculated_amount = parseFloat(((weight * rate) / conversionFactor).toFixed(3));
+          const factor = parseFloat(selectedConversionFactor);
+          if (weight > 0 && rate > 0 && factor > 0) {
+            newItem.calculated_amount = parseFloat(((weight * rate) / factor).toFixed(3));
           } else {
             newItem.calculated_amount = 0;
           }
@@ -236,6 +237,25 @@ export default function PurchasesPage() {
     });
     setItems(updated);
   };
+  
+  // Recalculate all items when conversion factor changes
+  useEffect(() => {
+    if (isMultipleItems) {
+      const factor = parseFloat(selectedConversionFactor);
+      const updated = items.map(item => {
+        const weight = parseFloat(item.weight_grams) || 0;
+        const rate = parseFloat(item.rate_per_gram_22k) || 0;
+        if (weight > 0 && rate > 0 && factor > 0) {
+          return {
+            ...item,
+            calculated_amount: parseFloat(((weight * rate) / factor).toFixed(3))
+          };
+        }
+        return item;
+      });
+      setItems(updated);
+    }
+  }, [selectedConversionFactor]);
 
   // Calculate total from multiple items
   useEffect(() => {
