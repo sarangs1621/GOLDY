@@ -4934,6 +4934,429 @@ class BackendTester:
             self.log_result("Oman ID Bug Fix - Complete Test Suite", False, f"Error: {str(e)}")
             return False
 
+    def test_oman_id_customer_id_fixes(self):
+        """Test the three Oman ID / Customer ID fixes in the Purchases module"""
+        print("\n" + "="*80)
+        print("🎯 TESTING OMAN ID / CUSTOMER ID FIXES - PRIMARY FOCUS")
+        print("="*80)
+        
+        print("\n📋 TEST REQUIREMENTS:")
+        print("1. Customer ID Search - Case-insensitive Partial Match")
+        print("2. Update Customer ID - Persistence")
+        print("3. Multiple Items Purchase - Edit Functionality")
+        
+        # Run all three tests
+        test1_result = self.test_customer_id_search_case_insensitive()
+        test2_result = self.test_update_customer_id_persistence()
+        test3_result = self.test_multiple_items_purchase_edit_functionality()
+        
+        all_tests_passed = all([test1_result, test2_result, test3_result])
+        
+        print(f"\n🔍 OMAN ID FIXES TEST SUMMARY:")
+        print(f"   • Customer ID Search: {'✅ PASS' if test1_result else '❌ FAIL'}")
+        print(f"   • Update Persistence: {'✅ PASS' if test2_result else '❌ FAIL'}")
+        print(f"   • Edit Functionality: {'✅ PASS' if test3_result else '❌ FAIL'}")
+        print(f"   • Overall Result: {'✅ ALL WORKING' if all_tests_passed else '❌ SOME FAILED'}")
+        
+        self.log_result(
+            "Oman ID / Customer ID Fixes - Integration Test",
+            all_tests_passed,
+            f"Search: {'✓' if test1_result else '✗'}, Update: {'✓' if test2_result else '✗'}, Edit: {'✓' if test3_result else '✗'}",
+            {
+                "customer_id_search_working": test1_result,
+                "update_persistence_working": test2_result,
+                "edit_functionality_working": test3_result,
+                "all_fixes_working": all_tests_passed
+            }
+        )
+        
+        return all_tests_passed
+    
+    def test_customer_id_search_case_insensitive(self):
+        """TEST 1: Customer ID Search - Case-insensitive Partial Match"""
+        print("\n--- TEST 1: Customer ID Search - Case-insensitive Partial Match ---")
+        
+        try:
+            # Step 1: Create a walk-in purchase with Customer ID "Oman1234" and vendor name "Ahmed"
+            purchase_data = {
+                "is_walk_in": True,
+                "walk_in_vendor_name": "Ahmed",
+                "vendor_oman_id": "Oman1234",
+                "description": "Test Purchase for Customer ID Search",
+                "weight_grams": 25.000,
+                "entered_purity": 916,
+                "rate_per_gram": 50.000,
+                "paid_amount_money": 0.0
+            }
+            
+            create_response = self.session.post(f"{BACKEND_URL}/purchases", json=purchase_data)
+            
+            if create_response.status_code != 201:
+                self.log_result("Customer ID Search - Create Test Purchase", False, f"Failed to create purchase: {create_response.status_code} - {create_response.text}")
+                return False
+            
+            created_purchase = create_response.json()
+            purchase_id = created_purchase.get("id")
+            
+            print(f"   ✓ Created test purchase with Customer ID 'Oman1234' (ID: {purchase_id})")
+            
+            # Test search scenarios
+            search_tests = [
+                {
+                    "search_term": "oman",
+                    "description": "Search by 'oman' (lowercase)",
+                    "should_find": True
+                },
+                {
+                    "search_term": "OMAN", 
+                    "description": "Search by 'OMAN' (uppercase)",
+                    "should_find": True
+                },
+                {
+                    "search_term": "1234",
+                    "description": "Search by '1234' (partial number)",
+                    "should_find": True
+                },
+                {
+                    "search_term": "xyz",
+                    "description": "Search by 'xyz' (no match)",
+                    "should_find": False
+                }
+            ]
+            
+            all_search_tests_passed = True
+            search_results = []
+            
+            for test in search_tests:
+                print(f"   Testing: {test['description']}")
+                
+                # Step 2-5: Search with different terms
+                search_response = self.session.get(f"{BACKEND_URL}/purchases?customer_id={test['search_term']}")
+                
+                if search_response.status_code == 200:
+                    data = search_response.json()
+                    purchases = data.get("data", data.get("items", data if isinstance(data, list) else []))
+                    
+                    # Check if our test purchase is found
+                    found_our_purchase = any(p.get("id") == purchase_id for p in purchases)
+                    test_passed = found_our_purchase == test["should_find"]
+                    
+                    if not test_passed:
+                        all_search_tests_passed = False
+                    
+                    status = "✓ FOUND" if found_our_purchase else "✗ NOT FOUND"
+                    expected = "SHOULD FIND" if test["should_find"] else "SHOULD NOT FIND"
+                    result_status = "✅ PASS" if test_passed else "❌ FAIL"
+                    
+                    print(f"     {status} ({expected}) - {result_status}")
+                    
+                    search_results.append({
+                        "search_term": test["search_term"],
+                        "found": found_our_purchase,
+                        "expected": test["should_find"],
+                        "passed": test_passed,
+                        "count": len(purchases)
+                    })
+                else:
+                    all_search_tests_passed = False
+                    print(f"     ❌ FAIL - API Error: {search_response.status_code}")
+                    search_results.append({
+                        "search_term": test["search_term"],
+                        "error": f"HTTP {search_response.status_code}",
+                        "passed": False
+                    })
+            
+            # Step 6: Clear the search (should show all purchases)
+            clear_response = self.session.get(f"{BACKEND_URL}/purchases")
+            clear_test_passed = False
+            if clear_response.status_code == 200:
+                data = clear_response.json()
+                all_purchases = data.get("data", data.get("items", data if isinstance(data, list) else []))
+                found_our_purchase = any(p.get("id") == purchase_id for p in all_purchases)
+                clear_test_passed = found_our_purchase
+                print(f"   Clear search: {'✓ FOUND' if found_our_purchase else '✗ NOT FOUND'} in {len(all_purchases)} total purchases")
+            
+            overall_success = all_search_tests_passed and clear_test_passed
+            
+            details = f"Search Tests: {sum(1 for r in search_results if r.get('passed', False))}/{len(search_results)} passed, "
+            details += f"Clear Search: {'✓' if clear_test_passed else '✗'}"
+            
+            self.log_result(
+                "Customer ID Search - Case-insensitive Partial Match",
+                overall_success,
+                details,
+                {
+                    "test_purchase_id": purchase_id,
+                    "search_results": search_results,
+                    "clear_search_passed": clear_test_passed,
+                    "regex_pattern_matching": "Case-insensitive partial match working" if overall_success else "Issues detected"
+                }
+            )
+            
+            return overall_success
+            
+        except Exception as e:
+            self.log_result("Customer ID Search - Case-insensitive Partial Match", False, f"Error: {str(e)}")
+            return False
+    
+    def test_update_customer_id_persistence(self):
+        """TEST 2: Update Customer ID - Persistence"""
+        print("\n--- TEST 2: Update Customer ID - Persistence ---")
+        
+        try:
+            # Step 1: Create a walk-in purchase with Customer ID "12345678" and vendor name "Ali"
+            purchase_data = {
+                "is_walk_in": True,
+                "walk_in_vendor_name": "Ali",
+                "vendor_oman_id": "12345678",
+                "description": "Test Purchase for Update Persistence",
+                "weight_grams": 30.000,
+                "entered_purity": 916,
+                "rate_per_gram": 48.000,
+                "paid_amount_money": 0.0
+            }
+            
+            create_response = self.session.post(f"{BACKEND_URL}/purchases", json=purchase_data)
+            
+            if create_response.status_code != 201:
+                self.log_result("Update Customer ID - Create Test Purchase", False, f"Failed to create purchase: {create_response.status_code} - {create_response.text}")
+                return False
+            
+            created_purchase = create_response.json()
+            purchase_id = created_purchase.get("id")
+            
+            print(f"   ✓ Created test purchase with Customer ID '12345678' (ID: {purchase_id})")
+            
+            # Step 3: Edit the purchase and change Customer ID to "87654321"
+            update_data = {
+                "vendor_oman_id": "87654321"
+            }
+            
+            # Step 4: Save the update via PATCH /api/purchases/{id}
+            update_response = self.session.patch(f"{BACKEND_URL}/purchases/{purchase_id}", json=update_data)
+            
+            if update_response.status_code != 200:
+                self.log_result("Update Customer ID - PATCH Request", False, f"Failed to update purchase: {update_response.status_code} - {update_response.text}")
+                return False
+            
+            print(f"   ✓ Updated Customer ID to '87654321'")
+            
+            # Step 5: Fetch the purchase again via GET /api/purchases/{id}
+            get_response = self.session.get(f"{BACKEND_URL}/purchases/{purchase_id}")
+            
+            if get_response.status_code != 200:
+                self.log_result("Update Customer ID - GET After Update", False, f"Failed to fetch purchase: {get_response.status_code} - {get_response.text}")
+                return False
+            
+            updated_purchase = get_response.json()
+            actual_customer_id = updated_purchase.get("vendor_oman_id")
+            
+            # Step 6: Verify Customer ID is "87654321" (not the old "12345678")
+            customer_id_updated = actual_customer_id == "87654321"
+            customer_id_not_old = actual_customer_id != "12345678"
+            
+            print(f"   Customer ID after update: '{actual_customer_id}' ({'✓' if customer_id_updated else '✗'})")
+            
+            # Step 7: Search by "87654321" → Should find the purchase
+            search_new_response = self.session.get(f"{BACKEND_URL}/purchases?customer_id=87654321")
+            found_with_new_id = False
+            if search_new_response.status_code == 200:
+                data = search_new_response.json()
+                purchases = data.get("data", data.get("items", data if isinstance(data, list) else []))
+                found_with_new_id = any(p.get("id") == purchase_id for p in purchases)
+            
+            print(f"   Search by new ID '87654321': {'✓ FOUND' if found_with_new_id else '✗ NOT FOUND'}")
+            
+            # Step 8: Search by "12345678" → Should NOT find the purchase
+            search_old_response = self.session.get(f"{BACKEND_URL}/purchases?customer_id=12345678")
+            found_with_old_id = False
+            if search_old_response.status_code == 200:
+                data = search_old_response.json()
+                purchases = data.get("data", data.get("items", data if isinstance(data, list) else []))
+                found_with_old_id = any(p.get("id") == purchase_id for p in purchases)
+            
+            print(f"   Search by old ID '12345678': {'✗ NOT FOUND' if not found_with_old_id else '✓ FOUND (ERROR!)'}")
+            
+            # Verify all conditions
+            all_conditions_met = all([
+                customer_id_updated,
+                customer_id_not_old,
+                found_with_new_id,
+                not found_with_old_id
+            ])
+            
+            details = f"Updated: {'✓' if customer_id_updated else '✗'}, "
+            details += f"Not Old: {'✓' if customer_id_not_old else '✗'}, "
+            details += f"Search New: {'✓' if found_with_new_id else '✗'}, "
+            details += f"Search Old: {'✓' if not found_with_old_id else '✗'}"
+            
+            self.log_result(
+                "Update Customer ID - Persistence",
+                all_conditions_met,
+                details,
+                {
+                    "purchase_id": purchase_id,
+                    "old_customer_id": "12345678",
+                    "new_customer_id": "87654321",
+                    "actual_customer_id": actual_customer_id,
+                    "persistence_working": all_conditions_met,
+                    "walk_in_vendor_field_updates": "Working" if all_conditions_met else "Failed"
+                }
+            )
+            
+            return all_conditions_met
+            
+        except Exception as e:
+            self.log_result("Update Customer ID - Persistence", False, f"Error: {str(e)}")
+            return False
+    
+    def test_multiple_items_purchase_edit_functionality(self):
+        """TEST 3: Multiple Items Purchase - Edit Functionality"""
+        print("\n--- TEST 3: Multiple Items Purchase - Edit Functionality ---")
+        
+        try:
+            # Step 1: Create a walk-in purchase with multiple items (at least 2 items)
+            purchase_data = {
+                "is_walk_in": True,
+                "walk_in_vendor_name": "Khalid Al-Mansouri",
+                "vendor_oman_id": "98765432",
+                "items": [
+                    {
+                        "description": "Gold Ring",
+                        "weight_grams": 15.500,
+                        "entered_purity": 916,
+                        "rate_per_gram_22k": 50.000
+                    },
+                    {
+                        "description": "Gold Chain",
+                        "weight_grams": 25.750,
+                        "entered_purity": 916,
+                        "rate_per_gram_22k": 52.000
+                    }
+                ],
+                "conversion_factor": 0.920,
+                "paid_amount_money": 0.0
+            }
+            
+            create_response = self.session.post(f"{BACKEND_URL}/purchases", json=purchase_data)
+            
+            if create_response.status_code != 201:
+                self.log_result("Multiple Items Purchase - Create", False, f"Failed to create purchase: {create_response.status_code} - {create_response.text}")
+                return False
+            
+            created_purchase = create_response.json()
+            purchase_id = created_purchase.get("id")
+            original_items = created_purchase.get("items", [])
+            original_vendor_oman_id = created_purchase.get("vendor_oman_id")
+            
+            print(f"   ✓ Created purchase with {len(original_items)} items (ID: {purchase_id})")
+            
+            # Step 2: Verify the purchase was created successfully
+            if len(original_items) < 2:
+                self.log_result("Multiple Items Purchase - Verification", False, f"Expected at least 2 items, got {len(original_items)}")
+                return False
+            
+            print(f"   ✓ Verified {len(original_items)} items created successfully")
+            
+            # Step 3: Edit the purchase and add another item (simulate what user would do)
+            # Add a third item to the existing items
+            updated_items = original_items.copy()
+            updated_items.append({
+                "description": "Gold Bracelet",
+                "weight_grams": 18.250,
+                "entered_purity": 916,
+                "rate_per_gram_22k": 49.000
+            })
+            
+            update_data = {
+                "items": updated_items
+            }
+            
+            # Step 4: Update the purchase with the new item via PATCH /api/purchases/{id}
+            update_response = self.session.patch(f"{BACKEND_URL}/purchases/{purchase_id}", json=update_data)
+            
+            if update_response.status_code != 200:
+                self.log_result("Multiple Items Purchase - Update", False, f"Failed to update purchase: {update_response.status_code} - {update_response.text}")
+                return False
+            
+            print(f"   ✓ Updated purchase to add third item")
+            
+            # Step 5: Fetch and verify all items are present (original 2 + new 1 = 3 items)
+            get_response = self.session.get(f"{BACKEND_URL}/purchases/{purchase_id}")
+            
+            if get_response.status_code != 200:
+                self.log_result("Multiple Items Purchase - Fetch After Update", False, f"Failed to fetch purchase: {get_response.status_code} - {get_response.text}")
+                return False
+            
+            updated_purchase = get_response.json()
+            final_items = updated_purchase.get("items", [])
+            final_vendor_oman_id = updated_purchase.get("vendor_oman_id")
+            
+            # Verify item count
+            items_count_correct = len(final_items) == 3
+            print(f"   Items after update: {len(final_items)}/3 ({'✓' if items_count_correct else '✗'})")
+            
+            # Step 6: Verify vendor_oman_id is still present and unchanged
+            vendor_id_preserved = final_vendor_oman_id == original_vendor_oman_id == "98765432"
+            print(f"   Vendor Oman ID preserved: '{final_vendor_oman_id}' ({'✓' if vendor_id_preserved else '✗'})")
+            
+            # Verify item details are preserved and new item is added
+            original_descriptions = [item.get("description") for item in original_items]
+            final_descriptions = [item.get("description") for item in final_items]
+            
+            original_items_preserved = all(desc in final_descriptions for desc in original_descriptions)
+            new_item_added = "Gold Bracelet" in final_descriptions
+            
+            print(f"   Original items preserved: {'✓' if original_items_preserved else '✗'}")
+            print(f"   New item added: {'✓' if new_item_added else '✗'}")
+            
+            # Verify backend accepts item updates and preserves walk-in vendor fields
+            backend_accepts_updates = update_response.status_code == 200
+            walk_in_fields_preserved = (
+                updated_purchase.get("is_walk_in") == True and
+                updated_purchase.get("walk_in_vendor_name") == "Khalid Al-Mansouri" and
+                vendor_id_preserved
+            )
+            
+            print(f"   Walk-in fields preserved: {'✓' if walk_in_fields_preserved else '✗'}")
+            
+            # Overall verification
+            all_conditions_met = all([
+                items_count_correct,
+                vendor_id_preserved,
+                original_items_preserved,
+                new_item_added,
+                backend_accepts_updates,
+                walk_in_fields_preserved
+            ])
+            
+            details = f"Items: {len(final_items)}/3 ({'✓' if items_count_correct else '✗'}), "
+            details += f"Vendor ID: {'✓' if vendor_id_preserved else '✗'}, "
+            details += f"Items Preserved: {'✓' if original_items_preserved else '✗'}, "
+            details += f"New Item: {'✓' if new_item_added else '✗'}, "
+            details += f"Walk-in Fields: {'✓' if walk_in_fields_preserved else '✗'}"
+            
+            self.log_result(
+                "Multiple Items Purchase - Edit Functionality",
+                all_conditions_met,
+                details,
+                {
+                    "purchase_id": purchase_id,
+                    "original_items_count": len(original_items),
+                    "final_items_count": len(final_items),
+                    "vendor_oman_id_preserved": vendor_id_preserved,
+                    "backend_accepts_item_updates": backend_accepts_updates,
+                    "walk_in_vendor_fields_preserved": walk_in_fields_preserved,
+                    "edit_functionality_working": all_conditions_met
+                }
+            )
+            
+            return all_conditions_met
+            
+        except Exception as e:
+            self.log_result("Multiple Items Purchase - Edit Functionality", False, f"Error: {str(e)}")
+            return False
+
 def main():
     """Main function to run Enhanced Purchase Valuation tests"""
     tester = BackendTester()
