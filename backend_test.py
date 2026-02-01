@@ -3672,9 +3672,9 @@ class BackendTester:
         print("="*80)
 
 def main():
-    """Main test execution - Focus on Job Card Gold Settlement Feature"""
-    print("Starting Job Card Gold Settlement Testing")
-    print("Testing ALL scenarios documented in test_result.md")
+    """Main test execution - Focus on Transactions Endpoint Decimal128 Fix"""
+    print("Starting Transactions Endpoint Decimal128/Float Conversion Fix Testing")
+    print("Testing the specific GET /api/transactions endpoint that was causing HTTP 520 error")
     print("="*80)
     
     tester = BackendTester()
@@ -3684,11 +3684,14 @@ def main():
         print("❌ Authentication failed. Cannot proceed with tests.")
         return
     
-    # Primary Focus: Test Job Card Gold Settlement Feature
-    tester.test_job_card_gold_settlement_feature()
+    # Primary Focus: Test Transactions Endpoint Decimal128 Fix
+    success = tester.test_transactions_endpoint_decimal128_fix()
     
     # Print summary
     tester.print_summary()
+    
+    # Return success status for test result update
+    return success
 
 if __name__ == "__main__":
     main()
