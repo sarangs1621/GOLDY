@@ -1071,6 +1071,11 @@ class JobCard(BaseModel):
     items: List[JobCardItem] = []
     notes: Optional[str] = None
     gold_rate_at_jobcard: Optional[float] = None  # MODULE 8: Gold rate at time of job card creation
+    # Gold Settlement fields (for invoice adjustment)
+    advance_in_gold_grams: Optional[float] = None  # Advance gold to deduct from invoice (3 decimals)
+    exchange_in_gold_grams: Optional[float] = None  # Exchange gold to deduct from invoice (3 decimals)
+    advance_gold_rate: Optional[float] = None  # Rate per gram for advance gold (2 decimals)
+    exchange_gold_rate: Optional[float] = None  # Rate per gram for exchange gold (2 decimals)
     locked: bool = False  # True when linked invoice is finalized
     locked_at: Optional[datetime] = None
     locked_by: Optional[str] = None
