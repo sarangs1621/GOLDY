@@ -2339,6 +2339,10 @@ async def get_stock_movements(header_id: Optional[str] = None, current_user: Use
     if header_id:
         query['header_id'] = header_id
     movements = await db.stock_movements.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    
+    # Convert Decimal128 to float for JSON serialization
+    movements = [decimal_to_float(movement) for movement in movements]
+    
     return movements
 
 @api_router.post("/inventory/movements", response_model=StockMovement, status_code=201)
@@ -5250,6 +5254,9 @@ async def get_invoices(
     
     # Get paginated results
     invoices = await db.invoices.find(query, {"_id": 0}).sort("date", -1).skip(skip).limit(page_size).to_list(page_size)
+    
+    # Convert Decimal128 to float for JSON serialization
+    invoices = [decimal_to_float(invoice) for invoice in invoices]
     
     return create_pagination_response(invoices, total_count, page, page_size)
 
