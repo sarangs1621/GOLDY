@@ -11945,38 +11945,16 @@ async def finalize_return(
             if gold_ledger_id:
                 await db.gold_ledger.delete_one({"id": gold_ledger_id})
             
-            # 5. Revert inventory header changes
-            return_doc = await db.returns.find_one({"id": return_id})
-            if return_doc:
-                return_type = return_doc.get('return_type')
-                for item in return_doc.get('items', []):
-                    if item.get('weight_grams', 0) > 0:
-                        # Reverse the inventory change
-                        qty_change = item.get('qty', 0)
-                        weight_change = round(item.get('weight_grams'), 3)
-                        
-                        if return_type == 'sale_return':
-                            # We added stock, now subtract it back
-                            await db.inventory_headers.update_one(
-                                {"name": item.get('description')},
-                                {
-                                    "$inc": {
-                                        "current_qty": -qty_change,
-                                        "current_weight": -weight_change
-                                    }
-                                }
-                            )
-                        else:  # purchase_return
-                            # We removed stock, now add it back
-                            await db.inventory_headers.update_one(
-                                {"name": item.get('description')},
-                                {
-                                    "$inc": {
-                                        "current_qty": qty_change,
-                                        "current_weight": weight_change
-                                    }
-                                }
-                            )
+            # 5. Remove pending inventory adjustments (no actual inventory was changed)
+            await db.returns.update_one(
+                {"id": return_id},
+                {
+                    "$unset": {
+                        "pending_inventory_adjustments": "",
+                        "inventory_action_status": ""
+                    }
+                }
+            )
             
             # 6. Create audit log for rollback
             await create_audit_log(
