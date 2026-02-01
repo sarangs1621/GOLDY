@@ -1476,6 +1476,26 @@ const ReturnsPage = () => {
                 </p>
               </div>
               
+              {/* CRITICAL: Manual Inventory Action Required Notice */}
+              <div className="bg-orange-50 border-2 border-orange-400 rounded-md p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <AlertTriangle className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-orange-900 mb-2">
+                      ⚠️ IMPORTANT: Manual Inventory Action Required
+                    </p>
+                    <p className="text-xs text-orange-800 mb-1">
+                      This return will <strong>NOT update inventory automatically</strong>.
+                    </p>
+                    <p className="text-xs text-orange-800">
+                      Manual inventory adjustment is required after physical inspection of returned items.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
                 <p className="text-sm font-medium text-blue-800 mb-2">Impact Summary:</p>
                 <ul className="text-sm text-blue-700 space-y-1">
