@@ -4085,10 +4085,14 @@ class BackendTester:
         print("="*80)
 
 def main():
-    """Main function to run dashboard API tests"""
+    """Main function to run Dashboard Decimal128 Fix tests"""
     tester = BackendTester()
     
-    print("🚀 STARTING DASHBOARD API TESTING")
+    print("🎯 DASHBOARD DECIMAL128 FIX - TESTING PROTOCOL")
+    print("="*80)
+    print("FOCUS: Test Outstanding Summary API Decimal128 fix")
+    print("ISSUE: balance_due Decimal128 + float TypeError causing 520 errors")
+    print("FIX: Lines 2943 and 2951-2953 - Convert Decimal128 to float")
     print("="*80)
     
     # Step 1: Authenticate
@@ -4096,12 +4100,12 @@ def main():
         print("❌ Authentication failed. Cannot proceed with testing.")
         return
     
-    # Step 2: Test Dashboard APIs
-    tester.test_dashboard_apis()
+    # Step 2: Run the focused test
+    dashboard_success = tester.test_dashboard_decimal128_fix()
     
     # Step 3: Generate Summary Report
     print("\n" + "="*80)
-    print("📊 DASHBOARD API TEST SUMMARY REPORT")
+    print("📊 DECIMAL128 FIX TEST SUMMARY REPORT")
     print("="*80)
     
     total_tests = len(tester.test_results)
@@ -4118,35 +4122,43 @@ def main():
         status = "✅ PASS" if result["success"] else "❌ FAIL"
         print(f"{status} - {result['test']}: {result['details']}")
     
-    print("\n🔍 CRITICAL FINDINGS:")
+    # Specific analysis for Decimal128 fix
+    print("\n🎯 DECIMAL128 FIX ANALYSIS:")
+    outstanding_test = next((r for r in tester.test_results if "Outstanding Summary" in r["test"]), None)
     
-    # Analyze results for dashboard issue
-    dashboard_apis = [r for r in tester.test_results if "Dashboard API" in r["test"]]
-    working_apis = [r for r in dashboard_apis if r["success"]]
-    failing_apis = [r for r in dashboard_apis if not r["success"]]
+    if outstanding_test:
+        if outstanding_test["success"]:
+            print("✅ DECIMAL128 FIX WORKING:")
+            print("   - Outstanding Summary API returns HTTP 200 (not 520)")
+            print("   - total_customer_due is a number (Decimal128 converted to float)")
+            print("   - top_10_outstanding is an array")
+            print("   - No TypeError: unsupported operand type(s) for +: 'float' and 'Decimal128'")
+            print("   - Dashboard should now display data correctly")
+        else:
+            print("❌ DECIMAL128 FIX FAILED:")
+            print(f"   - {outstanding_test['details']}")
+            if "520" in outstanding_test['details']:
+                print("   - Still getting 520 error - Decimal128 fix not working")
+            elif "TypeError" in outstanding_test['details']:
+                print("   - TypeError still occurring - check lines 2943 and 2951-2953")
     
-    if len(failing_apis) > 0:
-        print("❌ DASHBOARD ISSUE IDENTIFIED:")
-        for api in failing_apis:
-            print(f"   - {api['test']}: {api['details']}")
+    # Dashboard integration status
+    all_dashboard_working = all(
+        r["success"] for r in tester.test_results 
+        if "Dashboard API" in r["test"] or "Dashboard Decimal128" in r["test"]
+    )
     
-    if len(working_apis) == 3:
-        print("✅ All dashboard APIs are working correctly")
-        print("   - Issue may be in frontend data parsing or display logic")
-    elif len(working_apis) > 0:
-        print("⚠️  Partial dashboard API functionality:")
-        for api in working_apis:
-            print(f"   - {api['test']}: Working")
+    print(f"\n🏆 FINAL RESULT:")
+    if all_dashboard_working:
+        print("✅ DASHBOARD DECIMAL128 FIX SUCCESSFUL")
+        print("   - All 3 dashboard APIs working")
+        print("   - Dashboard should display data instead of zeros")
+    else:
+        print("❌ DASHBOARD STILL HAS ISSUES")
+        print("   - Check failed API tests above")
+        print("   - May need additional fixes")
     
-    # Check for permission issues
-    permission_test = next((r for r in tester.test_results if "Permission" in r["test"]), None)
-    if permission_test and not permission_test["success"]:
-        print("❌ PERMISSION ISSUE: Admin user may not have required permissions")
-    
-    # Check for data issues
-    data_test = next((r for r in tester.test_results if "Database Data" in r["test"]), None)
-    if data_test and not data_test["success"]:
-        print("❌ DATA ISSUE: Database appears to be empty or inaccessible")
+    return dashboard_success
     
     print("\n💡 RECOMMENDATIONS:")
     if failed_tests == 0:
