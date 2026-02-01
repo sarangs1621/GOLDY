@@ -69,76 +69,428 @@ class BackendTester:
             self.log_result("Authentication", False, f"Authentication error: {str(e)}")
             return False
     
-    def test_job_card_gold_settlement_feature(self):
-        """Test Job Card Gold Settlement feature as requested"""
+    def test_dashboard_apis(self):
+        """Test Dashboard APIs to identify why dashboard shows all zeros"""
         print("\n" + "="*80)
-        print("TESTING JOB CARD GOLD SETTLEMENT FEATURE")
+        print("TESTING DASHBOARD APIs - CRITICAL ISSUE INVESTIGATION")
         print("="*80)
         
-        # Test 1: Create Job Card with Gold Settlement
-        jobcard_id = self.test_create_jobcard_with_gold_settlement()
+        # Test the 3 critical dashboard APIs
+        print("\n🎯 CRITICAL DASHBOARD API TESTS:")
         
-        if jobcard_id:
-            # Test 2: Update Job Card Gold Settlement
-            self.test_update_jobcard_gold_settlement(jobcard_id)
-            
-            # Test 3: Convert Job Card to Invoice with Gold Settlement calculations
-            self.test_convert_jobcard_to_invoice_with_gold_settlement(jobcard_id)
+        # Test 1: GET /api/inventory/headers - Should return paginated inventory headers
+        self.test_inventory_headers_api()
+        
+        # Test 2: GET /api/inventory/stock-totals - Should return array of stock totals by category
+        self.test_inventory_stock_totals_api()
+        
+        # Test 3: GET /api/parties/outstanding-summary - Should return total_customer_due and top_10_outstanding
+        self.test_parties_outstanding_summary_api()
         
         print("\n🔍 ADDITIONAL VALIDATIONS:")
         
-        # Test 4: Precision validation for gold settlement fields
-        self.test_gold_settlement_precision_validation()
+        # Test 4: Verify database has data
+        self.test_database_data_verification()
         
-        # Test 5: Edge cases and error handling
-        self.test_gold_settlement_edge_cases()
-
-    def test_gold_shop_purchase_module(self):
-        """Test complete Gold Shop ERP Purchase Module workflow"""
-        print("\n" + "="*80)
-        print("TESTING GOLD SHOP ERP PURCHASE MODULE - ALL SCENARIOS")
-        print("="*80)
+        # Test 5: Test permission checks
+        self.test_permission_validation()
         
-        # PRIMARY FOCUS TESTS
-        print("\n🎯 PRIMARY FOCUS TESTS:")
+        # Test 6: Test response format validation
+        self.test_response_format_validation()
+    
+    def test_inventory_headers_api(self):
+        """Test GET /api/inventory/headers - Should return paginated inventory headers"""
+        print("\n--- Testing Inventory Headers API ---")
         
-        # Test 1: Shop Settings conversion factor (GET and UPDATE)
-        self.test_shop_settings_conversion_factor()
+        try:
+            # Test with default pagination
+            response = self.session.get(f"{BACKEND_URL}/inventory/headers")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check response structure
+                has_data_key = 'data' in data or 'items' in data
+                has_pagination = 'pagination' in data
+                
+                # Extract items
+                items = data.get('data', data.get('items', []))
+                total_count = 0
+                
+                if has_pagination:
+                    pagination = data.get('pagination', {})
+                    total_count = pagination.get('total_count', 0)
+                else:
+                    total_count = len(items) if isinstance(items, list) else 0
+                
+                # Verify structure matches frontend expectations
+                structure_correct = has_data_key or isinstance(items, list)
+                has_items = len(items) > 0 if isinstance(items, list) else False
+                
+                # Check individual item structure if items exist
+                item_structure_correct = True
+                if has_items and items:
+                    first_item = items[0]
+                    required_fields = ['id', 'name']
+                    item_structure_correct = all(field in first_item for field in required_fields)
+                
+                success = structure_correct and response.status_code == 200
+                
+                details = f"Status: {response.status_code}, "
+                details += f"Items: {len(items) if isinstance(items, list) else 'N/A'}, "
+                details += f"Total Count: {total_count}, "
+                details += f"Structure: {'✓' if structure_correct else '✗'}, "
+                details += f"Item Fields: {'✓' if item_structure_correct else '✗'}"
+                
+                self.log_result(
+                    "Dashboard API - Inventory Headers",
+                    success,
+                    details,
+                    {
+                        "response_structure": {
+                            "has_data_key": has_data_key,
+                            "has_pagination": has_pagination,
+                            "items_count": len(items) if isinstance(items, list) else 0,
+                            "total_count": total_count
+                        },
+                        "sample_item": items[0] if has_items else None,
+                        "full_response": data
+                    }
+                )
+                
+                return success and has_items
+            else:
+                self.log_result(
+                    "Dashboard API - Inventory Headers", 
+                    False, 
+                    f"HTTP {response.status_code}: {response.text}",
+                    {"status_code": response.status_code, "response": response.text}
+                )
+                return False
+                
+        except Exception as e:
+            self.log_result("Dashboard API - Inventory Headers", False, f"Error: {str(e)}")
+            return False
+    
+    def test_inventory_stock_totals_api(self):
+        """Test GET /api/inventory/stock-totals - Should return array of stock totals by category"""
+        print("\n--- Testing Inventory Stock Totals API ---")
         
-        # Test 2: Single-item purchase (legacy compatibility) with 22K valuation formula
-        self.test_single_item_purchase_legacy()
+        try:
+            response = self.session.get(f"{BACKEND_URL}/inventory/stock-totals")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check if response is array or has array
+                is_array = isinstance(data, list)
+                items = data if is_array else data.get('items', data.get('data', []))
+                
+                # Verify structure matches frontend expectations
+                has_items = len(items) > 0 if isinstance(items, list) else False
+                
+                # Check individual item structure if items exist
+                item_structure_correct = True
+                expected_fields = ['header_id', 'header_name', 'total_qty', 'total_weight']
+                
+                if has_items and items:
+                    first_item = items[0]
+                    item_structure_correct = all(field in first_item for field in expected_fields)
+                    
+                    # Check for Decimal128 serialization issues
+                    serialization_ok = True
+                    for field in ['total_qty', 'total_weight']:
+                        if field in first_item:
+                            value = first_item[field]
+                            if not isinstance(value, (int, float)):
+                                serialization_ok = False
+                                break
+                
+                success = response.status_code == 200 and isinstance(items, list)
+                
+                details = f"Status: {response.status_code}, "
+                details += f"Is Array: {'✓' if is_array else '✗'}, "
+                details += f"Items: {len(items) if isinstance(items, list) else 'N/A'}, "
+                details += f"Structure: {'✓' if item_structure_correct else '✗'}"
+                
+                if has_items:
+                    details += f", Sample Total Qty: {items[0].get('total_qty', 'N/A')}"
+                    details += f", Sample Total Weight: {items[0].get('total_weight', 'N/A')}"
+                
+                self.log_result(
+                    "Dashboard API - Stock Totals",
+                    success,
+                    details,
+                    {
+                        "is_array": is_array,
+                        "items_count": len(items) if isinstance(items, list) else 0,
+                        "expected_fields": expected_fields,
+                        "sample_item": items[0] if has_items else None,
+                        "full_response": data
+                    }
+                )
+                
+                return success and has_items
+            else:
+                self.log_result(
+                    "Dashboard API - Stock Totals", 
+                    False, 
+                    f"HTTP {response.status_code}: {response.text}",
+                    {"status_code": response.status_code, "response": response.text}
+                )
+                return False
+                
+        except Exception as e:
+            self.log_result("Dashboard API - Stock Totals", False, f"Error: {str(e)}")
+            return False
+    
+    def test_parties_outstanding_summary_api(self):
+        """Test GET /api/parties/outstanding-summary - Should return total_customer_due and top_10_outstanding"""
+        print("\n--- Testing Parties Outstanding Summary API ---")
         
-        # Test 3: Multi-item purchase with different purities
-        self.test_multi_item_purchase_different_purities()
+        try:
+            response = self.session.get(f"{BACKEND_URL}/parties/outstanding-summary")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check expected structure
+                has_total_due = 'total_customer_due' in data
+                has_top_10 = 'top_10_outstanding' in data
+                
+                total_due = data.get('total_customer_due', 0)
+                top_10_list = data.get('top_10_outstanding', [])
+                
+                # Verify structure matches frontend expectations
+                structure_correct = has_total_due and has_top_10
+                has_outstanding_data = total_due > 0 or len(top_10_list) > 0
+                
+                # Check top_10 item structure if exists
+                top_10_structure_correct = True
+                if top_10_list:
+                    expected_fields = ['party_id', 'party_name', 'outstanding_amount']
+                    first_item = top_10_list[0]
+                    top_10_structure_correct = all(field in first_item for field in expected_fields)
+                
+                # Check for Decimal128 serialization issues
+                serialization_ok = True
+                if isinstance(total_due, str) or (top_10_list and not isinstance(top_10_list[0].get('outstanding_amount', 0), (int, float))):
+                    serialization_ok = False
+                
+                success = response.status_code == 200 and structure_correct
+                
+                details = f"Status: {response.status_code}, "
+                details += f"Total Due: {total_due}, "
+                details += f"Top 10 Count: {len(top_10_list)}, "
+                details += f"Structure: {'✓' if structure_correct else '✗'}, "
+                details += f"Serialization: {'✓' if serialization_ok else '✗'}"
+                
+                self.log_result(
+                    "Dashboard API - Outstanding Summary",
+                    success,
+                    details,
+                    {
+                        "total_customer_due": total_due,
+                        "top_10_count": len(top_10_list),
+                        "has_outstanding_data": has_outstanding_data,
+                        "sample_top_10": top_10_list[0] if top_10_list else None,
+                        "full_response": data
+                    }
+                )
+                
+                return success and has_outstanding_data
+            else:
+                self.log_result(
+                    "Dashboard API - Outstanding Summary", 
+                    False, 
+                    f"HTTP {response.status_code}: {response.text}",
+                    {"status_code": response.status_code, "response": response.text}
+                )
+                return False
+                
+        except Exception as e:
+            self.log_result("Dashboard API - Outstanding Summary", False, f"Error: {str(e)}")
+            return False
+    
+    def test_database_data_verification(self):
+        """Verify database has data by testing related endpoints"""
+        print("\n--- Testing Database Data Verification ---")
         
-        # Test 4: Walk-in vendor purchase (no party creation)
-        self.test_walk_in_vendor_purchase()
+        try:
+            # Test 1: Check if we have inventory headers
+            headers_response = self.session.get(f"{BACKEND_URL}/inventory/headers?page=1&page_size=50")
+            headers_count = 0
+            if headers_response.status_code == 200:
+                headers_data = headers_response.json()
+                items = headers_data.get('data', headers_data.get('items', []))
+                headers_count = len(items) if isinstance(items, list) else 0
+            
+            # Test 2: Check if we have parties
+            parties_response = self.session.get(f"{BACKEND_URL}/parties?page=1&page_size=50")
+            parties_count = 0
+            if parties_response.status_code == 200:
+                parties_data = parties_response.json()
+                items = parties_data.get('data', parties_data.get('items', []))
+                parties_count = len(items) if isinstance(items, list) else 0
+            
+            # Test 3: Check if we have invoices
+            invoices_response = self.session.get(f"{BACKEND_URL}/invoices?page=1&page_size=50")
+            invoices_count = 0
+            if invoices_response.status_code == 200:
+                invoices_data = invoices_response.json()
+                items = invoices_data.get('data', invoices_data.get('items', []))
+                invoices_count = len(items) if isinstance(items, list) else 0
+            
+            # Test 4: Check if we have users
+            users_response = self.session.get(f"{BACKEND_URL}/users")
+            users_count = 0
+            if users_response.status_code == 200:
+                users_data = users_response.json()
+                items = users_data.get('data', users_data.get('items', users_data if isinstance(users_data, list) else []))
+                users_count = len(items) if isinstance(items, list) else 0
+            
+            has_data = headers_count > 0 or parties_count > 0 or invoices_count > 0 or users_count > 0
+            
+            details = f"Headers: {headers_count}, Parties: {parties_count}, Invoices: {invoices_count}, Users: {users_count}"
+            
+            self.log_result(
+                "Database Data Verification",
+                has_data,
+                details,
+                {
+                    "inventory_headers": headers_count,
+                    "parties": parties_count,
+                    "invoices": invoices_count,
+                    "users": users_count,
+                    "has_data": has_data
+                }
+            )
+            
+            return has_data
+            
+        except Exception as e:
+            self.log_result("Database Data Verification", False, f"Error: {str(e)}")
+            return False
+    
+    def test_permission_validation(self):
+        """Test if permission checks are working correctly for admin user"""
+        print("\n--- Testing Permission Validation ---")
         
-        # Test 5: Purchase with payment (partial and full)
-        self.test_purchase_with_payments()
+        try:
+            # Test user info to verify admin permissions
+            user_response = self.session.get(f"{BACKEND_URL}/auth/me")
+            
+            if user_response.status_code == 200:
+                user_data = user_response.json()
+                user_role = user_data.get('role', '')
+                user_permissions = user_data.get('permissions', [])
+                
+                # Check if user has required permissions
+                required_permissions = ['inventory.view', 'parties.view']
+                has_inventory_perm = 'inventory.view' in user_permissions or user_role == 'admin'
+                has_parties_perm = 'parties.view' in user_permissions or user_role == 'admin'
+                
+                permissions_ok = has_inventory_perm and has_parties_perm
+                
+                details = f"Role: {user_role}, "
+                details += f"Inventory Perm: {'✓' if has_inventory_perm else '✗'}, "
+                details += f"Parties Perm: {'✓' if has_parties_perm else '✗'}, "
+                details += f"Total Permissions: {len(user_permissions)}"
+                
+                self.log_result(
+                    "Permission Validation",
+                    permissions_ok,
+                    details,
+                    {
+                        "user_role": user_role,
+                        "permissions_count": len(user_permissions),
+                        "has_required_permissions": permissions_ok,
+                        "sample_permissions": user_permissions[:5] if user_permissions else []
+                    }
+                )
+                
+                return permissions_ok
+            else:
+                self.log_result(
+                    "Permission Validation", 
+                    False, 
+                    f"Failed to get user info: {user_response.status_code}",
+                    {"status_code": user_response.status_code}
+                )
+                return False
+                
+        except Exception as e:
+            self.log_result("Permission Validation", False, f"Error: {str(e)}")
+            return False
+    
+    def test_response_format_validation(self):
+        """Test response format validation and serialization"""
+        print("\n--- Testing Response Format Validation ---")
         
-        # Test 6: Verify 3-decimal precision for all money and weight fields
-        self.test_decimal_precision_verification()
-        
-        # Test 7: Test all validation scenarios (missing fields, invalid values)
-        self.test_purchase_validation_scenarios()
-        
-        print("\n🔍 CRITICAL VALIDATIONS:")
-        
-        # Test 8: Formula verification: amount = (weight × rate_per_gram_22k) ÷ conversion_factor
-        self.test_formula_verification()
-        
-        # Test 9: All purchases valued at 916 purity regardless of entered purity
-        self.test_purity_valuation_rule()
-        
-        # Test 10: Multiple items create separate stock movements
-        self.test_stock_movements_verification()
-        
-        # Test 11: Walk-in vendors: No party_id, no gold ledger, no payables
-        self.test_walk_in_vendor_restrictions()
-        
-        # Test 12: Status calculation and locking rules
-        self.test_status_calculation_and_locking()
+        try:
+            # Test each API for proper JSON serialization
+            apis_to_test = [
+                ("inventory/headers", "Inventory Headers"),
+                ("inventory/stock-totals", "Stock Totals"),
+                ("parties/outstanding-summary", "Outstanding Summary")
+            ]
+            
+            all_serialized_correctly = True
+            serialization_results = {}
+            
+            for endpoint, name in apis_to_test:
+                try:
+                    response = self.session.get(f"{BACKEND_URL}/{endpoint}")
+                    
+                    if response.status_code == 200:
+                        # Try to parse JSON
+                        data = response.json()
+                        
+                        # Check for common serialization issues
+                        json_str = json.dumps(data)  # This will fail if there are serialization issues
+                        
+                        serialization_results[name] = {
+                            "status": "✓ OK",
+                            "size": len(json_str),
+                            "type": type(data).__name__
+                        }
+                    else:
+                        serialization_results[name] = {
+                            "status": f"✗ HTTP {response.status_code}",
+                            "size": 0,
+                            "type": "error"
+                        }
+                        all_serialized_correctly = False
+                        
+                except json.JSONDecodeError as je:
+                    serialization_results[name] = {
+                        "status": f"✗ JSON Error: {str(je)}",
+                        "size": 0,
+                        "type": "json_error"
+                    }
+                    all_serialized_correctly = False
+                except Exception as e:
+                    serialization_results[name] = {
+                        "status": f"✗ Error: {str(e)}",
+                        "size": 0,
+                        "type": "error"
+                    }
+                    all_serialized_correctly = False
+            
+            details = ", ".join([f"{name}: {result['status']}" for name, result in serialization_results.items()])
+            
+            self.log_result(
+                "Response Format Validation",
+                all_serialized_correctly,
+                details,
+                serialization_results
+            )
+            
+            return all_serialized_correctly
+            
+        except Exception as e:
+            self.log_result("Response Format Validation", False, f"Error: {str(e)}")
+            return False
     
     
     def test_create_jobcard_with_gold_settlement(self):
