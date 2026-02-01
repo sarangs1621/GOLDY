@@ -12043,6 +12043,9 @@ backend:
       - working: "needs_testing"
         agent: "main"
         comment: "✅ FIXED - Root cause identified at line 4282-4284 in server.py. The add_payment_to_purchase endpoint was trying to fetch vendor from parties collection using vendor_party_id even for walk-in vendors. For walk-in vendors, vendor_party_id is None, causing query to fail and raise 'Vendor not found' HTTPException. FIX APPLIED: Added conditional logic to check purchase.is_walk_in flag. If walk-in vendor: use walk_in_vendor_name directly and set vendor_party_id to None. If saved vendor: fetch from parties collection as before. Updated transaction creation (line 4323-4324) to use the vendor_name and vendor_party_id variables instead of accessing vendor dict directly. Backend restarted successfully. Ready for testing with walk-in vendor purchases."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ ADDITIONAL FIX - User reported payment still failing. Backend logs showed Pydantic ValidationError at line 4244: Purchase model cannot validate Decimal128 values from MongoDB (expected float type). Added decimal_to_float() conversion before creating Purchase object (line 4245). This converts all Decimal128 monetary and weight fields to regular Python floats for Pydantic validation. Backend restarted successfully. Both fixes now in place: (1) Walk-in vendor handling, (2) Decimal128 serialization. Ready for testing."
 
 metadata:
   created_by: "main_agent"
