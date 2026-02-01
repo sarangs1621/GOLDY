@@ -2939,7 +2939,8 @@ async def create_party(request: Request, party_data: dict, current_user: User = 
 async def get_outstanding_summary(current_user: User = Depends(require_permission('parties.view'))):
     invoices = await db.invoices.find({"is_deleted": False, "payment_status": {"$ne": "paid"}}, {"_id": 0}).to_list(10000)
     
-    total_customer_due = sum(inv.get('balance_due', 0) for inv in invoices)
+    # Convert Decimal128 to float before sum operation
+    total_customer_due = sum(float(inv.get('balance_due', 0)) if isinstance(inv.get('balance_due'), Decimal128) else inv.get('balance_due', 0) for inv in invoices)
     
     party_outstanding = {}
     for inv in invoices:
@@ -2947,7 +2948,11 @@ async def get_outstanding_summary(current_user: User = Depends(require_permissio
         if cid:
             if cid not in party_outstanding:
                 party_outstanding[cid] = {"customer_id": cid, "customer_name": inv.get('customer_name', ''), "outstanding": 0}
-            party_outstanding[cid]['outstanding'] += inv.get('balance_due', 0)
+            # Convert Decimal128 to float before addition
+            balance_due = inv.get('balance_due', 0)
+            if isinstance(balance_due, Decimal128):
+                balance_due = float(balance_due)
+            party_outstanding[cid]['outstanding'] += balance_due
     
     top_10 = sorted(party_outstanding.values(), key=lambda x: x['outstanding'], reverse=True)[:10]
     
