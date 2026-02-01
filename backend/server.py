@@ -2940,7 +2940,7 @@ async def get_outstanding_summary(current_user: User = Depends(require_permissio
     invoices = await db.invoices.find({"is_deleted": False, "payment_status": {"$ne": "paid"}}, {"_id": 0}).to_list(10000)
     
     # Convert Decimal128 to float before sum operation
-    total_customer_due = sum(float(inv.get('balance_due', 0)) if isinstance(inv.get('balance_due'), Decimal128) else inv.get('balance_due', 0) for inv in invoices)
+    total_customer_due = sum(float(inv.get('balance_due', 0).to_decimal()) if isinstance(inv.get('balance_due'), Decimal128) else inv.get('balance_due', 0) for inv in invoices)
     
     party_outstanding = {}
     for inv in invoices:
