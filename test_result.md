@@ -12145,3 +12145,114 @@ agent_communication:
       - Full balance payments
       
       Ready for user testing.
+
+
+user_problem_statement: |
+  Invoice Finalize Impact - Decimal128 Serialization Error
+  - User reports "Failed to load confirmation data" when trying to finalize invoices
+  - Backend error: TypeError: unsupported operand type(s) for *: 'Decimal128' and 'int'
+  - Issue occurs at line 10696 in get_invoice_finalize_impact endpoint
+  - When calculating total weight, trying to multiply Decimal128 weight with integer qty
+
+backend:
+  - task: "Fix Decimal128 arithmetic in get_invoice_finalize_impact"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT - Failed to load confirmation data when trying to finalize invoices. Backend logs show TypeError: unsupported operand type(s) for *: 'Decimal128' and 'int' at line 10696."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Root cause: Even though decimal_to_float() is called on the invoice, nested items in the array may still contain Decimal128 objects. Changed from sum comprehension to explicit loop with proper Decimal128 handling. Lines 10698-10710: Added for loop that checks each weight and qty value for Decimal128 type and converts to float before arithmetic. Also applied same fix to get_invoice_delete_impact endpoint (lines 10725-10737) which had identical issue."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Fix Decimal128 arithmetic in get_invoice_finalize_impact"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "critical"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      🐛 INVOICE FINALIZE IMPACT - DECIMAL128 SERIALIZATION FIX
+      
+      PROBLEM:
+      ========
+      - User clicking "Finalize" button on invoice
+      - Frontend calls /api/invoices/{id}/finalize-impact to show confirmation dialog
+      - Backend crashes with TypeError: unsupported operand type(s) for *: 'Decimal128' and 'int'
+      - Confirmation dialog shows "Failed to load confirmation data"
+      
+      ROOT CAUSE:
+      ===========
+      At line 10696 in get_invoice_finalize_impact:
+      ```python
+      total_weight = sum(item.get("weight", 0) * item.get("qty", 1) for item in items)
+      ```
+      
+      Even though decimal_to_float(invoice) is called at line 10691, it appears that:
+      1. Nested items array may still contain Decimal128 objects
+      2. MongoDB driver behavior may vary in deserialization
+      3. Python cannot multiply Decimal128 × int directly
+      
+      FIX APPLIED:
+      ============
+      Changed from sum comprehension to explicit loop with Decimal128 handling:
+      
+      Lines 10698-10710:
+      ```python
+      total_weight = 0
+      for item in items:
+          weight = item.get("weight", 0)
+          qty = item.get("qty", 1)
+          # Handle any remaining Decimal128 objects
+          if isinstance(weight, Decimal128):
+              weight = float(weight.to_decimal())
+          if isinstance(qty, Decimal128):
+              qty = float(qty.to_decimal())
+          total_weight += float(weight) * float(qty)
+      ```
+      
+      ALSO FIXED:
+      ===========
+      Applied same fix to get_invoice_delete_impact endpoint (lines 10725-10737)
+      which had identical calculation and same vulnerability.
+      
+      SIMILAR PATTERN:
+      ================
+      This is the same issue that was fixed in get_return_finalize_impact endpoint.
+      All impact endpoints now have consistent Decimal128 handling.
+      
+      TESTING SCENARIOS:
+      ==================
+      1. Create draft invoice with items (from job card or manual)
+      2. Click "Finalize" button
+      3. Confirmation dialog should load successfully showing:
+         - Invoice number
+         - Item count
+         - Total weight (calculated correctly)
+         - Grand total
+         - Warning message
+      4. Confirm finalization should proceed normally
+      5. Try deleting a draft invoice - delete impact dialog should also work
+      
+      SERVICES STATUS:
+      ================
+      ✅ Backend: Restarted successfully, running on port 8001
+      ✅ Frontend: Running on port 3000
+      ✅ MongoDB: Running
+      
+      Ready for testing!
+
