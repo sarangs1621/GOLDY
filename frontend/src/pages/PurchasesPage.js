@@ -202,7 +202,7 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     loadPurchases();
-  }, [filterVendor, filterStatus, startDate, endDate, currentPage]);
+  }, [filterVendor, filterStatus, filterWalkIn, searchCustomerId, startDate, endDate, currentPage]);
 
   // Helper functions for multiple items
   const addItem = () => {
