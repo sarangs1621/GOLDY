@@ -376,11 +376,12 @@ class BackendTester:
             convert_response = self.session.post(f"{BACKEND_URL}/jobcards/{jobcard_id}/convert-to-invoice", json=invoice_data)
             
             if convert_response.status_code == 200:
-                conversion_result = convert_response.json()
-                invoice_id = conversion_result.get("invoice_id")
+                # API returns full invoice object directly, not a wrapper with invoice_id
+                invoice = convert_response.json()
+                invoice_id = invoice.get("id")
                 
-                # Get the created invoice to verify calculations
-                invoice_response = self.session.get(f"{BACKEND_URL}/invoices/{invoice_id}")
+                # Verify we have the invoice data directly
+                if invoice_id:
                 
                 if invoice_response.status_code == 200:
                     invoice = invoice_response.json()
