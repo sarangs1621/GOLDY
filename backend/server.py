@@ -2951,7 +2951,7 @@ async def get_outstanding_summary(current_user: User = Depends(require_permissio
             # Convert Decimal128 to float before addition
             balance_due = inv.get('balance_due', 0)
             if isinstance(balance_due, Decimal128):
-                balance_due = float(balance_due)
+                balance_due = float(balance_due.to_decimal())
             party_outstanding[cid]['outstanding'] += balance_due
     
     top_10 = sorted(party_outstanding.values(), key=lambda x: x['outstanding'], reverse=True)[:10]
