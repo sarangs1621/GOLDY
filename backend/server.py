@@ -5086,7 +5086,7 @@ async def convert_jobcard_to_invoice(jobcard_id: str, invoice_data: dict, curren
         "discount_amount": discount_amount,  # MODULE 7: Include discount
         "vat_total": vat_total,
         "grand_total": grand_total,
-        "balance_due": grand_total,
+        "balance_due": balance_due,  # Adjusted for gold settlement
         "jobcard_id": jobcard_id,
         "worker_id": jobcard.get("worker_id"),  # Carry forward worker_id from job card
         "worker_name": jobcard.get("worker_name"),  # Carry forward worker_name from job card
