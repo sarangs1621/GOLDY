@@ -1222,31 +1222,39 @@ class BackendTester:
                 data = customer_id_response.json()
                 customer_id_purchases = data.get("data", data.get("items", data if isinstance(data, list) else []))
             
-            # Validations
+            # Validations - FIXED: More robust filtering checks
             all_purchases_found = len(all_purchases) >= 2
-            walk_in_filter_works = any(p.get("is_walk_in") == True for p in walk_in_purchases)
-            saved_filter_works = any(p.get("vendor_party_id") is not None for p in saved_purchases)
-            customer_id_search_works = any(p.get("vendor_oman_id") == "87654321" for p in customer_id_purchases)
             
-            # Check that walk-in filter excludes saved vendors
-            walk_in_filter_excludes_saved = not any(p.get("vendor_party_id") is not None for p in walk_in_purchases)
+            # Walk-in filter should only return walk-in purchases
+            walk_in_filter_works = (
+                len(walk_in_purchases) > 0 and
+                all(p.get("is_walk_in") == True for p in walk_in_purchases) and
+                all(p.get("vendor_party_id") is None for p in walk_in_purchases)
+            )
             
-            # Check that saved filter excludes walk-in
-            saved_filter_excludes_walk_in = not any(p.get("is_walk_in") == True for p in saved_purchases)
+            # Saved filter should only return saved vendor purchases
+            saved_filter_works = (
+                len(saved_purchases) > 0 and
+                all(p.get("vendor_party_id") is not None for p in saved_purchases)
+            )
+            
+            # Customer ID search should return purchases with matching Oman ID
+            customer_id_search_works = (
+                len(customer_id_purchases) > 0 and
+                all(p.get("vendor_oman_id") == "87654321" for p in customer_id_purchases)
+            )
             
             all_correct = all([
                 all_purchases_found,
                 walk_in_filter_works,
                 saved_filter_works,
-                customer_id_search_works,
-                walk_in_filter_excludes_saved,
-                saved_filter_excludes_walk_in
+                customer_id_search_works
             ])
             
             details = f"All: {len(all_purchases)} ({'✓' if all_purchases_found else '✗'}), "
-            details += f"Walk-in Filter: {len(walk_in_purchases)} ({'✓' if walk_in_filter_works else '✗'}), "
-            details += f"Saved Filter: {len(saved_purchases)} ({'✓' if saved_filter_works else '✗'}), "
-            details += f"Customer ID Search: {len(customer_id_purchases)} ({'✓' if customer_id_search_works else '✗'})"
+            details += f"Walk-in Filter: {len(walk_in_purchases)} items ({'✓' if walk_in_filter_works else '✗'}), "
+            details += f"Saved Filter: {len(saved_purchases)} items ({'✓' if saved_filter_works else '✗'}), "
+            details += f"Customer ID Search: {len(customer_id_purchases)} items ({'✓' if customer_id_search_works else '✗'})"
             
             self.log_result(
                 "Walk-in Filtering and Customer ID Search",
