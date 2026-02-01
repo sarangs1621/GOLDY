@@ -11850,19 +11850,28 @@ async def finalize_return(
             }
         )
         
-        # Create audit log
+        # Create audit log with manual inventory action notice
+        audit_changes = {
+            "status": "finalized",
+            "transaction_created": transaction_id is not None,
+            "gold_ledger_created": gold_ledger_id is not None
+        }
+        
+        # Add inventory action notice for sales returns
+        if return_type == 'sale_return':
+            audit_changes["inventory_action_status"] = "manual_action_required"
+            audit_changes["notice"] = "⚠️ Manual inventory adjustment required after inspection"
+            audit_changes["pending_adjustments_count"] = len(pending_adjustments) if 'pending_adjustments' in locals() else 0
+        else:
+            audit_changes["stock_movements_created"] = len(stock_movement_ids)
+        
         await create_audit_log(
             user_id=current_user.id,
             user_name=current_user.full_name,            
             module="returns",
             record_id=return_id,
             action="finalize",
-            changes={
-                "status": "finalized",
-                "stock_movements_created": len(stock_movement_ids),
-                "transaction_created": transaction_id is not None,
-                "gold_ledger_created": gold_ledger_id is not None
-            }
+            changes=audit_changes
         )
         
         # Fetch updated return
