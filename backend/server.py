@@ -6995,10 +6995,12 @@ async def get_transactions(
         # Calculate running balance up to current transaction
         balance_before = running_balance
         for pt in prior_txns:
+            # Convert Decimal128 to float for calculations
+            amount = float(pt['amount']) if isinstance(pt['amount'], Decimal128) else pt['amount']
             if pt['transaction_type'] == 'credit':
-                running_balance += pt['amount']
+                running_balance += amount
             else:
-                running_balance -= pt['amount']
+                running_balance -= amount
             
             # If this is the current transaction, capture before and after
             if pt['id'] == txn['id']:
