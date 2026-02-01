@@ -227,13 +227,15 @@ export default function PurchasesPage() {
       if (item.id === id) {
         const newItem = { ...item, [field]: value };
         
-        // Calculate amount when weight or rate changes
-        if (field === 'weight_grams' || field === 'rate_per_gram_22k') {
+        // Calculate amount when weight, rate, or purity changes
+        if (field === 'weight_grams' || field === 'rate_per_gram_22k' || field === 'entered_purity') {
           const weight = parseFloat(newItem.weight_grams) || 0;
           const rate = parseFloat(newItem.rate_per_gram_22k) || 0;
+          const purity = parseFloat(newItem.entered_purity) || 916;
           const factor = parseFloat(selectedConversionFactor);
-          if (weight > 0 && rate > 0 && factor > 0) {
-            newItem.calculated_amount = parseFloat(((weight * rate) / factor).toFixed(3));
+          if (weight > 0 && rate > 0 && purity > 0 && factor > 0) {
+            const purityAdjustment = 916 / purity;
+            newItem.calculated_amount = parseFloat(((weight * rate * purityAdjustment) / factor).toFixed(3));
           } else {
             newItem.calculated_amount = 0;
           }
