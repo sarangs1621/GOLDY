@@ -1319,7 +1319,7 @@ frontend:
         comment: "❌ USER REPORT - Filters not working. Customer ID search by '123' and Walk-in vendor type filter 'Walk-in Only' not filtering the purchase records properly."
       - working: "needs_testing"
         agent: "main"
-        comment: "✅ FIXED - Root cause: Frontend was sending wrong parameter names to backend API. Changed 'is_walk_in' to 'vendor_type' (line 173) and 'vendor_oman_id' to 'customer_id' (line 177). Backend expects vendor_type='walk_in'/'saved'/'all' and customer_id for filtering. Fix aligns frontend API calls with backend endpoint parameters defined at line 4388-4398 in server.py."
+        comment: "✅ FIXED - Root cause: Frontend was sending wrong parameter names to backend API. Changed 'is_walk_in' to 'vendor_type' (line 173) and 'vendor_oman_id' to 'customer_id' (line 177). Backend expects vendor_type='walk_in'/'saved'/'all' and customer_id for filtering. Fix aligns frontend API calls with backend endpoint parameters defined at line 4388-4398 in server.py. Ready for testing."
 
 metadata:
   created_by: "main_agent"
