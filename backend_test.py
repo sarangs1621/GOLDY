@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Comprehensive Backend API Testing for Gold Shop ERP
-Testing Gold Shop ERP Purchase Module with ALL scenarios
+Testing Dashboard APIs to identify why dashboard shows all zeros
 """
 
 import requests
@@ -13,8 +13,8 @@ import time
 # Configuration
 BACKEND_URL = "https://dashboard-repair-53.preview.emergentagent.com/api"
 TEST_USER = {
-    "username": "admin_netflow_test",
-    "password": "TestAdmin@123"  # Test admin user for purchase module testing
+    "username": "admin",
+    "password": "Admin@123456789"  # Admin user for dashboard testing
 }
 
 class BackendTester:
