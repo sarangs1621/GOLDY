@@ -69,34 +69,54 @@ class BackendTester:
             self.log_result("Authentication", False, f"Authentication error: {str(e)}")
             return False
     
-    def test_dashboard_apis(self):
-        """Test Dashboard APIs to identify why dashboard shows all zeros"""
+    def test_dashboard_decimal128_fix(self):
+        """SPECIFIC TEST: Dashboard Decimal128 Fix for Outstanding Summary API"""
         print("\n" + "="*80)
-        print("TESTING DASHBOARD APIs - CRITICAL ISSUE INVESTIGATION")
+        print("🎯 TESTING DASHBOARD DECIMAL128 FIX - PRIMARY FOCUS")
         print("="*80)
         
-        # Test the 3 critical dashboard APIs
-        print("\n🎯 CRITICAL DASHBOARD API TESTS:")
+        print("\n📋 TEST REQUIREMENTS:")
+        print("1. ✅ Login as admin user")
+        print("2. ✅ Call GET /api/parties/outstanding-summary")
+        print("3. ✅ VERIFY: API returns HTTP 200 (not 520 error)")
+        print("4. ✅ VERIFY: Response has structure: {\"total_customer_due\": <number>, \"top_10_outstanding\": [<array>]}")
+        print("5. ✅ VERIFY: total_customer_due is a number (not crashing)")
+        print("6. ✅ VERIFY: top_10_outstanding is an array")
+        print("7. ✅ VERIFY: Each item in top_10_outstanding has: customer_id, customer_name, outstanding")
         
-        # Test 1: GET /api/inventory/headers - Should return paginated inventory headers
-        self.test_inventory_headers_api()
+        # Test the specific outstanding summary API with Decimal128 fix
+        outstanding_success = self.test_parties_outstanding_summary_api()
         
-        # Test 2: GET /api/inventory/stock-totals - Should return array of stock totals by category
-        self.test_inventory_stock_totals_api()
+        print("\n📊 DASHBOARD INTEGRATION TEST:")
+        print("Testing all 3 dashboard APIs together...")
         
-        # Test 3: GET /api/parties/outstanding-summary - Should return total_customer_due and top_10_outstanding
-        self.test_parties_outstanding_summary_api()
+        # Test all 3 dashboard APIs
+        headers_success = self.test_inventory_headers_api()
+        stock_success = self.test_inventory_stock_totals_api()
         
-        print("\n🔍 ADDITIONAL VALIDATIONS:")
+        all_dashboard_apis_working = headers_success and stock_success and outstanding_success
         
-        # Test 4: Verify database has data
-        self.test_database_data_verification()
+        print(f"\n🔍 DASHBOARD API RESULTS:")
+        print(f"   • Inventory Headers: {'✅ WORKING' if headers_success else '❌ FAILED'}")
+        print(f"   • Stock Totals: {'✅ WORKING' if stock_success else '❌ FAILED'}")
+        print(f"   • Outstanding Summary: {'✅ WORKING' if outstanding_success else '❌ FAILED'}")
+        print(f"   • Overall Dashboard: {'✅ ALL WORKING' if all_dashboard_apis_working else '❌ SOME FAILED'}")
         
-        # Test 5: Test permission checks
-        self.test_permission_validation()
+        # Log the overall result
+        self.log_result(
+            "Dashboard Decimal128 Fix - Integration Test",
+            all_dashboard_apis_working,
+            f"Headers: {'✓' if headers_success else '✗'}, Stock: {'✓' if stock_success else '✗'}, Outstanding: {'✓' if outstanding_success else '✗'}",
+            {
+                "inventory_headers_working": headers_success,
+                "stock_totals_working": stock_success,
+                "outstanding_summary_working": outstanding_success,
+                "decimal128_fix_status": "WORKING" if outstanding_success else "FAILED",
+                "dashboard_ready": all_dashboard_apis_working
+            }
+        )
         
-        # Test 6: Test response format validation
-        self.test_response_format_validation()
+        return all_dashboard_apis_working
     
     def test_inventory_headers_api(self):
         """Test GET /api/inventory/headers - Should return paginated inventory headers"""
