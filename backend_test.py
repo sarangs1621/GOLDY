@@ -3284,6 +3284,150 @@ class BackendTester:
             self.log_result("Existing Gold Exchange Payment", False, f"Error: {str(e)}")
             return False
 
+    def test_transactions_endpoint_decimal128_fix(self):
+        """Test GET /api/transactions endpoint for Decimal128/float conversion fix"""
+        print("\n" + "="*80)
+        print("TESTING TRANSACTIONS ENDPOINT - DECIMAL128/FLOAT CONVERSION FIX")
+        print("="*80)
+        
+        try:
+            # Test 1: GET /api/transactions endpoint (the one causing HTTP 520 error)
+            print("\n--- Testing GET /api/transactions endpoint ---")
+            
+            response = self.session.get(f"{BACKEND_URL}/transactions")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check if response contains transaction data
+                transactions = data.get('items', []) if isinstance(data, dict) else data if isinstance(data, list) else []
+                
+                # Verify response structure and data types
+                has_transactions = len(transactions) > 0
+                all_amounts_float = True
+                all_balances_float = True
+                
+                for transaction in transactions[:5]:  # Check first 5 transactions
+                    # Check transaction amount is properly converted to float
+                    amount = transaction.get('amount')
+                    if amount is not None and not isinstance(amount, (int, float)):
+                        all_amounts_float = False
+                        break
+                    
+                    # Check running balance if present
+                    running_balance = transaction.get('running_balance')
+                    if running_balance is not None and not isinstance(running_balance, (int, float)):
+                        all_balances_float = False
+                        break
+                
+                success = response.status_code == 200 and all_amounts_float and all_balances_float
+                
+                details = f"Status: {response.status_code}, Transactions: {len(transactions)}, "
+                details += f"Amounts as float: {'✓' if all_amounts_float else '✗'}, "
+                details += f"Balances as float: {'✓' if all_balances_float else '✗'}"
+                
+                self.log_result(
+                    "GET /api/transactions - Decimal128 Fix",
+                    success,
+                    details,
+                    {
+                        "status_code": response.status_code,
+                        "transaction_count": len(transactions),
+                        "sample_transaction": transactions[0] if transactions else None,
+                        "amounts_are_float": all_amounts_float,
+                        "balances_are_float": all_balances_float
+                    }
+                )
+                
+                # Test 2: Verify account opening_balance conversion
+                print("\n--- Testing Account Opening Balance Conversion ---")
+                
+                # Get accounts to verify opening_balance conversion
+                accounts_response = self.session.get(f"{BACKEND_URL}/accounts")
+                
+                if accounts_response.status_code == 200:
+                    accounts_data = accounts_response.json()
+                    accounts = accounts_data.get('items', []) if isinstance(accounts_data, dict) else accounts_data if isinstance(accounts_data, list) else []
+                    
+                    opening_balances_float = True
+                    current_balances_float = True
+                    
+                    for account in accounts[:5]:  # Check first 5 accounts
+                        opening_balance = account.get('opening_balance')
+                        current_balance = account.get('current_balance')
+                        
+                        if opening_balance is not None and not isinstance(opening_balance, (int, float)):
+                            opening_balances_float = False
+                        
+                        if current_balance is not None and not isinstance(current_balance, (int, float)):
+                            current_balances_float = False
+                    
+                    account_success = opening_balances_float and current_balances_float
+                    
+                    account_details = f"Accounts: {len(accounts)}, "
+                    account_details += f"Opening balances as float: {'✓' if opening_balances_float else '✗'}, "
+                    account_details += f"Current balances as float: {'✓' if current_balances_float else '✗'}"
+                    
+                    self.log_result(
+                        "Account Balance Conversion",
+                        account_success,
+                        account_details,
+                        {
+                            "account_count": len(accounts),
+                            "opening_balances_float": opening_balances_float,
+                            "current_balances_float": current_balances_float,
+                            "sample_account": accounts[0] if accounts else None
+                        }
+                    )
+                else:
+                    self.log_result("Account Balance Conversion", False, f"Failed to get accounts: {accounts_response.status_code}")
+                
+                # Test 3: Test with pagination parameters
+                print("\n--- Testing Transactions with Pagination ---")
+                
+                paginated_response = self.session.get(f"{BACKEND_URL}/transactions?page=1&page_size=10")
+                
+                if paginated_response.status_code == 200:
+                    paginated_data = paginated_response.json()
+                    paginated_transactions = paginated_data.get('items', []) if isinstance(paginated_data, dict) else paginated_data if isinstance(paginated_data, list) else []
+                    
+                    pagination_success = len(paginated_transactions) <= 10
+                    
+                    self.log_result(
+                        "Transactions Pagination",
+                        pagination_success,
+                        f"Paginated response: {len(paginated_transactions)} transactions (≤10)",
+                        {
+                            "paginated_count": len(paginated_transactions),
+                            "pagination_metadata": paginated_data.get('pagination') if isinstance(paginated_data, dict) else None
+                        }
+                    )
+                else:
+                    self.log_result("Transactions Pagination", False, f"Failed: {paginated_response.status_code}")
+                
+                return success
+                
+            else:
+                # This is the critical test - if we get HTTP 520, the fix didn't work
+                error_details = f"HTTP {response.status_code} - {response.text[:200]}"
+                if response.status_code == 520:
+                    error_details += " (CRITICAL: This is the original Decimal128/float error!)"
+                
+                self.log_result(
+                    "GET /api/transactions - Decimal128 Fix",
+                    False,
+                    error_details,
+                    {
+                        "status_code": response.status_code,
+                        "error_text": response.text[:500]
+                    }
+                )
+                return False
+                
+        except Exception as e:
+            self.log_result("Transactions Endpoint Decimal128 Fix", False, f"Error: {str(e)}")
+            return False
+
     def print_summary(self):
         """Print test summary"""
         print("\n" + "="*80)
