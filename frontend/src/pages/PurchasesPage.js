@@ -1007,10 +1007,14 @@ export default function PurchasesPage() {
                   checked={isMultipleItems}
                   onChange={(e) => setIsMultipleItems(e.target.checked)}
                   className="w-4 h-4 text-blue-600"
+                  disabled={editingPurchase && isMultipleItems}
                 />
-                <Label htmlFor="multipleItemsToggle" className="cursor-pointer flex items-center gap-2">
+                <Label htmlFor="multipleItemsToggle" className={`flex items-center gap-2 ${editingPurchase && isMultipleItems ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                   <Package className="w-4 h-4" />
                   Multiple Items
+                  {editingPurchase && isMultipleItems && (
+                    <span className="text-xs text-gray-500">(cannot change when editing)</span>
+                  )}
                 </Label>
               </div>
             </div>
