@@ -486,6 +486,7 @@ export default function PurchasesPage() {
         payload = {
           is_walk_in: isWalkIn,
           date: formData.date,
+          conversion_factor: parseFloat(selectedConversionFactor),
           paid_amount_money: parseFloat(formData.paid_amount_money) || 0,
           payment_mode: formData.payment_mode,
           account_id: formData.account_id || null,
@@ -510,6 +511,7 @@ export default function PurchasesPage() {
         payload = {
           is_walk_in: isWalkIn,
           date: formData.date,
+          conversion_factor: parseFloat(selectedConversionFactor),
           description: formData.description,
           weight_grams: parseFloat(formData.weight_grams),
           entered_purity: parseInt(formData.entered_purity),
