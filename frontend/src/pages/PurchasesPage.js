@@ -165,6 +165,12 @@ export default function PurchasesPage() {
       params.append('page_size', 10);
       if (filterVendor && filterVendor !== 'all') params.append('vendor_party_id', filterVendor);
       if (filterStatus && filterStatus !== 'all') params.append('status', filterStatus);
+      if (filterWalkIn && filterWalkIn !== 'all') {
+        params.append('is_walk_in', filterWalkIn === 'walk_in' ? 'true' : 'false');
+      }
+      if (searchCustomerId && searchCustomerId.trim() !== '') {
+        params.append('vendor_oman_id', searchCustomerId.trim());
+      }
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
       
