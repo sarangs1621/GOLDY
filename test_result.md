@@ -12278,9 +12278,12 @@ backend:
       - working: false
         agent: "user"
         comment: "❌ USER REPORT - Failed to load invoice data when opening Create Return dialog. Shows 'No finalized or paid invoices available for return' error. Backend logs show TypeError: float() argument must be a string or a real number, not 'Decimal128' at lines 5443-5444."
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT (2nd attempt) - Still showing same error after first fix. Backend logs now show ValueError: [TypeError(\"'Decimal128' object is not iterable\")]. The items array inside invoices still contains Decimal128 objects that weren't being converted."
       - working: "needs_testing"
         agent: "main"
-        comment: "✅ FIXED - Root cause: get_returnable_invoices endpoint (lines 5434-5462) was calling float() directly on Decimal128 values for grand_total and balance_due fields. Added proper Decimal128 type checking and conversion before float casting. Lines 5440-5455: Check if grand_total and balance_due are Decimal128 instances, convert using .to_decimal() method, then cast to float. Also preventively fixed get_invoice_returnable_items endpoint (lines 5533-5543) where net_gold_weight and line_total could have same issue."
+        comment: "✅ FIXED (2nd attempt) - Root cause: Items array wasn't being converted. Changed approach to use decimal_to_float(inv) helper function at line 5438 which recursively converts ALL Decimal128 objects in the entire invoice document (including nested items array). This ensures grand_total, balance_due, and all item fields (weight, line_total, etc.) are properly converted to float before being returned to frontend. Also preventively fixed get_invoice_returnable_items endpoint (lines 5533-5543) where net_gold_weight and line_total could have same issue."
 
 metadata:
   created_by: "main_agent"
