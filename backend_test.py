@@ -4820,227 +4820,227 @@ def main():
     
     return all_features_working
 
-    def test_oman_id_bug_fix_party_update(self):
-        """Test Oman ID bug fix for party update endpoint - CRITICAL BUG FIX VERIFICATION"""
-        print("\n" + "="*80)
-        print("🎯 TESTING OMAN ID BUG FIX - PARTY UPDATE ENDPOINT")
-        print("="*80)
+def test_oman_id_bug_fix_party_update(self):
+    """Test Oman ID bug fix for party update endpoint - CRITICAL BUG FIX VERIFICATION"""
+    print("\n" + "="*80)
+    print("🎯 TESTING OMAN ID BUG FIX - PARTY UPDATE ENDPOINT")
+    print("="*80)
+    
+    print("\n📋 TEST SCENARIOS:")
+    print("1. CREATE TEST: Create party with Oman ID")
+    print("2. UPDATE TEST: Edit party and change Oman ID")
+    print("3. PRESERVE TEST: Edit party WITHOUT changing Oman ID")
+    print("4. CLEAR TEST: Clear Oman ID by sending empty/null value")
+    
+    try:
+        all_tests_passed = True
+        test_results = []
         
-        print("\n📋 TEST SCENARIOS:")
-        print("1. CREATE TEST: Create party with Oman ID")
-        print("2. UPDATE TEST: Edit party and change Oman ID")
-        print("3. PRESERVE TEST: Edit party WITHOUT changing Oman ID")
-        print("4. CLEAR TEST: Clear Oman ID by sending empty/null value")
+        # SCENARIO 1: CREATE TEST - Create a new party with Oman ID
+        print("\n--- SCENARIO 1: CREATE TEST ---")
+        party_data = {
+            "name": "Ahmed Al-Rashid Test",
+            "oman_id": "12345678",
+            "phone": "+968 9876 5432",
+            "address": "Test Address, Muscat",
+            "party_type": "customer",
+            "notes": "Test party for Oman ID bug fix verification"
+        }
         
-        try:
-            all_tests_passed = True
-            test_results = []
+        create_response = self.session.post(f"{BACKEND_URL}/parties", json=party_data)
+        
+        if create_response.status_code == 201:
+            created_party = create_response.json()
+            party_id = created_party.get("id")
+            created_oman_id = created_party.get("oman_id")
             
-            # SCENARIO 1: CREATE TEST - Create a new party with Oman ID
-            print("\n--- SCENARIO 1: CREATE TEST ---")
-            party_data = {
-                "name": "Ahmed Al-Rashid Test",
-                "oman_id": "12345678",
-                "phone": "+968 9876 5432",
-                "address": "Test Address, Muscat",
-                "party_type": "customer",
-                "notes": "Test party for Oman ID bug fix verification"
-            }
+            create_success = created_oman_id == "12345678"
+            test_results.append(("Create with Oman ID", create_success))
             
-            create_response = self.session.post(f"{BACKEND_URL}/parties", json=party_data)
+            if not create_success:
+                all_tests_passed = False
             
-            if create_response.status_code == 201:
-                created_party = create_response.json()
-                party_id = created_party.get("id")
-                created_oman_id = created_party.get("oman_id")
+            self.log_result(
+                "Oman ID Bug Fix - Create Party",
+                create_success,
+                f"Created party with Oman ID: {created_oman_id} ({'✓' if create_success else '✗'})",
+                {"party_id": party_id, "oman_id": created_oman_id}
+            )
+            
+            if party_id and create_success:
+                # SCENARIO 2: UPDATE TEST - Edit party and change Oman ID
+                print("\n--- SCENARIO 2: UPDATE TEST ---")
                 
-                create_success = created_oman_id == "12345678"
-                test_results.append(("Create with Oman ID", create_success))
-                
-                if not create_success:
-                    all_tests_passed = False
-                
-                self.log_result(
-                    "Oman ID Bug Fix - Create Party",
-                    create_success,
-                    f"Created party with Oman ID: {created_oman_id} ({'✓' if create_success else '✗'})",
-                    {"party_id": party_id, "oman_id": created_oman_id}
-                )
-                
-                if party_id and create_success:
-                    # SCENARIO 2: UPDATE TEST - Edit party and change Oman ID
-                    print("\n--- SCENARIO 2: UPDATE TEST ---")
+                # First verify current Oman ID
+                get_response = self.session.get(f"{BACKEND_URL}/parties/{party_id}")
+                if get_response.status_code == 200:
+                    current_party = get_response.json()
+                    current_oman_id = current_party.get("oman_id")
                     
-                    # First verify current Oman ID
-                    get_response = self.session.get(f"{BACKEND_URL}/parties/{party_id}")
-                    if get_response.status_code == 200:
-                        current_party = get_response.json()
-                        current_oman_id = current_party.get("oman_id")
+                    verify_current = current_oman_id == "12345678"
+                    self.log_result(
+                        "Oman ID Bug Fix - Verify Current",
+                        verify_current,
+                        f"Current Oman ID: {current_oman_id} ({'✓' if verify_current else '✗'})"
+                    )
+                    
+                    if verify_current:
+                        # Update with new Oman ID
+                        update_data = {
+                            "oman_id": "87654321"
+                        }
                         
-                        verify_current = current_oman_id == "12345678"
-                        self.log_result(
-                            "Oman ID Bug Fix - Verify Current",
-                            verify_current,
-                            f"Current Oman ID: {current_oman_id} ({'✓' if verify_current else '✗'})"
-                        )
+                        update_response = self.session.patch(f"{BACKEND_URL}/parties/{party_id}", json=update_data)
                         
-                        if verify_current:
-                            # Update with new Oman ID
-                            update_data = {
-                                "oman_id": "87654321"
-                            }
+                        if update_response.status_code == 200:
+                            updated_party = update_response.json()
+                            updated_oman_id = updated_party.get("oman_id")
                             
-                            update_response = self.session.patch(f"{BACKEND_URL}/parties/{party_id}", json=update_data)
+                            update_success = updated_oman_id == "87654321"
+                            test_results.append(("Update Oman ID", update_success))
                             
-                            if update_response.status_code == 200:
-                                updated_party = update_response.json()
-                                updated_oman_id = updated_party.get("oman_id")
+                            if not update_success:
+                                all_tests_passed = False
+                            
+                            self.log_result(
+                                "Oman ID Bug Fix - Update Oman ID",
+                                update_success,
+                                f"Updated Oman ID: {updated_oman_id} ({'✓' if update_success else '✗'})",
+                                {"old_oman_id": "12345678", "new_oman_id": updated_oman_id}
+                            )
+                            
+                            # Verify persistence by fetching again
+                            verify_response = self.session.get(f"{BACKEND_URL}/parties/{party_id}")
+                            if verify_response.status_code == 200:
+                                verified_party = verify_response.json()
+                                verified_oman_id = verified_party.get("oman_id")
                                 
-                                update_success = updated_oman_id == "87654321"
-                                test_results.append(("Update Oman ID", update_success))
+                                persistence_success = verified_oman_id == "87654321"
+                                test_results.append(("Persistence Check", persistence_success))
                                 
-                                if not update_success:
+                                if not persistence_success:
                                     all_tests_passed = False
                                 
                                 self.log_result(
-                                    "Oman ID Bug Fix - Update Oman ID",
-                                    update_success,
-                                    f"Updated Oman ID: {updated_oman_id} ({'✓' if update_success else '✗'})",
-                                    {"old_oman_id": "12345678", "new_oman_id": updated_oman_id}
+                                    "Oman ID Bug Fix - Persistence Check",
+                                    persistence_success,
+                                    f"Persisted Oman ID: {verified_oman_id} ({'✓' if persistence_success else '✗'})",
+                                    {"expected": "87654321", "actual": verified_oman_id}
                                 )
                                 
-                                # Verify persistence by fetching again
-                                verify_response = self.session.get(f"{BACKEND_URL}/parties/{party_id}")
-                                if verify_response.status_code == 200:
-                                    verified_party = verify_response.json()
-                                    verified_oman_id = verified_party.get("oman_id")
+                                if persistence_success:
+                                    # SCENARIO 3: PRESERVE TEST - Edit party WITHOUT changing Oman ID
+                                    print("\n--- SCENARIO 3: PRESERVE TEST ---")
                                     
-                                    persistence_success = verified_oman_id == "87654321"
-                                    test_results.append(("Persistence Check", persistence_success))
+                                    preserve_data = {
+                                        "name": "Ahmed Al-Rashid Updated Name"
+                                        # Deliberately NOT sending oman_id in request
+                                    }
                                     
-                                    if not persistence_success:
-                                        all_tests_passed = False
+                                    preserve_response = self.session.patch(f"{BACKEND_URL}/parties/{party_id}", json=preserve_data)
                                     
-                                    self.log_result(
-                                        "Oman ID Bug Fix - Persistence Check",
-                                        persistence_success,
-                                        f"Persisted Oman ID: {verified_oman_id} ({'✓' if persistence_success else '✗'})",
-                                        {"expected": "87654321", "actual": verified_oman_id}
-                                    )
-                                    
-                                    if persistence_success:
-                                        # SCENARIO 3: PRESERVE TEST - Edit party WITHOUT changing Oman ID
-                                        print("\n--- SCENARIO 3: PRESERVE TEST ---")
+                                    if preserve_response.status_code == 200:
+                                        preserved_party = preserve_response.json()
+                                        preserved_oman_id = preserved_party.get("oman_id")
+                                        preserved_name = preserved_party.get("name")
                                         
-                                        preserve_data = {
-                                            "name": "Ahmed Al-Rashid Updated Name"
-                                            # Deliberately NOT sending oman_id in request
+                                        preserve_success = (
+                                            preserved_oman_id == "87654321" and 
+                                            preserved_name == "Ahmed Al-Rashid Updated Name"
+                                        )
+                                        test_results.append(("Preserve Oman ID", preserve_success))
+                                        
+                                        if not preserve_success:
+                                            all_tests_passed = False
+                                        
+                                        self.log_result(
+                                            "Oman ID Bug Fix - Preserve Test",
+                                            preserve_success,
+                                            f"Name updated, Oman ID preserved: {preserved_oman_id} ({'✓' if preserve_success else '✗'})",
+                                            {
+                                                "name_updated": preserved_name == "Ahmed Al-Rashid Updated Name",
+                                                "oman_id_preserved": preserved_oman_id == "87654321"
+                                            }
+                                        )
+                                        
+                                        # SCENARIO 4: CLEAR TEST - Clear Oman ID
+                                        print("\n--- SCENARIO 4: CLEAR TEST ---")
+                                        
+                                        clear_data = {
+                                            "oman_id": None
                                         }
                                         
-                                        preserve_response = self.session.patch(f"{BACKEND_URL}/parties/{party_id}", json=preserve_data)
+                                        clear_response = self.session.patch(f"{BACKEND_URL}/parties/{party_id}", json=clear_data)
                                         
-                                        if preserve_response.status_code == 200:
-                                            preserved_party = preserve_response.json()
-                                            preserved_oman_id = preserved_party.get("oman_id")
-                                            preserved_name = preserved_party.get("name")
+                                        if clear_response.status_code == 200:
+                                            cleared_party = clear_response.json()
+                                            cleared_oman_id = cleared_party.get("oman_id")
                                             
-                                            preserve_success = (
-                                                preserved_oman_id == "87654321" and 
-                                                preserved_name == "Ahmed Al-Rashid Updated Name"
-                                            )
-                                            test_results.append(("Preserve Oman ID", preserve_success))
+                                            clear_success = cleared_oman_id is None or cleared_oman_id == ""
+                                            test_results.append(("Clear Oman ID", clear_success))
                                             
-                                            if not preserve_success:
+                                            if not clear_success:
                                                 all_tests_passed = False
                                             
                                             self.log_result(
-                                                "Oman ID Bug Fix - Preserve Test",
-                                                preserve_success,
-                                                f"Name updated, Oman ID preserved: {preserved_oman_id} ({'✓' if preserve_success else '✗'})",
-                                                {
-                                                    "name_updated": preserved_name == "Ahmed Al-Rashid Updated Name",
-                                                    "oman_id_preserved": preserved_oman_id == "87654321"
-                                                }
+                                                "Oman ID Bug Fix - Clear Test",
+                                                clear_success,
+                                                f"Oman ID cleared: {cleared_oman_id} ({'✓' if clear_success else '✗'})",
+                                                {"cleared_oman_id": cleared_oman_id}
                                             )
-                                            
-                                            # SCENARIO 4: CLEAR TEST - Clear Oman ID
-                                            print("\n--- SCENARIO 4: CLEAR TEST ---")
-                                            
-                                            clear_data = {
-                                                "oman_id": None
-                                            }
-                                            
-                                            clear_response = self.session.patch(f"{BACKEND_URL}/parties/{party_id}", json=clear_data)
-                                            
-                                            if clear_response.status_code == 200:
-                                                cleared_party = clear_response.json()
-                                                cleared_oman_id = cleared_party.get("oman_id")
-                                                
-                                                clear_success = cleared_oman_id is None or cleared_oman_id == ""
-                                                test_results.append(("Clear Oman ID", clear_success))
-                                                
-                                                if not clear_success:
-                                                    all_tests_passed = False
-                                                
-                                                self.log_result(
-                                                    "Oman ID Bug Fix - Clear Test",
-                                                    clear_success,
-                                                    f"Oman ID cleared: {cleared_oman_id} ({'✓' if clear_success else '✗'})",
-                                                    {"cleared_oman_id": cleared_oman_id}
-                                                )
-                                            else:
-                                                all_tests_passed = False
-                                                self.log_result("Oman ID Bug Fix - Clear Test", False, f"Clear failed: {clear_response.status_code}")
                                         else:
                                             all_tests_passed = False
-                                            self.log_result("Oman ID Bug Fix - Preserve Test", False, f"Preserve failed: {preserve_response.status_code}")
-                                else:
-                                    all_tests_passed = False
-                                    self.log_result("Oman ID Bug Fix - Persistence Check", False, f"Verify failed: {verify_response.status_code}")
+                                            self.log_result("Oman ID Bug Fix - Clear Test", False, f"Clear failed: {clear_response.status_code}")
+                                    else:
+                                        all_tests_passed = False
+                                        self.log_result("Oman ID Bug Fix - Preserve Test", False, f"Preserve failed: {preserve_response.status_code}")
                             else:
                                 all_tests_passed = False
-                                self.log_result("Oman ID Bug Fix - Update Test", False, f"Update failed: {update_response.status_code} - {update_response.text}")
+                                self.log_result("Oman ID Bug Fix - Persistence Check", False, f"Verify failed: {verify_response.status_code}")
                         else:
                             all_tests_passed = False
+                            self.log_result("Oman ID Bug Fix - Update Test", False, f"Update failed: {update_response.status_code} - {update_response.text}")
                     else:
                         all_tests_passed = False
-                        self.log_result("Oman ID Bug Fix - Get Current", False, f"Get failed: {get_response.status_code}")
                 else:
                     all_tests_passed = False
+                    self.log_result("Oman ID Bug Fix - Get Current", False, f"Get failed: {get_response.status_code}")
             else:
                 all_tests_passed = False
-                self.log_result("Oman ID Bug Fix - Create Party", False, f"Create failed: {create_response.status_code} - {create_response.text}")
-            
-            # Summary
-            passed_count = sum(1 for _, passed in test_results if passed)
-            total_count = len(test_results)
-            
-            print(f"\n🔍 OMAN ID BUG FIX TEST SUMMARY:")
-            print(f"   • Tests Passed: {passed_count}/{total_count}")
-            print(f"   • Success Rate: {(passed_count/total_count)*100:.1f}%" if total_count > 0 else "   • No tests completed")
-            
-            for test_name, passed in test_results:
-                status = "✅ PASS" if passed else "❌ FAIL"
-                print(f"   • {test_name}: {status}")
-            
-            self.log_result(
-                "Oman ID Bug Fix - Complete Test Suite",
-                all_tests_passed,
-                f"Passed: {passed_count}/{total_count} scenarios",
-                {
-                    "total_scenarios": total_count,
-                    "passed_scenarios": passed_count,
-                    "success_rate": f"{(passed_count/total_count)*100:.1f}%" if total_count > 0 else "0%",
-                    "test_results": test_results,
-                    "bug_fix_status": "WORKING" if all_tests_passed else "FAILED"
-                }
-            )
-            
-            return all_tests_passed
-            
-        except Exception as e:
-            self.log_result("Oman ID Bug Fix - Complete Test Suite", False, f"Error: {str(e)}")
-            return False
+        else:
+            all_tests_passed = False
+            self.log_result("Oman ID Bug Fix - Create Party", False, f"Create failed: {create_response.status_code} - {create_response.text}")
+        
+        # Summary
+        passed_count = sum(1 for _, passed in test_results if passed)
+        total_count = len(test_results)
+        
+        print(f"\n🔍 OMAN ID BUG FIX TEST SUMMARY:")
+        print(f"   • Tests Passed: {passed_count}/{total_count}")
+        print(f"   • Success Rate: {(passed_count/total_count)*100:.1f}%" if total_count > 0 else "   • No tests completed")
+        
+        for test_name, passed in test_results:
+            status = "✅ PASS" if passed else "❌ FAIL"
+            print(f"   • {test_name}: {status}")
+        
+        self.log_result(
+            "Oman ID Bug Fix - Complete Test Suite",
+            all_tests_passed,
+            f"Passed: {passed_count}/{total_count} scenarios",
+            {
+                "total_scenarios": total_count,
+                "passed_scenarios": passed_count,
+                "success_rate": f"{(passed_count/total_count)*100:.1f}%" if total_count > 0 else "0%",
+                "test_results": test_results,
+                "bug_fix_status": "WORKING" if all_tests_passed else "FAILED"
+            }
+        )
+        
+        return all_tests_passed
+        
+    except Exception as e:
+        self.log_result("Oman ID Bug Fix - Complete Test Suite", False, f"Error: {str(e)}")
+        return False
 
 if __name__ == "__main__":
     main()
