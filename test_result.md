@@ -1443,7 +1443,59 @@ test_plan:
   test_all: true
   test_priority: "sequential"
 
+backend:
+  - task: "Fix Decimal128/float TypeError in API endpoints"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Added decimal_to_float() conversion for all MongoDB query results before calculations and JSON serialization. Fixed endpoints: GET /api/invoices (line 5255), GET /api/inventory/movements (line 2344), GET /api/reports/financial-summary (line 8375), GET /api/dashboard (line 2571-2595), GET /api/reports/sales-history (line 9321-9344), GET /api/reports/inventory-view (line 8056), GET /api/reports/inventory/{header_id}/stock-report (line 8322), Excel export endpoints (line 7670). Root cause: MongoDB stores financial fields as Decimal128, but Python sum() operations with default int 0 caused TypeError. Solution: Convert all Decimal128 to float immediately after fetching from database using existing decimal_to_float() helper function."
+
 agent_communication:
+  - agent: "main"
+    message: |
+      ✅ DECIMAL128/FLOAT CONVERSION ERRORS - FIXED
+      
+      PROBLEM IDENTIFIED:
+      - Testing agent found 2 pages failing with HTTP 520 errors
+      - Inventory Page: /api/inventory/movements returning 520
+      - Invoices Page: /api/invoices and /api/accounts returning 520/500
+      - Root cause: TypeError mixing float and Decimal128 in financial calculations
+      
+      COMPREHENSIVE FIX APPLIED:
+      1. GET /api/invoices - Added Decimal128 to float conversion after fetching
+      2. GET /api/inventory/movements - Added conversion for movements data
+      3. GET /api/reports/financial-summary - Added conversion for transactions, accounts, invoices
+      4. GET /api/dashboard - Added conversion for all aggregated data
+      5. GET /api/reports/sales-history - Added conversion for all report data
+      6. GET /api/reports/inventory-view - Added conversion for movements
+      7. GET /api/reports/inventory/{header_id}/stock-report - Added conversion
+      8. Excel export endpoints - Added conversion before workbook generation
+      
+      SOLUTION APPROACH:
+      - Convert all MongoDB Decimal128 values to float immediately after fetching
+      - Use existing decimal_to_float() helper function for recursive conversion
+      - Ensures all sum() operations work with compatible types
+      - Maintains precision for JSON API responses
+      
+      BACKEND STATUS:
+      ✅ Backend restarted successfully and running on port 8001
+      ✅ No errors in backend logs
+      ✅ Health check passing
+      
+      READY FOR TESTING:
+      Please test the following:
+      1. Inventory Page - Should load inventory movements without errors
+      2. Invoices Page - Should load invoices and accounts without errors
+      3. Financial Summary report - Should calculate totals correctly
+      4. Dashboard - Should display all metrics without errors
+      5. All other pages to ensure no regressions
+  
   - agent: "main"
     message: |
       ✅ EST. METAL VALUE ISSUE - EXPLANATION PROVIDED
