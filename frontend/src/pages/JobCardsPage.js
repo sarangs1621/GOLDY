@@ -1051,6 +1051,93 @@ export default function JobCardsPage() {
               </div>
             )}
             
+            {/* Gold Settlement Section */}
+            {!saveAsTemplate && !editingTemplate && (
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <h3 className="font-semibold text-sm text-purple-900 flex items-center gap-2">
+                  <span>💰</span> Gold Settlement (Optional)
+                </h3>
+                <p className="text-xs text-gray-600">
+                  Gold to be deducted from invoice amount
+                </p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Advance Gold */}
+                  <div className="space-y-2">
+                    <Label>Advance Gold (grams)</Label>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={formData.advance_in_gold_grams}
+                      onChange={(e) => setFormData({...formData, advance_in_gold_grams: e.target.value})}
+                      placeholder="0.000"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Advance Gold Rate (OMR/g)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.advance_gold_rate}
+                      onChange={(e) => setFormData({...formData, advance_gold_rate: e.target.value})}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  
+                  {/* Exchange Gold */}
+                  <div className="space-y-2">
+                    <Label>Exchange Gold (grams)</Label>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={formData.exchange_in_gold_grams}
+                      onChange={(e) => setFormData({...formData, exchange_in_gold_grams: e.target.value})}
+                      placeholder="0.000"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Exchange Gold Rate (OMR/g)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.exchange_gold_rate}
+                      onChange={(e) => setFormData({...formData, exchange_gold_rate: e.target.value})}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                
+                {/* Show calculated values */}
+                {((formData.advance_in_gold_grams && formData.advance_gold_rate) || 
+                  (formData.exchange_in_gold_grams && formData.exchange_gold_rate)) && (
+                  <div className="bg-purple-50 p-3 rounded-md border border-purple-200">
+                    <p className="text-xs font-semibold text-purple-900 mb-2">Settlement Summary:</p>
+                    {formData.advance_in_gold_grams && formData.advance_gold_rate && (
+                      <div className="text-xs text-purple-800">
+                        Advance: {parseFloat(formData.advance_in_gold_grams).toFixed(3)}g × {parseFloat(formData.advance_gold_rate).toFixed(2)} = {(parseFloat(formData.advance_in_gold_grams) * parseFloat(formData.advance_gold_rate)).toFixed(3)} OMR
+                      </div>
+                    )}
+                    {formData.exchange_in_gold_grams && formData.exchange_gold_rate && (
+                      <div className="text-xs text-purple-800">
+                        Exchange: {parseFloat(formData.exchange_in_gold_grams).toFixed(3)}g × {parseFloat(formData.exchange_gold_rate).toFixed(2)} = {(parseFloat(formData.exchange_in_gold_grams) * parseFloat(formData.exchange_gold_rate)).toFixed(3)} OMR
+                      </div>
+                    )}
+                    {formData.advance_in_gold_grams && formData.advance_gold_rate && formData.exchange_in_gold_grams && formData.exchange_gold_rate && (
+                      <div className="text-xs font-semibold text-purple-900 mt-2 pt-2 border-t border-purple-300">
+                        Total Deduction: {((parseFloat(formData.advance_in_gold_grams) * parseFloat(formData.advance_gold_rate)) + (parseFloat(formData.exchange_in_gold_grams) * parseFloat(formData.exchange_gold_rate))).toFixed(3)} OMR
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="grid grid-cols-2 gap-4">
               {/* For templates: show days offset; For job cards: show actual date */}
               {(saveAsTemplate || editingTemplate) ? (
