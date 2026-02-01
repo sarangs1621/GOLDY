@@ -2569,6 +2569,8 @@ async def get_dashboard(current_user: User = Depends(require_permission('reports
     try:
         # Get inventory headers count and totals
         headers = await db.inventory_headers.find({"is_deleted": False}, {"_id": 0}).to_list(1000)
+        # Convert Decimal128 to float for calculations
+        headers = [decimal_to_float(h) for h in headers]
         total_headers = len(headers)
         total_stock_weight = sum(h.get('current_weight', 0) for h in headers)
         total_stock_qty = sum(h.get('current_qty', 0) for h in headers)
@@ -2578,6 +2580,8 @@ async def get_dashboard(current_user: User = Depends(require_permission('reports
             {"is_deleted": False, "payment_status": {"$ne": "paid"}}, 
             {"_id": 0}
         ).to_list(10000)
+        # Convert Decimal128 to float for calculations
+        invoices = [decimal_to_float(inv) for inv in invoices]
         total_outstanding = sum(inv.get('balance_due', 0) for inv in invoices)
         
         # Get low stock items (qty < 5)
@@ -2592,6 +2596,8 @@ async def get_dashboard(current_user: User = Depends(require_permission('reports
             {"is_deleted": False}, 
             {"_id": 0}
         ).sort("created_at", -1).limit(5).to_list(5)
+        # Convert Decimal128 to float for JSON serialization
+        recent_invoices = [decimal_to_float(inv) for inv in recent_invoices]
         
         # Get job cards count by status
         total_jobcards = await db.jobcards.count_documents({"is_deleted": False})
