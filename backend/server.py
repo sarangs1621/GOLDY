@@ -7004,10 +7004,12 @@ async def get_transactions(
             
             # If this is the current transaction, capture before and after
             if pt['id'] == txn['id']:
+                # Convert Decimal128 to float for calculations
+                txn_amount = float(txn['amount']) if isinstance(txn['amount'], Decimal128) else txn['amount']
                 if txn['transaction_type'] == 'credit':
-                    balance_before = running_balance - txn['amount']
+                    balance_before = running_balance - txn_amount
                 else:
-                    balance_before = running_balance + txn['amount']
+                    balance_before = running_balance + txn_amount
                 break
         
         txn['balance_before'] = round(balance_before, 3)
