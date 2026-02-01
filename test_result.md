@@ -1298,6 +1298,73 @@ test_plan:
   test_all: true
   test_priority: "high_first"
 
+
+user_problem_statement: |
+  Purchase Filtering Bug - Filters not working properly on Purchases Page
+  - Customer ID (Oman ID) search filter not working
+  - Walk-in vendor type filter not working
+  - User selects "Walk-in Only" and enters Customer ID "123" but table shows all purchases
+
+frontend:
+  - task: "Fix Purchase Filter API Parameters"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/PurchasesPage.js"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT - Filters not working. Customer ID search by '123' and Walk-in vendor type filter 'Walk-in Only' not filtering the purchase records properly."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Root cause: Frontend was sending wrong parameter names to backend API. Changed 'is_walk_in' to 'vendor_type' (line 173) and 'vendor_oman_id' to 'customer_id' (line 177). Backend expects vendor_type='walk_in'/'saved'/'all' and customer_id for filtering. Fix aligns frontend API calls with backend endpoint parameters defined at line 4388-4398 in server.py."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Fix Purchase Filter API Parameters"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "critical"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      🐛 PURCHASE FILTER BUG FIX COMPLETED
+      
+      PROBLEM ANALYSIS:
+      Frontend was sending incorrect parameter names to the backend API:
+      - Frontend sent: is_walk_in=true/false (as string)
+      - Backend expects: vendor_type=walk_in/saved/all
+      - Frontend sent: vendor_oman_id
+      - Backend expects: customer_id
+      
+      FIX APPLIED:
+      Updated loadPurchases() function in PurchasesPage.js (lines 173 and 177):
+      1. Changed 'is_walk_in' parameter to 'vendor_type' (now sends 'walk_in' or 'saved' directly)
+      2. Changed 'vendor_oman_id' parameter to 'customer_id'
+      
+      This aligns with the backend API endpoint at /app/backend/server.py line 4388-4426 which expects:
+      - vendor_type: "walk_in" | "saved" | "all"
+      - customer_id: string (Oman ID)
+      
+      TESTING NEEDED:
+      1. Select "Walk-in Only" in Vendor Type filter - should show only walk-in purchases
+      2. Select "Saved Vendors Only" - should show only purchases from saved vendors
+      3. Enter Customer ID (e.g., "123") - should filter by that customer ID
+      4. Combine filters (Walk-in + Customer ID) - should show walk-in purchases for that customer
+      5. Clear filters - should show all purchases
+      
+      Frontend hot reload will pick up changes automatically. Ready for testing.
+
+
 user_problem_statement: |
   Dashboard is not working - showing all zeros (Categories: 0, Total Stock: 0.000g, Outstanding: 0.00 DMR, Low Stock: 0)
   and empty Stock Summary table. User is logged in as Administrator but dashboard displays no data.
