@@ -1446,6 +1446,32 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      ✅ EST. METAL VALUE ISSUE - EXPLANATION PROVIDED
+      
+      USER REPORT: "est metal value isn't changing?"
+      
+      ANALYSIS COMPLETED:
+      The Est. Metal Value is showing 0.00 OMR because the calculation formula is:
+      **Metal Value = Weight IN (g) × Gold Rate**
+      
+      From the screenshot:
+      - Gold Rate: 5.74 OMR/g ✓ (visible in notes)
+      - Weight IN: 0 g ❌ (not entered yet)
+      - Result: 0 × 5.74 = 0.00 OMR
+      
+      SOLUTION:
+      The user needs to enter a weight value in the "Weight IN (g)" field for each item.
+      
+      EXAMPLE:
+      If the user enters:
+      - Weight IN: 10 grams
+      - Gold Rate: 5.74 OMR/g
+      - Then: Metal Value = 10 × 5.74 = 57.40 OMR ✓
+      
+      The Cost Estimation Preview will automatically update when the weight is entered.
+      
+  - agent: "main"
+    message: |
       ✅ WORK TYPES CUSTOM INPUT FIX COMPLETED
       
       PROBLEM IDENTIFIED:
