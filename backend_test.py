@@ -1309,7 +1309,8 @@ class BackendTester:
                 movements = []
                 if movements_response.status_code == 200:
                     data = movements_response.json()
-                    movements = data.get("data", data.get("items", data if isinstance(data, list) else []))
+                    # FIXED: API returns direct list, not wrapped response
+                    movements = data if isinstance(data, list) else []
                 
                 # Find movement related to this purchase
                 purchase_movement = None
