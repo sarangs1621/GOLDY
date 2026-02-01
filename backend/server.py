@@ -4422,9 +4422,9 @@ async def get_purchases(
             query["vendor_party_id"] = {"$ne": None}
         # "all" type: no additional filter needed
     
-    # Filter by customer ID (Oman ID) for walk-in vendors
+    # Filter by customer ID (Oman ID) for walk-in vendors - case-insensitive partial match
     if customer_id:
-        query["vendor_oman_id"] = customer_id
+        query["vendor_oman_id"] = {"$regex": customer_id, "$options": "i"}
     
     # Filter by date range
     if start_date or end_date:
