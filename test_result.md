@@ -1366,6 +1366,150 @@ agent_communication:
 
 
 user_problem_statement: |
+  Purchase Oman ID Issues - Multiple problems with Customer ID functionality
+  - Customer ID (Oman ID) search not working - when searching "oman" no results appear even though purchases with "Oman1234" exist
+  - Update not persisting - when trying to change Oman ID the old value remains
+  - Add Item button disappeared - after creating purchase with multiple items, the option to add more items is gone when editing
+
+backend:
+  - task: "Fix Customer ID Search - Case-insensitive Partial Match"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT - Search by Customer ID not working. Searching for 'oman' returns no results even though purchases with 'Oman1234' exist."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Changed customer_id filter from exact match to case-insensitive partial match using MongoDB regex. Line 4427: Changed from query['vendor_oman_id'] = customer_id to query['vendor_oman_id'] = {'$regex': customer_id, '$options': 'i'}. Now searching 'oman' will find 'Oman1234', 'oman1234', 'OMAN123', etc."
+
+  - task: "Fix Purchase Update - Handle Walk-in Vendor Fields"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT - When updating Oman ID the old value remains. Changes are not persisting."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Added comprehensive walk-in vendor field validation in update_purchase endpoint (lines 4481-4515). Now properly validates and updates vendor_oman_id and walk_in_vendor_name when is_walk_in=true. When switching between walk-in and saved vendor, properly clears opposite fields (walk-in clears vendor_party_id, saved vendor clears vendor_oman_id and walk_in_vendor_name). Backend now accepts and persists walk-in field updates."
+
+frontend:
+  - task: "Prevent Data Loss - Disable Mode Toggles When Editing"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/PurchasesPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT - After creating purchase with Oman ID, the Add Item button disappeared. Cannot add more items when editing."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Disabled 'Walk-in Vendor' checkbox when editing to prevent switching vendor type and losing data (line 995: disabled={!!editingPurchase}). Disabled 'Multiple Items' checkbox when editing a multiple-items purchase to prevent accidental unchecking that would remove Add Item button (line 1009: disabled={editingPurchase && isMultipleItems}). Added visual feedback '(cannot change when editing)' text. Users can still edit vendor_oman_id and walk_in_vendor_name fields, and can still add/remove items via Add Item button - they just can't toggle the mode checkboxes."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Fix Customer ID Search - Case-insensitive Partial Match"
+    - "Fix Purchase Update - Handle Walk-in Vendor Fields"
+    - "Prevent Data Loss - Disable Mode Toggles When Editing"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "critical"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      🐛 PURCHASE OMAN ID ISSUES - ALL THREE PROBLEMS FIXED
+      
+      PROBLEM 1: Customer ID Search Not Working
+      ==========================================
+      ROOT CAUSE: Backend was doing exact match on vendor_oman_id
+      - Searching "oman" would not find "Oman1234" or "oman1234"
+      
+      FIX APPLIED:
+      - Changed backend filter to use case-insensitive regex pattern
+      - Line 4427 in server.py: query["vendor_oman_id"] = {"$regex": customer_id, "$options": "i"}
+      - Now supports partial matching: "oman" finds "Oman1234", "OMAN", "something_oman_123", etc.
+      
+      PROBLEM 2: Update Not Persisting (Old ID Remains)
+      ==================================================
+      ROOT CAUSE: Backend update_purchase endpoint didn't validate or handle walk-in vendor fields
+      - vendor_oman_id and walk_in_vendor_name were being ignored in updates
+      
+      FIX APPLIED:
+      - Added comprehensive walk-in vendor validation in update_purchase (lines 4481-4515)
+      - When is_walk_in=true: validates and accepts vendor_oman_id and walk_in_vendor_name updates
+      - When is_walk_in=false: validates vendor_party_id, clears walk-in fields
+      - Proper field switching when toggling between walk-in and saved vendor modes
+      - Backend now properly persists Customer ID (Oman ID) changes
+      
+      PROBLEM 3: Add Item Button Disappeared
+      =======================================
+      ROOT CAUSE: Checkboxes were editable during edit, causing data loss
+      - User could uncheck "Multiple Items" → lose Add Item button
+      - User could uncheck "Walk-in Vendor" → lose Customer ID fields
+      
+      FIX APPLIED:
+      - Disabled "Walk-in Vendor" checkbox when editing any purchase (line 995)
+      - Disabled "Multiple Items" checkbox when editing multi-item purchase (line 1009)
+      - Added visual feedback: "(cannot change when editing)" text
+      - Users can still:
+        ✓ Edit vendor_oman_id (Customer ID) field
+        ✓ Edit walk_in_vendor_name field
+        ✓ Add new items via "Add Item" button
+        ✓ Remove items via X button
+      - They just cannot toggle the mode checkboxes to prevent accidental data loss
+      
+      TESTING SCENARIOS:
+      ==================
+      1. Search Testing:
+         a. Create purchase with Customer ID "Oman1234"
+         b. Search for "oman" → should find it
+         c. Search for "OMAN" → should find it
+         d. Search for "1234" → should find it
+         e. Search for "xyz" → should not find it
+      
+      2. Update Testing:
+         a. Create walk-in purchase with Customer ID "12345678"
+         b. Edit and change to "87654321"
+         c. Save and verify ID updated
+         d. Search for "87654321" → should find it
+         e. Search for "12345678" → should not find it
+      
+      3. Add Item Button Testing:
+         a. Create purchase with multiple items
+         b. Edit the purchase
+         c. Verify "Multiple Items" checkbox is disabled
+         d. Verify "Add Item" button is visible and clickable
+         e. Add another item successfully
+         f. Verify all items saved correctly
+      
+      SERVICES STATUS:
+      ===============
+      ✅ Backend: Restarted successfully, running on port 8001
+      ✅ Frontend: Hot reload will pick up changes automatically
+      ✅ MongoDB: Running
+      
+      All three issues are now fixed and ready for testing!
+
+user_problem_statement: |
   Dashboard is not working - showing all zeros (Categories: 0, Total Stock: 0.000g, Outstanding: 0.00 DMR, Low Stock: 0)
   and empty Stock Summary table. User is logged in as Administrator but dashboard displays no data.
   
