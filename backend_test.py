@@ -1058,11 +1058,11 @@ class BackendTester:
             if not vendor_id:
                 return False
             
-            # Test multiple items with different purities
+            # Test multiple items with different purities - PRECISE CALCULATIONS
             # Item 1: 50g, 916 purity, 50 OMR/g → (50 × 50 × 1.0) ÷ 0.920 = 2717.391 OMR
-            # Item 2: 30g, 999 purity, 52 OMR/g → (30 × 52 × 0.917) ÷ 0.920 = 1556.304 OMR  
-            # Item 3: 20g, 875 purity, 48 OMR/g → (20 × 48 × 1.047) ÷ 0.920 = 1090.087 OMR
-            # Total: 5363.782 OMR
+            # Item 2: 30g, 999 purity, 52 OMR/g → (30 × 52 × 0.91691...) ÷ 0.920 = 1554.772 OMR (precise)
+            # Item 3: 20g, 875 purity, 48 OMR/g → (20 × 48 × 1.04685...) ÷ 0.920 = 1092.373 OMR (precise)
+            # Total: 5364.536 OMR (precise)
             
             purchase_data = {
                 "vendor_party_id": vendor_id,
@@ -1097,9 +1097,9 @@ class BackendTester:
                 actual_items = purchase.get("items", [])
                 actual_total = float(purchase.get("amount_total", 0))
                 
-                # Expected calculations
-                expected_amounts = [2717.391, 1556.304, 1090.087]
-                expected_total = sum(expected_amounts)
+                # Expected calculations - PRECISE VALUES
+                expected_amounts = [2717.391, 1554.772, 1092.373]
+                expected_total = sum(expected_amounts)  # 5364.536
                 
                 # Verify each item calculation
                 items_correct = []
