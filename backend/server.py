@@ -11875,23 +11875,15 @@ async def finalize_return(
         # Fetch updated return
         updated_return = await db.returns.find_one({"id": return_id})
         
-        # Build response message based on return type
-        if return_type == 'sale_return':
-            message = "Return finalized successfully. ⚠️ IMPORTANT: Manual inventory adjustment is required after inspection."
-            details = {
-                "inventory_action_status": "manual_action_required",
-                "pending_inventory_adjustments": len(pending_adjustments) if 'pending_adjustments' in locals() else 0,
-                "transaction_created": transaction_id is not None,
-                "gold_ledger_created": gold_ledger_id is not None,
-                "notice": "Inventory has NOT been updated automatically. Please perform manual stock adjustment after inspecting returned items."
-            }
-        else:
-            message = "Return finalized successfully"
-            details = {
-                "stock_movements_created": len(stock_movement_ids),
-                "transaction_created": transaction_id is not None,
-                "gold_ledger_created": gold_ledger_id is not None
-            }
+        # Build response message - Both sales and purchase returns require manual inventory action
+        message = "Return finalized successfully. ⚠️ IMPORTANT: Manual inventory adjustment is required after inspection."
+        details = {
+            "inventory_action_status": "manual_action_required",
+            "pending_inventory_adjustments": len(pending_adjustments) if 'pending_adjustments' in locals() else 0,
+            "transaction_created": transaction_id is not None,
+            "gold_ledger_created": gold_ledger_id is not None,
+            "notice": "Inventory has NOT been updated automatically. Please perform manual stock adjustment after inspecting returned items."
+        }
         
         return {
             "message": message,
