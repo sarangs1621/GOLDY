@@ -1499,6 +1499,40 @@ agent_communication:
       4. Dashboard - Should display all metrics without errors
       5. All other pages to ensure no regressions
   
+  - agent: "testing"
+    message: |
+      ✅ DECIMAL128/FLOAT CONVERSION FIX - TESTING COMPLETED SUCCESSFULLY
+      
+      CRITICAL ISSUE RESOLVED:
+      ================================================================================
+      
+      🎯 PRIMARY FOCUS: GET /api/transactions endpoint (causing HTTP 520 error on Purchases page)
+      - BEFORE: HTTP 520 Internal Server Error with TypeError: float() argument must be a string or a real number, not 'Decimal128'
+      - AFTER: HTTP 200 OK with proper JSON response containing transaction data
+      
+      📊 COMPREHENSIVE TEST RESULTS:
+      - Total Tests: 4
+      - Passed: 4 ✅ 
+      - Failed: 0 ❌
+      - Success Rate: 100.0%
+      
+      🔍 SPECIFIC VERIFICATIONS:
+      1. ✅ GET /api/transactions: Returns 200 status with 10 transactions, all amounts properly converted to float
+      2. ✅ Account Balance Conversion: 20 accounts with opening_balance and current_balance as float
+      3. ✅ Transactions Pagination: Proper pagination with ≤10 transactions per page
+      4. ✅ No TypeError: All Decimal128 values properly converted using .to_decimal() method
+      
+      🔧 TECHNICAL FIX APPLIED:
+      - Fixed lines 6992-6996: account['opening_balance'] conversion using .to_decimal()
+      - Fixed lines 7002-7017: transaction amount conversions in running balance calculations
+      - Root cause: Direct float() conversion on Decimal128 objects not supported
+      - Solution: Use Decimal128.to_decimal() method first, then convert to float
+      
+      🏆 CONCLUSION:
+      The Purchases page HTTP 520 error is now fully resolved. The GET /api/transactions endpoint
+      returns proper JSON responses with all financial amounts as float values. The fix ensures
+      compatibility between MongoDB Decimal128 storage and Python float calculations.
+  
   - agent: "main"
     message: |
       ✅ EST. METAL VALUE ISSUE - EXPLANATION PROVIDED
