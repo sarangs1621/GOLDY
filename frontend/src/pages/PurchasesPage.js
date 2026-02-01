@@ -993,10 +993,14 @@ export default function PurchasesPage() {
                     }
                   }}
                   className="w-4 h-4 text-blue-600"
+                  disabled={!!editingPurchase}
                 />
-                <Label htmlFor="walkInToggle" className="cursor-pointer flex items-center gap-2">
+                <Label htmlFor="walkInToggle" className={`flex items-center gap-2 ${editingPurchase ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                   <User className="w-4 h-4" />
                   Walk-in Vendor
+                  {editingPurchase && (
+                    <span className="text-xs text-gray-500">(cannot change when editing)</span>
+                  )}
                 </Label>
               </div>
               
