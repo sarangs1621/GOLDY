@@ -4391,16 +4391,39 @@ async def get_purchases(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     status: Optional[str] = None,
+    vendor_type: Optional[str] = None,
+    customer_id: Optional[str] = None,
     page: int = 1,
     page_size: int = 10,
     current_user: User = Depends(require_permission('purchases.view'))
 ):
-    """Get all purchases with optional filters and pagination"""
+    """
+    Get all purchases with optional filters and pagination
+    
+    New filters:
+    - vendor_type: Filter by vendor type ("all", "walk_in", "saved")
+    - customer_id: Search by Customer ID (Oman ID) for walk-in vendors
+    """
     query = {"is_deleted": False}
     
     # Filter by vendor
     if vendor_party_id:
         query["vendor_party_id"] = vendor_party_id
+    
+    # Filter by vendor type (Enhanced Purchase Valuation feature)
+    if vendor_type:
+        if vendor_type == "walk_in":
+            # Walk-in vendors: is_walk_in=True and no vendor_party_id
+            query["is_walk_in"] = True
+            query["vendor_party_id"] = None
+        elif vendor_type == "saved":
+            # Saved vendors: has vendor_party_id (walk-in flag may be absent or False)
+            query["vendor_party_id"] = {"$ne": None}
+        # "all" type: no additional filter needed
+    
+    # Filter by customer ID (Oman ID) for walk-in vendors
+    if customer_id:
+        query["vendor_oman_id"] = customer_id
     
     # Filter by date range
     if start_date or end_date:
