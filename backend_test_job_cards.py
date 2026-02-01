@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import time
 
 # Configuration
-BACKEND_URL = "https://load-debugger.preview.emergentagent.com/api"
+BACKEND_URL = "https://decimal128-staging.preview.emergentagent.com/api"
 TEST_USER = {
     "username": "admin_netflow_test",
     "password": "TestAdmin@123"  # Test admin user for net flow testing
