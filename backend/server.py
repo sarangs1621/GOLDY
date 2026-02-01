@@ -4241,6 +4241,8 @@ async def add_payment_to_purchase(
         logger.error(f"Error fetching purchase {purchase_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
+    # Convert Decimal128 to float for Pydantic validation
+    existing = decimal_to_float(existing)
     purchase = Purchase(**existing)
     
     # Validate purchase is not locked
