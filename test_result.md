@@ -1525,6 +1525,120 @@ agent_communication:
       Dashboard should now display actual data (Categories: 19, Outstanding: 42,386.50 OMR)
       instead of zeros. The TypeError that was causing 520 errors has been resolved.
 
+
+
+user_problem_statement: |
+  Oman ID Bug Fix - Customer ID (Oman ID) is auto-generating or changing after save
+  - User reports: When they add their own Oman ID in party record, it changes to something different after saving
+  - Investigation revealed: Update party endpoint was not including oman_id in the update_data dictionary
+  - This caused the oman_id field to be excluded from the database update operation
+
+backend:
+  - task: "Fix Party Update Endpoint - Include oman_id field"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT - Oman ID is auto-generating or changing after saving party record. User adds their own ID but it changes to something different when saved."
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Root cause identified at line 2979-2985 in update_party endpoint. 
+          The update_data dictionary was missing the 'oman_id' field when building data for PartyValidator.
+          
+          BEFORE (Line 2979-2985):
+          update_data = {
+              'name': party_data.get('name', existing.get('name')),
+              'phone': party_data.get('phone', existing.get('phone')),
+              'address': party_data.get('address', existing.get('address')),
+              'party_type': party_data.get('party_type', existing.get('party_type')),
+              'notes': party_data.get('notes', existing.get('notes'))
+          }
+          
+          AFTER (Line 2979-2986):
+          update_data = {
+              'name': party_data.get('name', existing.get('name')),
+              'oman_id': party_data.get('oman_id', existing.get('oman_id')),
+              'phone': party_data.get('phone', existing.get('phone')),
+              'address': party_data.get('address', existing.get('address')),
+              'party_type': party_data.get('party_type', existing.get('party_type')),
+              'notes': party_data.get('notes', existing.get('notes'))
+          }
+          
+          This ensures oman_id is properly included in the database update operation.
+          Backend restarted successfully.
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Fix Party Update Endpoint - Include oman_id field"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "critical"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      🐛 OMAN ID BUG FIX COMPLETED
+      
+      PROBLEM ANALYSIS:
+      ================================================================================
+      User reported that when they add their own Oman ID to a party record and save it,
+      the ID changes to something different. This was happening because the backend
+      update endpoint was not properly handling the oman_id field.
+      
+      ROOT CAUSE IDENTIFIED:
+      ================================================================================
+      In the update_party endpoint (line 2968-3015 in server.py), when building the 
+      update_data dictionary for validation (lines 2979-2985), the code was missing 
+      the 'oman_id' field.
+      
+      The update_data dictionary only included:
+      - name
+      - phone  
+      - address
+      - party_type
+      - notes
+      
+      But was MISSING:
+      - oman_id ❌
+      
+      This caused the validated_data.dict() at line 3010 to exclude oman_id from the
+      database update operation, resulting in the field not being saved or being set
+      to a default/null value.
+      
+      FIX APPLIED:
+      ================================================================================
+      Added 'oman_id' field to the update_data dictionary:
+      
+      'oman_id': party_data.get('oman_id', existing.get('oman_id')),
+      
+      This ensures:
+      1. If oman_id is provided in party_data, it will be used
+      2. If not provided, it will preserve the existing oman_id value
+      3. The field will be properly included in the database update
+      
+      TESTING NEEDED:
+      ================================================================================
+      1. Create a new party with Oman ID (e.g., "12345678")
+      2. Edit the party and verify the Oman ID is displayed correctly
+      3. Change the Oman ID to a new value (e.g., "87654321")
+      4. Save and verify the new Oman ID is persisted correctly
+      5. Edit again without changing Oman ID - verify it remains unchanged
+      6. Leave Oman ID empty and verify it can be cleared
+      
+      Backend service has been restarted and is running successfully.
+
 user_problem_statement: |
   Add selectable conversion factor in purchase form - Users should be able to select between 0.920 and 0.917 conversion factors when creating a purchase.
 
