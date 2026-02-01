@@ -1412,6 +1412,21 @@ frontend:
       - working: "needs_testing"
         agent: "main"
         comment: "✅ ADDED - Added /work-types route to App.js with ProtectedRoute (no permission requirement - accessible to all users). Added 'Work Types' navigation item to DashboardLayout with Wrench icon. Positioned after 'Workers' in navigation menu."
+  
+  - task: "Job Card Form - Custom Work Type Input"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/JobCardsPage.js"
+    stuck_count: 1
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT - Still cannot custom write work type in job card. Work type field uses dropdown (Select) which only allows selection from predefined options."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Replaced Select dropdown with Input field that has datalist for autocomplete (line 1235-1258). Users can now: (1) Type any custom work type directly, (2) See autocomplete suggestions from existing work types as they type, (3) Select from suggestions by clicking. The datalist shows active work types from backend when available, falls back to default options (Polish, Resize, Repair, Custom). This provides full flexibility while maintaining good UX with suggestions."
 
 metadata:
   created_by: "main_agent"
