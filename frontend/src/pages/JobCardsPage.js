@@ -478,6 +478,11 @@ export default function JobCardsPage() {
       delivery_date: deliveryDate,
       notes: jobcard.notes || '',
       gold_rate_at_jobcard: jobcard.gold_rate_at_jobcard || '',  // MODULE 8: Load gold rate
+      // Gold Settlement fields
+      advance_in_gold_grams: jobcard.advance_in_gold_grams || '',
+      exchange_in_gold_grams: jobcard.exchange_in_gold_grams || '',
+      advance_gold_rate: jobcard.advance_gold_rate || '',
+      exchange_gold_rate: jobcard.exchange_gold_rate || '',
       status: jobcard.status || 'created',
       items: jobcard.items.map(item => ({
         ...item,
