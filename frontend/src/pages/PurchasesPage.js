@@ -1566,7 +1566,7 @@ export default function PurchasesPage() {
 
                   {/* Total Summary */}
                   <div className="mt-4 p-4 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg shadow-md">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-2">
                       <div>
                         <div className="text-xs opacity-90">Total Purchase Amount</div>
                         <div className="font-semibold">All Items ({viewPurchase.items.length})</div>
@@ -1574,6 +1574,10 @@ export default function PurchasesPage() {
                       <span className="font-mono font-bold text-2xl">
                         {(viewPurchase.amount_total || 0).toFixed(3)} OMR
                       </span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-white/30">
+                      <span className="text-xs opacity-90">Conversion Factor Used:</span>
+                      <span className="font-mono font-semibold">{viewPurchase.conversion_factor || '0.920'}</span>
                     </div>
                   </div>
                 </div>
