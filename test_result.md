@@ -1371,6 +1371,29 @@ user_problem_statement: |
   - Update not persisting - when trying to change Oman ID the old value remains
   - Add Item button disappeared - after creating purchase with multiple items, the option to add more items is gone when editing
 
+user_problem_statement_latest: |
+  Purchase Update Bug - Failed to save purchase when editing multiple-item purchases
+  - User reports "Failed to save purchase" error when trying to edit any field (ID, name, etc.) in existing purchases
+  - Issue occurs specifically for purchases created with multiple items
+  - Backend update_purchase endpoint was trying to calculate amount_total using single-item logic (weight_grams * rate_per_gram) even for multiple-item purchases
+  - Multiple-item purchases don't have single weight_grams or rate_per_gram fields - data is in items array instead
+
+backend:
+  - task: "Fix Purchase Update - Handle Multiple Items vs Single Item"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "❌ USER REPORT - Failed to save purchase error when trying to edit purchases (changing ID, name, etc.). Update not working at all."
+      - working: "needs_testing"
+        agent: "main"
+        comment: "✅ FIXED - Root cause: Backend update_purchase endpoint (line 4515+) was always using single-item calculation logic (weight_grams * rate_per_gram) even for multiple-item purchases. Added logic to detect multiple-item purchases (check if items array exists) and handle them differently: (1) For multiple-item purchases: Only recalculate amount_total if items being updated, otherwise preserve existing amount_total. (2) For single-item purchases: Use existing calculation logic. This allows editing metadata fields (vendor_oman_id, walk_in_vendor_name, etc.) without triggering invalid calculations."
+
 backend:
   - task: "Fix Customer ID Search - Case-insensitive Partial Match"
     implemented: true
