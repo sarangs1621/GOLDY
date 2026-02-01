@@ -1019,32 +1019,6 @@ const ReturnsPage = () => {
                   </p>
                 )}
               </div>
-                          {formData.items.length > 1 && !isInvoiceLinked && (
-                            <button
-                              type="button"
-                              onClick={() => removeItem(index)}
-                              className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-                            >
-                              Remove Item
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                
-                {/* Only allow adding items when NOT linked to invoice */}
-                {(!formData.reference_id || formData.return_type !== 'sale_return') && (
-                  <button
-                    type="button"
-                    onClick={addItem}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    + Add Another Item
-                  </button>
-                )}
-              </div>
               
               {/* Refund Details - HIDDEN IN CREATE (Added During Edit or Finalize) */}
               <div className="bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-blue-500 rounded-md p-4">
