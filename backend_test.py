@@ -13,8 +13,8 @@ import time
 # Configuration
 BACKEND_URL = "https://dashboard-repair-53.preview.emergentagent.com/api"
 TEST_USER = {
-    "username": "admin",
-    "password": "Admin@123456789"  # Admin user for dashboard testing
+    "username": "Administrator",
+    "password": "Admin@123456789"  # Try Administrator user
 }
 
 class BackendTester:
