@@ -5524,10 +5524,20 @@ async def get_invoice_returnable_items(
         item_purity = item.get('purity', 0)
         key = f"{item_desc}_{item_purity}"
         
-        # Original quantities
+        # Original quantities - Handle Decimal128
         original_qty = item.get('qty', 0)
-        original_weight = float(item.get('net_gold_weight', 0) or item.get('weight', 0))
-        original_amount = float(item.get('line_total', 0))
+        
+        net_gold_weight = item.get('net_gold_weight', 0) or item.get('weight', 0)
+        if isinstance(net_gold_weight, Decimal128):
+            original_weight = float(net_gold_weight.to_decimal())
+        else:
+            original_weight = float(net_gold_weight) if net_gold_weight else 0.0
+        
+        line_total = item.get('line_total', 0)
+        if isinstance(line_total, Decimal128):
+            original_amount = float(line_total.to_decimal())
+        else:
+            original_amount = float(line_total) if line_total else 0.0
         
         # Already returned
         already_returned = returned_map.get(key, {'qty': 0, 'weight_grams': 0.0})
