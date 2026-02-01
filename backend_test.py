@@ -382,9 +382,6 @@ class BackendTester:
                 
                 # Verify we have the invoice data directly
                 if invoice_id:
-                
-                if invoice_response.status_code == 200:
-                    invoice = invoice_response.json()
                     
                     # Verify gold settlement calculations
                     actual_balance_due = invoice.get("balance_due", 0)
