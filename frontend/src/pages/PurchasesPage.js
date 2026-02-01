@@ -510,10 +510,12 @@ export default function PurchasesPage() {
           advance_in_gold_grams: formData.advance_in_gold_grams ? parseFloat(formData.advance_in_gold_grams) : null,
           exchange_in_gold_grams: formData.exchange_in_gold_grams ? parseFloat(formData.exchange_in_gold_grams) : null,
           items: items.map(item => ({
+            id: item.id || null,
             description: item.description,
             weight_grams: parseFloat(item.weight_grams),
             entered_purity: parseInt(item.entered_purity),
-            rate_per_gram_22k: parseFloat(item.rate_per_gram_22k)
+            rate_per_gram_22k: parseFloat(item.rate_per_gram_22k),
+            calculated_amount: parseFloat(item.calculated_amount) || 0
           }))
         };
         
