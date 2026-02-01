@@ -9317,6 +9317,8 @@ async def get_sales_history_report(
     
     # Get invoices
     invoices = await db.invoices.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
+    # Convert Decimal128 to float for calculations
+    invoices = [decimal_to_float(inv) for inv in invoices]
     
     # Build queries for SOURCE-OF-TRUTH data
     stock_query = {"is_deleted": False, "movement_type": "Stock OUT"}
@@ -9337,6 +9339,10 @@ async def get_sales_history_report(
     # Get StockMovements and Transactions
     stock_movements = await db.stock_movements.find(stock_query, {"_id": 0}).to_list(10000)
     transactions = await db.transactions.find(txn_query, {"_id": 0}).to_list(10000)
+    
+    # Convert Decimal128 to float for calculations
+    stock_movements = [decimal_to_float(m) for m in stock_movements]
+    transactions = [decimal_to_float(t) for t in transactions]
     
     # Build maps for quick lookup by reference_id (invoice.id)
     stock_by_invoice = {}
