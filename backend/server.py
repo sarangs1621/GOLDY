@@ -7667,6 +7667,9 @@ async def export_invoices(
     
     invoices = await db.invoices.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
     
+    # Convert Decimal128 to float for Excel export calculations
+    invoices = [decimal_to_float(inv) for inv in invoices]
+    
     wb = openpyxl.Workbook()
     
     # ===========================================================================
