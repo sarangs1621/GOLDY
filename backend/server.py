@@ -10693,7 +10693,17 @@ async def get_invoice_finalize_impact(invoice_id: str, current_user: User = Depe
     items = invoice.get("items", [])
     # FIX: Invoice items use "weight" field, not "weight_in"
     # Compute total_weight by summing (item.weight * item.qty) for all items
-    total_weight = sum(item.get("weight", 0) * item.get("qty", 1) for item in items)
+    # Ensure proper float conversion for weight and qty
+    total_weight = 0
+    for item in items:
+        weight = item.get("weight", 0)
+        qty = item.get("qty", 1)
+        # Handle any remaining Decimal128 objects
+        if isinstance(weight, Decimal128):
+            weight = float(weight.to_decimal())
+        if isinstance(qty, Decimal128):
+            qty = float(qty.to_decimal())
+        total_weight += float(weight) * float(qty)
     
     return {
         "action": "Finalize Invoice",
