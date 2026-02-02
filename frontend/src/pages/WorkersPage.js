@@ -163,27 +163,6 @@ export default function WorkersPage() {
     setShowDialog(true);
   };
 
-  // Filtered workers based on search and active filter
-  const filteredWorkers = useMemo(() => {
-    return workers.filter(worker => {
-      // Active filter
-      if (filterActive === 'active' && !worker.active) return false;
-      if (filterActive === 'inactive' && worker.active) return false;
-      
-      // Search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          worker.name?.toLowerCase().includes(searchLower) ||
-          worker.phone?.toLowerCase().includes(searchLower) ||
-          worker.role?.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      return true;
-    });
-  }, [workers, searchTerm, filterActive]);
-
   return (
     <div>
       <Card>
