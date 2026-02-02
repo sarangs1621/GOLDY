@@ -9,15 +9,16 @@ import { formatDateTime } from '../utils/dateTimeUtils';
 export default function AuditLogsPage() {
   const { currentPage, setPage, pagination, setPagination } = useURLPagination();
   const [logs, setLogs] = useState([]);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     loadLogs();
-  }, [currentPage]);
+  }, [currentPage, pageSize]);
 
   const loadLogs = async () => {
     try {
       const response = await API.get(`/api/audit-logs`, {
-        params: { page: currentPage, page_size: 10 }
+        params: { page: currentPage, page_size: pageSize }
       });
       setLogs(Array.isArray(response.data.items) ? response.data.items : []);
       setPagination(response.data.pagination);
@@ -79,7 +80,14 @@ export default function AuditLogsPage() {
             )}
           </div>
         </CardContent>
-        {pagination && <Pagination pagination={pagination} onPageChange={setPage} />}
+        {pagination && <Pagination 
+          pagination={pagination} 
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+        />}
       </Card>
     </div>
   );
