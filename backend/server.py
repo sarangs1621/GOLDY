@@ -8899,7 +8899,7 @@ async def get_outstanding_report(
                 overdue_days = (today - due_date).days
                 
                 if overdue_days >= 0:  # Only count if actually overdue
-                    outstanding_amount = inv.get('balance_due', 0)
+                    outstanding_amount = safe_float(inv.get('balance_due', 0))
                     if 0 <= overdue_days <= 7:
                         party_data[party_key]['overdue_0_7'] += outstanding_amount
                     elif 8 <= overdue_days <= 30:
