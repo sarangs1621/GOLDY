@@ -80,7 +80,7 @@ export default function InventoryPage() {
       const [headersRes, movementsRes, totalsRes, inventoryRes] = await Promise.all([
         API.get(`/api/inventory/headers?page_size=1000`),
         API.get(`/api/inventory/movements`),
-        API.get(`/api/inventory/stock-totals`),
+        API.get(`/api/inventory/stock-totals?page=1&page_size=1000`),
         API.get(`/api/inventory`, {
           params: { page: currentPage, page_size: 10 }
         })
@@ -89,7 +89,7 @@ export default function InventoryPage() {
       // inventory/headers now returns paginated response with {items: [], pagination: {}}
       setHeaders(Array.isArray(headersRes.data.items) ? headersRes.data.items : []);
       setMovements(Array.isArray(movementsRes.data) ? movementsRes.data : []);
-      setStockTotals(Array.isArray(totalsRes.data) ? totalsRes.data : []);
+      setStockTotals(Array.isArray(totalsRes.data?.items) ? totalsRes.data.items : []);
       setInventory(Array.isArray(inventoryRes.data.items) ? inventoryRes.data.items : []);
       setPagination(inventoryRes.data.pagination);
     } catch (error) {

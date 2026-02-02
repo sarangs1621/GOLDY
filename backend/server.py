@@ -2540,13 +2540,28 @@ async def delete_stock_movement(movement_id: str, current_user: User = Depends(r
     }
 
 @api_router.get("/inventory/stock-totals")
-async def get_stock_totals(current_user: User = Depends(require_permission('inventory.view'))):
+async def get_stock_totals(
+    page: int = 1,
+    page_size: int = 10,
+    current_user: User = Depends(require_permission('inventory.view'))
+):
     if not user_has_permission(current_user, 'inventory.view'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view inventory")
     
-    # Return current stock directly from inventory headers
-    headers = await db.inventory_headers.find({"is_deleted": False}, {"_id": 0}).to_list(1000)
-    return [
+    # Get total count
+    total_count = await db.inventory_headers.count_documents({"is_deleted": False})
+    
+    # Calculate pagination
+    total_pages = (total_count + page_size - 1) // page_size
+    skip = (page - 1) * page_size
+    
+    # Return current stock directly from inventory headers with pagination
+    headers = await db.inventory_headers.find(
+        {"is_deleted": False}, 
+        {"_id": 0}
+    ).skip(skip).limit(page_size).to_list(page_size)
+    
+    items = [
         {
             "header_id": h['id'], 
             "header_name": h['name'], 
@@ -2555,6 +2570,18 @@ async def get_stock_totals(current_user: User = Depends(require_permission('inve
         } 
         for h in headers
     ]
+    
+    return {
+        "items": items,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_prev": page > 1
+        }
+    }
 
 # ============================================================================
 # NEW ENDPOINTS FOR API COMPLETENESS

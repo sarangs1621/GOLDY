@@ -3,6 +3,7 @@ import { API } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Package, AlertTriangle, Users, TrendingUp } from 'lucide-react';
 import { formatWeight, formatCurrency } from '../utils/numberFormat';
+import Pagination from '../components/Pagination';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -12,27 +13,35 @@ export default function Dashboard() {
     lowStockItems: 0
   });
   const [stockTotals, setStockTotals] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [pagination, setPagination] = useState(null);
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [currentPage]);
 
   const loadDashboardData = async () => {
     try {
       const [headersRes, stockRes, outstandingRes] = await Promise.all([
         API.get(`/api/inventory/headers?page_size=1000`),
-        API.get(`/api/inventory/stock-totals`),
+        API.get(`/api/inventory/stock-totals?page=${currentPage}&page_size=${pageSize}`),
         API.get(`/api/parties/outstanding-summary`)
       ]);
 
+      // For stats, we need all stock data to calculate totals
+      const allStockRes = await API.get(`/api/inventory/stock-totals?page=1&page_size=1000`);
+      const allStockData = allStockRes.data?.items || [];
+
       setStats({
         totalHeaders: headersRes.data?.pagination?.total_count || 0,
-        totalStock: stockRes.data?.reduce((sum, item) => sum + (item.total_weight || 0), 0) || 0,
+        totalStock: allStockData.reduce((sum, item) => sum + (item.total_weight || 0), 0) || 0,
         totalOutstanding: outstandingRes.data?.total_customer_due || 0,
-        lowStockItems: stockRes.data?.filter(item => item.total_qty < 5).length || 0
+        lowStockItems: allStockData.filter(item => item.total_qty < 5).length || 0
       });
 
-      setStockTotals(Array.isArray(stockRes.data) ? stockRes.data : []);
+      setStockTotals(stockRes.data?.items || []);
+      setPagination(stockRes.data?.pagination || null);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
       // Set safe default values on error
@@ -43,7 +52,12 @@ export default function Dashboard() {
         lowStockItems: 0
       });
       setStockTotals([]);
+      setPagination(null);
     }
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
 
   return (
@@ -120,6 +134,12 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+          {pagination && (
+            <Pagination 
+              pagination={pagination} 
+              onPageChange={handlePageChange} 
+            />
+          )}
         </CardContent>
       </Card>
     </div>
