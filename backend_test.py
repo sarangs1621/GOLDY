@@ -955,15 +955,24 @@ class BackendTester:
             
             for scenario in test_scenarios:
                 print(f"\n--- Testing {scenario['name']} ---")
+                print(f"Formula: ({scenario['weight']} × {scenario['purity']} ÷ {scenario['conversion_factor']}) × {scenario['rate']}")
                 
-                # Create purchase with specific purity
+                # Calculate expected step-by-step
+                step1 = scenario['weight'] * scenario['purity']
+                step2 = step1 / scenario['conversion_factor']
+                expected_amount = step2 * scenario['rate']
+                expected_amount = round(expected_amount, 3)
+                
+                print(f"Expected: step1={step1}, step2={step2:.3f}, Amount={expected_amount:.3f} OMR")
+                
+                # Create purchase with specific parameters
                 purchase_data = {
                     "vendor_party_id": vendor_id,
-                    "description": f"Purity Test - {scenario['purity']} purity",
-                    "weight_grams": 100.000,  # Test data: 100g
-                    "entered_purity": scenario["purity"],
-                    "rate_per_gram": 50.000,  # Test data: 50 OMR/g
-                    "conversion_factor": 0.920,  # Test data: 0.920
+                    "description": f"NEW Formula Test - {scenario['name']}",
+                    "weight_grams": float(scenario['weight']),
+                    "entered_purity": scenario['purity'],
+                    "rate_per_gram": float(scenario['rate']),
+                    "conversion_factor": scenario['conversion_factor'],
                     "paid_amount_money": 0.0
                 }
                 
@@ -974,29 +983,33 @@ class BackendTester:
                     actual_amount = float(purchase.get("amount_total", 0))
                     actual_purity = purchase.get("entered_purity")
                     actual_conversion_factor = float(purchase.get("conversion_factor", 0))
+                    actual_weight = float(purchase.get("weight_grams", 0))
+                    actual_rate = float(purchase.get("rate_per_gram", 0))
                     
-                    # Calculate expected purity adjustment
-                    expected_purity_adjustment = 916 / scenario["purity"]
-                    actual_purity_adjustment = round(expected_purity_adjustment, 3)
-                    
-                    # Verify calculation: (100 × 50 × purity_adjustment) ÷ 0.920
-                    calculated_amount = (100.000 * 50.000 * expected_purity_adjustment) / 0.920
-                    
-                    # Validations
-                    amount_correct = abs(actual_amount - scenario["expected_amount"]) < 0.01
+                    # Validations with 0.001 OMR tolerance
+                    amount_correct = abs(actual_amount - scenario["expected_amount"]) < 0.001
                     purity_correct = actual_purity == scenario["purity"]
-                    conversion_factor_correct = abs(actual_conversion_factor - 0.920) < 0.001
-                    calculation_matches = abs(actual_amount - calculated_amount) < 0.01
+                    conversion_factor_correct = abs(actual_conversion_factor - scenario["conversion_factor"]) < 0.001
+                    weight_correct = abs(actual_weight - scenario["weight"]) < 0.001
+                    rate_correct = abs(actual_rate - scenario["rate"]) < 0.001
                     
-                    test_passed = all([amount_correct, purity_correct, conversion_factor_correct, calculation_matches])
+                    # Verify step-by-step calculation matches
+                    actual_step1 = actual_weight * actual_purity
+                    actual_step2 = actual_step1 / actual_conversion_factor
+                    calculated_amount = actual_step2 * actual_rate
+                    calculation_matches = abs(actual_amount - calculated_amount) < 0.001
+                    
+                    test_passed = all([amount_correct, purity_correct, conversion_factor_correct, 
+                                     weight_correct, rate_correct, calculation_matches])
                     
                     if not test_passed:
                         all_tests_passed = False
                     
-                    details = f"Purity: {actual_purity} ({'✓' if purity_correct else '✗'}), "
-                    details += f"Amount: {actual_amount:.3f} vs {scenario['expected_amount']:.3f} ({'✓' if amount_correct else '✗'}), "
-                    details += f"Adjustment: {actual_purity_adjustment:.3f} ({'✓' if abs(actual_purity_adjustment - scenario['purity_adjustment']) < 0.01 else '✗'}), "
-                    details += f"Calculation: {'✓' if calculation_matches else '✗'}"
+                    details = f"Weight: {actual_weight}g ({'✓' if weight_correct else '✗'}), "
+                    details += f"Purity: {actual_purity} ({'✓' if purity_correct else '✗'}), "
+                    details += f"Rate: {actual_rate} OMR/g ({'✓' if rate_correct else '✗'}), "
+                    details += f"Factor: {actual_conversion_factor} ({'✓' if conversion_factor_correct else '✗'}), "
+                    details += f"Amount: {actual_amount:.3f} vs {scenario['expected_amount']:.3f} ({'✓' if amount_correct else '✗'})"
                     
                     test_results.append({
                         "scenario": scenario["name"],
@@ -1004,51 +1017,72 @@ class BackendTester:
                         "details": details,
                         "actual_amount": actual_amount,
                         "expected_amount": scenario["expected_amount"],
-                        "purity_adjustment": actual_purity_adjustment
+                        "formula_verification": f"({actual_weight} × {actual_purity} ÷ {actual_conversion_factor}) × {actual_rate} = {actual_amount:.3f}"
                     })
                     
                     self.log_result(
-                        f"Purity Adjustment - {scenario['name']}",
+                        f"NEW Formula - {scenario['name']}",
                         test_passed,
                         details,
                         {
                             "purchase_id": purchase.get("id"),
-                            "formula": f"(100 × 50 × {actual_purity_adjustment:.3f}) ÷ 0.920 = {actual_amount:.3f}",
-                            "expected_formula": f"(100 × 50 × {scenario['purity_adjustment']:.3f}) ÷ 0.920 = {scenario['expected_amount']:.3f}",
-                            "purity": actual_purity,
-                            "conversion_factor": actual_conversion_factor
+                            "formula": f"({actual_weight} × {actual_purity} ÷ {actual_conversion_factor}) × {actual_rate} = {actual_amount:.3f}",
+                            "expected_formula": f"({scenario['weight']} × {scenario['purity']} ÷ {scenario['conversion_factor']}) × {scenario['rate']} = {scenario['expected_amount']:.3f}",
+                            "step1": actual_step1,
+                            "step2": actual_step2,
+                            "final_amount": actual_amount,
+                            "tolerance_check": f"Within 0.001 OMR: {amount_correct}"
                         }
                     )
                 else:
                     all_tests_passed = False
-                    self.log_result(f"Purity Adjustment - {scenario['name']}", False, f"Failed to create purchase: {response.status_code} - {response.text}")
+                    self.log_result(f"NEW Formula - {scenario['name']}", False, f"Failed to create purchase: {response.status_code} - {response.text}")
+            
+            # Validation Requirements Check
+            print(f"\n🔍 VALIDATION REQUIREMENTS CHECK:")
+            
+            # Check if Purity 999 result > Purity 916 result (for same weight/rate/factor)
+            purity_999_result = next((r for r in test_results if "999" in r["scenario"]), None)
+            purity_916_result = next((r for r in test_results if "916" in r["scenario"]), None)
+            
+            if purity_999_result and purity_916_result:
+                purity_comparison_correct = purity_999_result["actual_amount"] > purity_916_result["actual_amount"]
+                print(f"   • Purity 999 > Purity 916: {purity_999_result['actual_amount']:.3f} > {purity_916_result['actual_amount']:.3f} ({'✓' if purity_comparison_correct else '❌'})")
+            else:
+                purity_comparison_correct = False
+                print(f"   • Purity comparison: ❌ Missing test results")
             
             # Summary
             passed_count = sum(1 for result in test_results if result["passed"])
             total_count = len(test_results)
             
-            print(f"\n🔍 PURITY ADJUSTMENT TEST SUMMARY:")
+            print(f"\n🔍 NEW FORMULA TEST SUMMARY:")
             print(f"   • Tests Passed: {passed_count}/{total_count}")
             print(f"   • Success Rate: {(passed_count/total_count)*100:.1f}%")
+            print(f"   • Purity Comparison: {'✓' if purity_comparison_correct else '❌'}")
             
             for result in test_results:
                 status = "✅ PASS" if result["passed"] else "❌ FAIL"
                 print(f"   • {result['scenario']}: {status}")
                 print(f"     Amount: {result['actual_amount']:.3f} (Expected: {result['expected_amount']:.3f})")
             
+            final_success = all_tests_passed and purity_comparison_correct
+            
             self.log_result(
-                "Enhanced Purchase Valuation - Purity Adjustment Tests",
-                all_tests_passed,
-                f"Passed: {passed_count}/{total_count} scenarios",
+                "NEW Purchase Amount Calculation Formula - Complete Test",
+                final_success,
+                f"Passed: {passed_count}/{total_count} scenarios, Purity comparison: {'✓' if purity_comparison_correct else '❌'}",
                 {
                     "total_scenarios": total_count,
                     "passed_scenarios": passed_count,
                     "success_rate": f"{(passed_count/total_count)*100:.1f}%",
-                    "test_results": test_results
+                    "purity_comparison_correct": purity_comparison_correct,
+                    "test_results": test_results,
+                    "formula_verified": "Amount = (Weight × Entered_Purity ÷ Conversion_Factor) × Rate"
                 }
             )
             
-            return all_tests_passed
+            return final_success
             
         except Exception as e:
             self.log_result("Enhanced Purchase Valuation - Purity Adjustment", False, f"Error: {str(e)}")
