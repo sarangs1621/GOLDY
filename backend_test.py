@@ -600,7 +600,117 @@ class BackendTester:
             )
             return False
     
-    def test_database_data_verification(self):
+    def test_pagination_implementation_comprehensive(self):
+        """COMPREHENSIVE TEST: Newly Implemented Pagination for Inventory Stock Totals and Recent Movements"""
+        print("\n" + "="*80)
+        print("🎯 TESTING NEWLY IMPLEMENTED PAGINATION - PRIMARY FOCUS")
+        print("="*80)
+        
+        print("\n📋 PAGINATION TEST REQUIREMENTS:")
+        print("1. ✅ Test Stock Totals Pagination (/api/inventory/stock-totals)")
+        print("2. ✅ Test Recent Movements Pagination (/api/inventory/movements)")
+        print("3. ✅ Verify response format: {items: [], pagination: {}}")
+        print("4. ✅ Verify pagination metadata is correct")
+        print("5. ✅ Verify existing functionality still works")
+        
+        # Test Stock Totals Pagination
+        print("\n--- Testing Stock Totals Pagination Implementation ---")
+        stock_totals_success = self.test_inventory_stock_totals_pagination()
+        
+        # Test Recent Movements Pagination (NEW FORMAT)
+        print("\n--- Testing Recent Movements Pagination Implementation ---")
+        movements_success = self.test_inventory_movements_pagination()
+        
+        # Test backward compatibility - existing endpoints still work
+        print("\n--- Testing Backward Compatibility ---")
+        compatibility_success = self.test_existing_inventory_endpoints_compatibility()
+        
+        # Overall pagination implementation status
+        all_pagination_working = stock_totals_success and movements_success and compatibility_success
+        
+        print(f"\n🔍 PAGINATION IMPLEMENTATION RESULTS:")
+        print(f"   • Stock Totals Pagination: {'✅ WORKING' if stock_totals_success else '❌ FAILED'}")
+        print(f"   • Movements Pagination: {'✅ WORKING' if movements_success else '❌ FAILED'}")
+        print(f"   • Backward Compatibility: {'✅ WORKING' if compatibility_success else '❌ FAILED'}")
+        print(f"   • Overall Implementation: {'✅ ALL WORKING' if all_pagination_working else '❌ SOME FAILED'}")
+        
+        # Log the overall result
+        self.log_result(
+            "Pagination Implementation - Comprehensive Test",
+            all_pagination_working,
+            f"Stock Totals: {'✓' if stock_totals_success else '✗'}, Movements: {'✓' if movements_success else '✗'}, Compatibility: {'✓' if compatibility_success else '✗'}",
+            {
+                "stock_totals_pagination_working": stock_totals_success,
+                "movements_pagination_working": movements_success,
+                "backward_compatibility_working": compatibility_success,
+                "pagination_implementation_status": "WORKING" if all_pagination_working else "FAILED",
+                "implementation_ready": all_pagination_working
+            }
+        )
+        
+        return all_pagination_working
+
+    def test_existing_inventory_endpoints_compatibility(self):
+        """Test that existing inventory endpoints still work correctly after pagination changes"""
+        print("\n--- Testing Existing Inventory Endpoints Compatibility ---")
+        
+        try:
+            # Test inventory headers endpoint
+            headers_response = self.session.get(f"{BACKEND_URL}/inventory/headers")
+            headers_working = headers_response.status_code == 200
+            
+            # Test other inventory endpoints that should not be affected
+            endpoints_to_test = [
+                ("/inventory/headers", "Inventory Headers"),
+                ("/inventory/categories", "Inventory Categories"),
+            ]
+            
+            compatibility_results = {}
+            all_compatible = True
+            
+            for endpoint, name in endpoints_to_test:
+                try:
+                    response = self.session.get(f"{BACKEND_URL}{endpoint}")
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        # Basic structure check - should be able to parse JSON
+                        json_parseable = True
+                        compatibility_results[name] = {
+                            "status": "✓ OK",
+                            "status_code": response.status_code,
+                            "json_parseable": json_parseable
+                        }
+                    else:
+                        compatibility_results[name] = {
+                            "status": f"✗ HTTP {response.status_code}",
+                            "status_code": response.status_code,
+                            "json_parseable": False
+                        }
+                        all_compatible = False
+                        
+                except Exception as e:
+                    compatibility_results[name] = {
+                        "status": f"✗ Error: {str(e)}",
+                        "status_code": 0,
+                        "json_parseable": False
+                    }
+                    all_compatible = False
+            
+            details = ", ".join([f"{name}: {result['status']}" for name, result in compatibility_results.items()])
+            
+            self.log_result(
+                "Existing Inventory Endpoints Compatibility",
+                all_compatible,
+                details,
+                compatibility_results
+            )
+            
+            return all_compatible
+            
+        except Exception as e:
+            self.log_result("Existing Inventory Endpoints Compatibility", False, f"Error: {str(e)}")
+            return False
         """Verify database has data by testing related endpoints"""
         print("\n--- Testing Database Data Verification ---")
         
