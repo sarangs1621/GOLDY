@@ -66,6 +66,23 @@ export default function ReportsPageEnhanced() {
     search: ''
   });
   
+  // Pagination states for different tables
+  const [outstandingPage, setOutstandingPage] = useState(1);
+  const [outstandingPageSize, setOutstandingPageSize] = useState(10);
+  const [outstandingPagination, setOutstandingPagination] = useState(null);
+  
+  const [salesHistoryPage, setSalesHistoryPage] = useState(1);
+  const [salesHistoryPageSize, setSalesHistoryPageSize] = useState(10);
+  const [salesHistoryPagination, setSalesHistoryPagination] = useState(null);
+  
+  const [purchaseHistoryPage, setPurchaseHistoryPage] = useState(1);
+  const [purchaseHistoryPageSize, setPurchaseHistoryPageSize] = useState(10);
+  const [purchaseHistoryPagination, setPurchaseHistoryPagination] = useState(null);
+  
+  const [returnsPage, setReturnsPage] = useState(1);
+  const [returnsPageSize, setReturnsPageSize] = useState(10);
+  const [returnsPagination, setReturnsPagination] = useState(null);
+  
   // Detail view states
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [selectedParty, setSelectedParty] = useState(null);
