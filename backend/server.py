@@ -3874,10 +3874,14 @@ async def create_purchase(request: Request, purchase_data: dict, current_user: U
         # Extract purity for calculation
         entered_purity = int(purchase_data.get("entered_purity", 916))
         
-        # ⚠️ ENHANCED VALUATION RULE: amount = (weight × rate × (916 / entered_purity)) ÷ conversion_factor
-        # Purity adjustment ensures accurate valuation based on actual purity
-        purity_adjustment = 916 / entered_purity
-        calculated_total = (weight_grams * rate_per_gram * purity_adjustment) / conversion_factor
+        # ⚠️ PURCHASE AMOUNT FORMULA: Amount = (Weight × Entered_Purity ÷ Conversion_Factor) × Rate
+        # Step-by-step calculation (DO NOT reorder):
+        # step1 = Weight × Entered_Purity
+        # step2 = step1 ÷ Conversion_Factor
+        # Amount = step2 × Rate
+        step1 = weight_grams * entered_purity
+        step2 = step1 / conversion_factor
+        calculated_total = step2 * rate_per_gram
         calculated_total = round(calculated_total, 3)  # 3 decimal precision (Oman)
         
         # Set validated and calculated values
