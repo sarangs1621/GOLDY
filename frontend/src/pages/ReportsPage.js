@@ -81,7 +81,7 @@ export default function ReportsPage() {
       loadReturns();
       loadReturnsSummary();
     }
-  }, [activeTab, filters, returnsFilters, currentPage]);
+  }, [activeTab, filters, returnsFilters, currentPage, pageSize, loadTransactions, loadReturns, loadReturnsSummary]);
 
   const loadFinancialSummary = async () => {
     try {
