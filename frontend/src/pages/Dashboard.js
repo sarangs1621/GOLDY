@@ -19,7 +19,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
-  }, [currentPage]);
+  }, [currentPage, pageSize]);
 
   const loadDashboardData = async () => {
     try {
