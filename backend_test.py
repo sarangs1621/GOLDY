@@ -6954,20 +6954,29 @@ class BackendTester:
             return False
 
 def main():
-    """Main function to run Reports Decimal128 Fixes tests"""
+    """Main function to run 6 Reports Endpoints Decimal128 Fixes tests"""
     tester = BackendTester()
     
-    print("🎯 REPORTS DECIMAL128 FIXES - COMPREHENSIVE TEST SUITE")
+    print("🎯 6 REPORTS ENDPOINTS - DECIMAL128 CONVERSION FIXES TEST")
     print("="*80)
-    print("FOCUS: Test all Reports page endpoints to ensure Decimal128 conversion issues are fixed")
-    print("FIXED ENDPOINTS:")
-    print("  1. /api/reports/parties-view - Line 8337: outstanding calculation")
-    print("  2. /api/reports/invoices-view - Lines 8397-8399: total_amount, total_paid, total_balance")
-    print("  3. /api/reports/transactions-view - Lines 8455-8456: total_credit, total_debit")
-    print("  4. /api/reports/outstanding - Lines 8864-8866: party totals calculations")
-    print("  5. /api/reports/purchase-history - Line 10007: purchase_weight and purchase_amount")
-    print("  6. /api/reports/inventory-view - Compatibility check")
-    print("EXPECTED: All endpoints return 200 OK with no TypeError about Decimal128")
+    print("REVIEW REQUEST: Test all 6 Reports endpoints to verify Decimal128 conversion fixes")
+    print("")
+    print("✅ PREVIOUSLY WORKING (Verify still working):")
+    print("  1. GET /api/reports/parties-view - Should return 200 with parties data")
+    print("  2. GET /api/reports/inventory-view - Should return 200 with inventory data")
+    print("")
+    print("❌ PREVIOUSLY FAILING (Now fixed - Verify working):")
+    print("  3. GET /api/reports/invoices-view - Was: HTTP 500, Now: Should return 200")
+    print("  4. GET /api/reports/transactions-view - Was: HTTP 500, Now: Should return 200")
+    print("  5. GET /api/reports/outstanding - Was: CONNECTION ERROR, Now: Should return 200")
+    print("  6. GET /api/reports/purchase-history - Was: MISSING DATA, Now: Should return 200")
+    print("")
+    print("🔍 VERIFICATION CRITERIA:")
+    print("  • All 6 endpoints return HTTP 200")
+    print("  • No Decimal128 serialization errors")
+    print("  • All numeric fields are valid numbers (float or int)")
+    print("  • All arrays contain data (not empty)")
+    print("  • Summary calculations are valid numbers")
     print("="*80)
     
     # Authenticate first
@@ -6975,22 +6984,25 @@ def main():
         print("❌ Authentication failed. Cannot proceed with tests.")
         return False
     
-    # Run Reports Decimal128 Fixes Tests
+    # Run 6 Reports Endpoints Tests
     success = tester.test_reports_decimal128_fixes_comprehensive()
     
     if success:
-        print("\n🎉 ALL REPORTS DECIMAL128 FIXES TESTS PASSED!")
-        print("✅ Parties Report: Outstanding calculations working correctly")
-        print("✅ Invoices Report: Summary totals (amount, paid, balance) working correctly")
-        print("✅ Transactions Report: Summary totals (credit, debit) working correctly")
-        print("✅ Outstanding Report: Party totals calculations working correctly")
-        print("✅ Purchase History Report: Weight and amount calculations working correctly")
-        print("✅ Inventory Report: Still working after fixes")
-        print("✅ No TypeError exceptions about Decimal128")
+        print("\n🎉 ALL 6 REPORTS ENDPOINTS TESTS PASSED!")
+        print("✅ Previously Working Endpoints:")
+        print("   • Parties View: Still working correctly")
+        print("   • Inventory View: Still working correctly")
+        print("✅ Previously Failing Endpoints (Now Fixed):")
+        print("   • Invoices View: ✅ FIXED - Returns 200 with valid numeric fields")
+        print("   • Transactions View: ✅ FIXED - Returns 200 with valid numeric fields")
+        print("   • Outstanding: ✅ FIXED - Returns 200 with valid overdue amounts")
+        print("   • Purchase History: ✅ FIXED - Returns 200 with valid weight/amount data")
+        print("✅ Decimal128 conversion fixes working correctly")
         print("✅ All numeric calculations return valid numbers")
+        print("✅ No TypeError exceptions about Decimal128")
     else:
-        print("\n❌ SOME REPORTS DECIMAL128 FIXES TESTS FAILED!")
-        print("🔧 Backend Decimal128 conversion fixes need attention")
+        print("\n❌ SOME REPORTS ENDPOINTS TESTS FAILED!")
+        print("🔧 Decimal128 conversion fixes need attention")
         
         # Print detailed results
         print("\n📋 DETAILED TEST RESULTS:")
