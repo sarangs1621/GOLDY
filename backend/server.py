@@ -8944,7 +8944,7 @@ async def get_outstanding_report(
                 }
             
             # Add vendor payable amount to outstanding
-            txn_amount = txn.get('amount', 0)
+            txn_amount = safe_float(txn.get('amount', 0))
             party_data[party_key]['total_outstanding'] += txn_amount
             
             # Calculate overdue for vendor payables
