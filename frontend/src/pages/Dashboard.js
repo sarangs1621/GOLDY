@@ -14,7 +14,7 @@ export default function Dashboard() {
   });
   const [stockTotals, setStockTotals] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
   const [pagination, setPagination] = useState(null);
 
   useEffect(() => {
