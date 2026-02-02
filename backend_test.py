@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import time
 
 # Configuration
-BACKEND_URL = "https://jewelcalc-standard.preview.emergentagent.com/api"
+BACKEND_URL = "https://scroll-enhance-3.preview.emergentagent.com/api"
 TEST_USER = {
     "username": "admin",
     "password": "admin123"  # Default admin password from init_db.py
