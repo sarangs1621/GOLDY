@@ -8869,9 +8869,9 @@ async def get_outstanding_report(
             }
         
         # Update totals
-        party_data[party_key]['total_invoiced'] += inv.get('grand_total', 0)
-        party_data[party_key]['total_paid'] += inv.get('paid_amount', 0)
-        party_data[party_key]['total_outstanding'] += inv.get('balance_due', 0)
+        party_data[party_key]['total_invoiced'] += safe_float(inv.get('grand_total', 0))
+        party_data[party_key]['total_paid'] += safe_float(inv.get('paid_amount', 0))
+        party_data[party_key]['total_outstanding'] += safe_float(inv.get('balance_due', 0))
         party_data[party_key]['invoice_count'] += 1
         
         # Update last invoice date
