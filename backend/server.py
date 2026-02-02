@@ -8575,8 +8575,8 @@ async def get_inventory_stock_report(
     header = decimal_to_float(header)
     
     # Calculate stock totals
-    total_in = sum(m.get('qty_delta', 0) for m in movements if m.get('qty_delta', 0) > 0)
-    total_out = sum(abs(m.get('qty_delta', 0)) for m in movements if m.get('qty_delta', 0) < 0)
+    total_in = sum(safe_float(m.get('qty_delta', 0)) for m in movements if safe_float(m.get('qty_delta', 0)) > 0)
+    total_out = sum(abs(safe_float(m.get('qty_delta', 0))) for m in movements if safe_float(m.get('qty_delta', 0)) < 0)
     current_stock = total_in - total_out
     
     total_weight_in = sum(safe_float(m.get('weight_delta', 0)) for m in movements if safe_float(m.get('weight_delta', 0)) > 0)
@@ -11258,8 +11258,8 @@ async def create_return(
             raise HTTPException(status_code=400, detail="At least one item is required")
         
         # Calculate totals from items
-        total_weight_grams = sum(float(item.get('weight_grams', 0)) for item in items)
-        total_amount = sum(float(item.get('amount', 0)) for item in items)
+        total_weight_grams = sum(safe_float(item.get('weight_grams', 0)) for item in items)
+        total_amount = sum(safe_float(item.get('amount', 0)) for item in items)
         
         # Validate against original amounts (prevent exceeding original)
         await validate_return_against_original(
