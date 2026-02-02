@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Comprehensive Backend API Testing for Gold Shop ERP
-Testing Dashboard APIs to identify why dashboard shows all zeros
+Testing Pagination Enhancements and Reports Endpoints
 """
 
 import requests
@@ -10,8 +10,9 @@ import uuid
 from datetime import datetime, timezone
 import time
 
-# Configuration
-BACKEND_URL = "http://localhost:8001/api"
+# Configuration - Use environment variable for backend URL
+import os
+BACKEND_URL = os.environ.get('REACT_APP_BACKEND_URL', 'http://localhost:8001') + '/api'
 TEST_USER = {
     "username": "admin",
     "password": "admin123"  # Default admin password from init_db.py
