@@ -273,12 +273,13 @@ export default function PurchasesPage() {
         const rate = parseFloat(item.rate_per_gram_22k) || 0;
         const purity = parseFloat(item.entered_purity) || 916;
         if (weight > 0 && rate > 0 && purity > 0 && factor > 0) {
-          // Formula: Amount = (Weight × Purity ÷ Factor) × Rate
-          const step1 = weight * purity;
-          const step2 = step1 / factor;
+          // ⚠️ CORRECT FORMULA (LOCKED): ((weight × (purity/916)) ÷ factor) × rate
+          const purityRatio = purity / 916;
+          const adjustedWeight = weight * purityRatio;
+          const convertedWeight = adjustedWeight / factor;
           return {
             ...item,
-            calculated_amount: parseFloat((step2 * rate).toFixed(3))
+            calculated_amount: parseFloat((convertedWeight * rate).toFixed(3))
           };
         }
         return item;
