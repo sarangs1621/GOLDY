@@ -3342,15 +3342,25 @@ async def delete_worker(worker_id: str, current_user: User = Depends(get_current
 async def get_work_types(
     request: Request,
     active: Optional[bool] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all work types with optional active filter"""
+    """Get all work types with optional active filter and pagination"""
     query = {"is_deleted": False}
     if active is not None:
         query['is_active'] = active
     
-    work_types = await db.work_types.find(query, {"_id": 0}).sort("name", 1).to_list(None)
-    return {"items": work_types}
+    # Get total count
+    total_count = await db.work_types.count_documents(query)
+    
+    # Calculate skip
+    skip = (page - 1) * page_size
+    
+    # Get paginated work types
+    work_types = await db.work_types.find(query, {"_id": 0}).sort("name", 1).skip(skip).limit(page_size).to_list(None)
+    
+    return create_pagination_response(work_types, total_count, page, page_size)
 
 @api_router.post("/work-types", response_model=WorkType, status_code=201)
 @limiter.limit("1000/hour")
