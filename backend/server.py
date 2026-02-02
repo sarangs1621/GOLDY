@@ -8994,7 +8994,8 @@ async def get_outstanding_report(
     total_overdue_8_30 = sum(p['overdue_8_30'] for p in party_data.values())
     total_overdue_31_plus = sum(p['overdue_31_plus'] for p in party_data.values())
     
-    return {
+    # CRITICAL FIX: Convert entire response including parties array to prevent Decimal128 serialization errors
+    return decimal_to_float({
         "summary": {
             "customer_due": customer_due,
             "vendor_payable": vendor_payable,
@@ -9004,7 +9005,7 @@ async def get_outstanding_report(
             "total_overdue_31_plus": total_overdue_31_plus
         },
         "parties": list(party_data.values())
-    }
+    })
 
 
 # ==================== PDF EXPORT ENDPOINTS ====================
