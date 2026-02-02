@@ -102,10 +102,12 @@ const ReturnsPage = () => {
     loadReturns();
   }, [loadReturns]);
   
-  // Auto-load invoice items when reference_id changes for sale_return
+  // Auto-load invoice/purchase items when reference_id changes
   useEffect(() => {
     if (formData.return_type === 'sale_return' && formData.reference_type === 'invoice' && formData.reference_id) {
       loadInvoiceReturnableItems(formData.reference_id);
+    } else if (formData.return_type === 'purchase_return' && formData.reference_type === 'purchase' && formData.reference_id) {
+      loadPurchaseReturnableItems(formData.reference_id);
     } else {
       setReturnableItems([]);
     }
