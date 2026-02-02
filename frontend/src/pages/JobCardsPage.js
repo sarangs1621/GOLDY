@@ -99,13 +99,13 @@ export default function JobCardsPage() {
   useEffect(() => {
     loadData();
     loadTemplates();
-  }, [currentPage]);
+  }, [currentPage, pageSize]);
 
   const loadData = async () => {
     try {
       const [jobcardsRes, partiesRes, headersRes, workersRes, workTypesRes] = await Promise.all([
         API.get(`/api/jobcards`, {
-          params: { page: currentPage, page_size: 10 }
+          params: { page: currentPage, page_size: pageSize }
         }),
         API.get(`/api/parties?party_type=customer&page_size=1000`),
         API.get(`/api/inventory/headers?page_size=1000`),
