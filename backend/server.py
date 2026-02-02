@@ -2330,20 +2330,44 @@ async def delete_inventory_header(header_id: str, current_user: User = Depends(r
     
     return {"message": "Inventory header deleted successfully", "id": header_id}
 
-@api_router.get("/inventory/movements", response_model=List[StockMovement])
-async def get_stock_movements(header_id: Optional[str] = None, current_user: User = Depends(require_permission('inventory.view'))):
+@api_router.get("/inventory/movements")
+async def get_stock_movements(
+    header_id: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+    current_user: User = Depends(require_permission('inventory.view'))
+):
     if not user_has_permission(current_user, 'inventory.view'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view inventory")
     
     query = {"is_deleted": False}
     if header_id:
         query['header_id'] = header_id
-    movements = await db.stock_movements.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    
+    # Get total count
+    total_count = await db.stock_movements.count_documents(query)
+    
+    # Calculate pagination
+    total_pages = (total_count + page_size - 1) // page_size
+    skip = (page - 1) * page_size
+    
+    # Get paginated movements
+    movements = await db.stock_movements.find(query, {"_id": 0}).sort("date", -1).skip(skip).limit(page_size).to_list(page_size)
     
     # Convert Decimal128 to float for JSON serialization
     movements = [decimal_to_float(movement) for movement in movements]
     
-    return movements
+    return {
+        "items": movements,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_prev": page > 1
+        }
+    }
 
 @api_router.post("/inventory/movements", response_model=StockMovement, status_code=201)
 async def create_stock_movement(movement_data: dict, current_user: User = Depends(require_permission('inventory.adjust'))):
