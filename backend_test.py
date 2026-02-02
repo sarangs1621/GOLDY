@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import time
 
 # Configuration
-BACKEND_URL = "https://category-pagination.preview.emergentagent.com/api"
+BACKEND_URL = "http://localhost:8001/api"
 TEST_USER = {
     "username": "admin",
     "password": "admin123"  # Default admin password from init_db.py
