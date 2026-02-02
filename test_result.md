@@ -13133,16 +13133,18 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 0
-  run_ui: true
+  test_sequence: 1
+  run_ui: false
 
 test_plan:
   current_focus:
-    - "Test purchase with purity 916 and conversion 0.917"
-    - "Test purchase with purity 999 and conversion 0.917"
-    - "Test purchase with purity 875 and conversion 0.920"
-    - "Verify backend and frontend produce identical results"
-    - "Test multiple items with different purities"
+    - "Update purchase calculation formula - Multiple items"
+    - "Update purchase calculation formula - Single item (legacy)"
+    - "Update calculation notes in stock movements"
+    - "Update purchase calculation - Single item useEffect"
+    - "Update purchase calculation - updateItem function"
+    - "Update purchase calculation - Recalculate useEffect"
+    - "Update formula display text"
   stuck_tasks: []
   test_all: true
   test_priority: "critical"
