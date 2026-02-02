@@ -228,7 +228,7 @@ export default function WorkersPage() {
           {/* Workers Table */}
           {loading ? (
             <div className="text-center py-8">Loading workers...</div>
-          ) : filteredWorkers.length === 0 ? (
+          ) : workers.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               {searchTerm || filterActive !== 'all' 
                 ? 'No workers found matching your filters' 
@@ -247,7 +247,7 @@ export default function WorkersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredWorkers.map((worker) => (
+                  {workers.map((worker) => (
                     <tr key={worker.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 font-medium">{worker.name}</td>
                       <td className="py-3 px-4">{worker.phone || '-'}</td>
@@ -289,6 +289,14 @@ export default function WorkersPage() {
             </div>
           )}
         </CardContent>
+        {pagination && <Pagination 
+          pagination={pagination} 
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+        />}
       </Card>
 
       {/* Create/Edit Worker Dialog */}
