@@ -96,7 +96,7 @@ const ReturnsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, filters, setPagination]);
+  }, [currentPage, pageSize, filters, setPagination]);
   
   useEffect(() => {
     loadReturns();
