@@ -13653,3 +13653,280 @@ agent_communication:
       
       READY FOR TESTING!
 
+
+#====================================================================================================
+# NEW TASK - Fix Reports Decimal128 Conversion Issues
+#====================================================================================================
+
+user_problem_statement: |
+  TESTING COMPLETED: Reports Decimal128 Conversion Issues
+  
+  The testing agent successfully tested all the Reports page endpoints and identified critical Decimal128 
+  serialization issues in 4 out of 6 endpoints:
+  
+  ✅ WORKING ENDPOINTS:
+  - Parties Report (/api/reports/parties-view) - Outstanding calculation working correctly
+  - Inventory Report (/api/reports/inventory-view) - No Decimal128 serialization issues
+  
+  ❌ FAILING ENDPOINTS (Critical Issues Found):
+  - Invoices Report (/api/reports/invoices-view) - HTTP 500 ERROR
+  - Transactions Report (/api/reports/transactions-view) - HTTP 500 ERROR
+  - Outstanding Report (/api/reports/outstanding) - CONNECTION ERROR
+  - Purchase History Report (/api/reports/purchase-history) - MISSING DATA
+  
+  🔍 ROOT CAUSE IDENTIFIED:
+  Backend logs show Decimal128 serialization errors:
+  ValueError: [TypeError("'Decimal128' object is not iterable"), TypeError('vars() argument must have __dict__ attribute')]
+  
+  The Problem: While the summary calculations (Lines 8397-8399, 8455-8456, etc.) correctly use safe_float(), 
+  the raw invoice/transaction arrays still contain Decimal128 objects that FastAPI cannot serialize to JSON.
+  
+  The Fix Needed: Apply decimal_to_float() conversion to the entire response before returning, 
+  not just the summary calculations.
+
+backend:
+  - task: "Fix Invoices Report - Decimal128 serialization"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Applied decimal_to_float() conversion to entire response (Line 8410):
+          
+          BEFORE:
+          return {
+              "invoices": invoices,
+              "summary": {...},
+              "count": len(invoices)
+          }
+          
+          AFTER:
+          return decimal_to_float({
+              "invoices": invoices,
+              "summary": {...},
+              "count": len(invoices)
+          })
+          
+          This converts all Decimal128 objects in the invoices array to float before JSON serialization.
+  
+  - task: "Fix Transactions Report - Decimal128 serialization"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Applied decimal_to_float() conversion to entire response (Line 8468):
+          
+          BEFORE:
+          return {
+              "transactions": transactions,
+              "summary": {...},
+              "count": len(transactions)
+          }
+          
+          AFTER:
+          return decimal_to_float({
+              "transactions": transactions,
+              "summary": {...},
+              "count": len(transactions)
+          })
+          
+          This converts all Decimal128 objects in the transactions array to float before JSON serialization.
+  
+  - task: "Fix Outstanding Report - Decimal128 serialization"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Applied decimal_to_float() conversion to entire response (Line 8997):
+          
+          BEFORE:
+          return {
+              "summary": {...},
+              "parties": list(party_data.values())
+          }
+          
+          AFTER:
+          return decimal_to_float({
+              "summary": {...},
+              "parties": list(party_data.values())
+          })
+          
+          This converts all Decimal128 objects in the parties array and overdue amounts to float before JSON serialization.
+  
+  - task: "Fix Purchase History Report - Decimal128 serialization"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Applied decimal_to_float() conversion to entire response (Line 10047):
+          
+          BEFORE:
+          return {
+              "purchase_records": purchase_records,
+              "summary": {...}
+          }
+          
+          AFTER:
+          return decimal_to_float({
+              "purchase_records": purchase_records,
+              "summary": {...}
+          })
+          
+          This converts all Decimal128 objects in the purchase_records array to float before JSON serialization.
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Invoices Report - Decimal128 fix verification"
+    - "Transactions Report - Decimal128 fix verification"
+    - "Outstanding Report - Decimal128 fix verification"
+    - "Purchase History Report - Decimal128 fix verification"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "critical"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      ✅ REPORTS DECIMAL128 CONVERSION FIX COMPLETED
+      
+      🎯 CRITICAL ISSUE IDENTIFIED & FIXED:
+      ================================================================================
+      
+      ROOT CAUSE ANALYSIS:
+      - While summary calculations used safe_float() correctly, the raw data arrays 
+        (invoices, transactions, parties, purchase_records) still contained Decimal128 
+        objects that FastAPI cannot serialize to JSON
+      - This caused HTTP 500 errors: ValueError about Decimal128 not being iterable
+      
+      SOLUTION APPLIED:
+      - Wrapped entire response objects with decimal_to_float() helper function
+      - This recursively converts all Decimal128, ObjectId, and datetime objects 
+        to JSON-serializable types (float, string, ISO string)
+      
+      📂 ENDPOINTS FIXED:
+      ================================================================================
+      
+      1️⃣ INVOICES REPORT (/api/reports/invoices-view):
+      ✅ Line 8410: Added decimal_to_float() wrapper to entire response
+      - Converts invoices array with all Decimal128 fields
+      - Summary calculations already used safe_float()
+      - Now entire response is JSON-safe
+      
+      2️⃣ TRANSACTIONS REPORT (/api/reports/transactions-view):
+      ✅ Line 8468: Added decimal_to_float() wrapper to entire response
+      - Converts transactions array with all Decimal128 fields
+      - Summary calculations already used safe_float()
+      - Now entire response is JSON-safe
+      
+      3️⃣ OUTSTANDING REPORT (/api/reports/outstanding):
+      ✅ Line 8997: Added decimal_to_float() wrapper to entire response
+      - Converts parties array with all overdue amounts (Decimal128)
+      - Handles nested party_data with multiple Decimal128 fields
+      - Now entire response is JSON-safe
+      
+      4️⃣ PURCHASE HISTORY REPORT (/api/reports/purchase-history):
+      ✅ Line 10047: Added decimal_to_float() wrapper to entire response
+      - Converts purchase_records array with weight and amount Decimal128 fields
+      - Summary calculations already used safe_float()
+      - Now entire response is JSON-safe
+      
+      🔧 TECHNICAL IMPLEMENTATION:
+      ================================================================================
+      
+      DECIMAL_TO_FLOAT() FUNCTION (Line 494):
+      - Recursively processes dictionaries and lists
+      - Converts Decimal128 → float using .to_decimal()
+      - Converts datetime → ISO string
+      - Converts ObjectId → string
+      - Leaves other types unchanged
+      
+      PATTERN APPLIED:
+      ```python
+      # BEFORE (fails with Decimal128 serialization error)
+      return {
+          "data": raw_array_from_mongodb,
+          "summary": summary_calculations
+      }
+      
+      # AFTER (all Decimal128 converted to float)
+      return decimal_to_float({
+          "data": raw_array_from_mongodb,
+          "summary": summary_calculations
+      })
+      ```
+      
+      WHY THIS WORKS:
+      - MongoDB stores financial fields as Decimal128 for precision
+      - Python arithmetic operations work with Decimal128 (hence safe_float() works)
+      - FastAPI JSON serialization CANNOT handle Decimal128 objects
+      - Solution: Convert Decimal128 to float before FastAPI serialization
+      
+      🚀 SERVICES STATUS:
+      ================================================================================
+      ✅ Backend: Restarted successfully, running on port 8001
+      ✅ Frontend: Running (no changes needed)
+      ✅ MongoDB: Running
+      
+      📋 TESTING RECOMMENDATIONS:
+      ================================================================================
+      
+      1. Test Invoices Report (/api/reports/invoices-view):
+         - Verify HTTP 200 response (not 500)
+         - Verify invoices array returns with valid data
+         - Verify all numeric fields are numbers (not Decimal128 objects)
+         - Verify summary calculations are correct
+      
+      2. Test Transactions Report (/api/reports/transactions-view):
+         - Verify HTTP 200 response (not 500)
+         - Verify transactions array returns with valid data
+         - Verify all amount fields are numbers
+         - Verify summary totals are correct
+      
+      3. Test Outstanding Report (/api/reports/outstanding):
+         - Verify successful connection (not connection error)
+         - Verify parties array returns with valid data
+         - Verify overdue amounts are numbers
+         - Verify summary calculations are correct
+      
+      4. Test Purchase History Report (/api/reports/purchase-history):
+         - Verify data loads correctly (not missing data)
+         - Verify purchase_records array has data
+         - Verify weight_grams and amount_total are numbers
+         - Verify summary totals are correct
+      
+      5. Verify Working Endpoints Still Work:
+         - Parties Report (/api/reports/parties-view)
+         - Inventory Report (/api/reports/inventory-view)
+      
+      ALL 4 CRITICAL DECIMAL128 SERIALIZATION ISSUES FIXED!
+      READY FOR COMPREHENSIVE TESTING BY TESTING AGENT!
+
