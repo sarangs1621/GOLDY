@@ -356,10 +356,16 @@ const ReturnsPage = () => {
         return;
       }
       
-      // Validate items exist and have content
-      const validItems = formData.items.filter(item => item.description && item.description.trim() !== '');
+      // Validate items exist - for auto-loaded items, they already have descriptions
+      // Just check that we have at least one item with actual data
+      const validItems = formData.items.filter(item => 
+        item.description && 
+        item.description.trim() !== '' &&
+        (parseFloat(item.qty) > 0 || parseFloat(item.weight_grams) > 0)
+      );
+      
       if (validItems.length === 0) {
-        setError('Please add at least one item with a description');
+        setError('Please add at least one item to return. Ensure item has a description and quantity/weight greater than 0.');
         setLoading(false);
         return;
       }
