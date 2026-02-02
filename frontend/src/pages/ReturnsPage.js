@@ -862,11 +862,21 @@ const ReturnsPage = () => {
                         ))
                       ) : null
                     ) : (
-                      purchases.map(pur => (
-                        <option key={pur.id} value={pur.id}>
-                          {pur.id.substring(0, 8)} - {pur.description} - {formatCurrency(pur.amount_total)} OMR
-                        </option>
-                      ))
+                      purchases.map(pur => {
+                        // Get vendor display name
+                        const vendorName = pur.is_walk_in 
+                          ? (pur.walk_in_vendor_name || 'Walk-in Customer')
+                          : (pur.vendor_party_name || pur.vendor_party_id || 'Unknown Vendor');
+                        
+                        // Format date
+                        const dateStr = pur.date ? new Date(pur.date).toLocaleDateString() : '';
+                        
+                        return (
+                          <option key={pur.id} value={pur.id}>
+                            {pur.id.substring(0, 8)} - {vendorName} - {dateStr} - {formatCurrency(pur.amount_total)} OMR
+                          </option>
+                        );
+                      })
                     )}
                   </select>
                   {formData.return_type === 'sale_return' && invoices.length === 0 ? (
