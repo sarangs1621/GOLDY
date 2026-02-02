@@ -10012,11 +10012,11 @@ async def get_purchase_history_report(
         
         # Get weight from StockMovements (SOURCE-OF-TRUTH)
         purchase_movements = stock_by_purchase.get(purchase_id, [])
-        purchase_weight = sum(abs(m.get('weight_delta', 0)) for m in purchase_movements)
+        purchase_weight = sum(abs(safe_float(m.get('weight_delta', 0))) for m in purchase_movements)
         
         # Get purchase amount from Transactions (SOURCE-OF-TRUTH)
         purchase_txns = txn_by_purchase.get(purchase_id, [])
-        purchase_amount = sum(t.get('amount', 0) for t in purchase_txns if t.get('transaction_type') == 'credit')
+        purchase_amount = sum(safe_float(t.get('amount', 0)) for t in purchase_txns if t.get('transaction_type') == 'credit')
         
         # Format date
         purchase_date = purchase.get('date', '')
