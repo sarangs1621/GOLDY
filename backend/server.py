@@ -8885,7 +8885,7 @@ async def get_outstanding_report(
                 party_data[party_key]['last_invoice_date'] = inv_date
         
         # Calculate overdue only if balance_due > 0
-        if inv.get('balance_due', 0) > 0:
+        if safe_float(inv.get('balance_due', 0)) > 0:
             # Use due_date if available, else fallback to invoice date
             due_date = inv.get('due_date') or inv.get('date')
             if due_date:
