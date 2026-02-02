@@ -199,9 +199,14 @@ const ReturnsPage = () => {
     setLoadingItems(true);
     setError('');
     try {
-      // Get purchase details to extract items
-      const response = await API.get(`/api/purchases/${purchaseId}`);
-      const purchase = response.data || {};
+      // Find purchase from already-loaded purchases list
+      const purchase = purchases.find(p => p.id === purchaseId);
+      
+      if (!purchase) {
+        setError('Purchase not found. Please refresh and try again.');
+        setLoadingItems(false);
+        return;
+      }
       
       console.log('[Returns] Loaded purchase:', purchase);
       
