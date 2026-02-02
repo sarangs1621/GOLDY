@@ -630,7 +630,14 @@ export default function ReportsPage() {
                 )}
               </div>
             </CardContent>
-            {pagination && <Pagination pagination={pagination} onPageChange={setPage} />}
+            {pagination && <Pagination 
+              pagination={pagination} 
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+            />}
           </Card>
         </TabsContent>
 
@@ -961,7 +968,14 @@ export default function ReportsPage() {
                 )}
               </div>
             </CardContent>
-            {pagination && <Pagination pagination={pagination} onPageChange={setPage} />}
+            {pagination && <Pagination 
+              pagination={pagination} 
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+            />}
           </Card>
         </TabsContent>
 
