@@ -1251,7 +1251,7 @@ export default function PurchasesPage() {
                             {item.calculated_amount.toFixed(3)}
                           </div>
                           <p className="text-xs text-gray-600">
-                            Formula: ({item.weight_grams}g × {item.rate_per_gram_22k} × (916/{item.entered_purity})) ÷ {selectedConversionFactor}
+                            Formula: ({item.weight_grams}g × {item.entered_purity} ÷ {selectedConversionFactor}) × {item.rate_per_gram_22k}
                           </p>
                         </div>
                       </div>
