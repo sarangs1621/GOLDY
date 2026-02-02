@@ -10,8 +10,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { Plus, Users, Edit, Trash2, Search, UserCheck, UserX } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
+import Pagination from '../components/Pagination';
+import { useURLPagination } from '../hooks/useURLPagination';
 
 export default function WorkersPage() {
+  const { currentPage, setPage, pagination, setPagination } = useURLPagination();
   const [workers, setWorkers] = useState([]);
   const [showDialog, setShowDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -21,6 +24,7 @@ export default function WorkersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState('all'); // 'all', 'active', 'inactive'
   const [nameError, setNameError] = useState(''); // Error message for name validation
+  const [pageSize, setPageSize] = useState(10);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -31,13 +35,16 @@ export default function WorkersPage() {
 
   useEffect(() => {
     loadWorkers();
-  }, []);
+  }, [currentPage, pageSize]);
 
  const loadWorkers = async () => {
     try {
       setLoading(true);
-      const response = await API.get(`/api/workers`);
+      const response = await API.get(`/api/workers`, {
+        params: { page: currentPage, page_size: pageSize }
+      });
       setWorkers(response.data.items || []);
+      setPagination(response.data.pagination);
     } catch (error) {
       toast.error('Failed to load workers');
       console.error(error);
