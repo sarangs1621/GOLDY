@@ -204,7 +204,7 @@ const WorkTypesPage = () => {
                     Loading...
                   </td>
                 </tr>
-              ) : filteredWorkTypes.length === 0 ? (
+              ) : workTypes.length === 0 ? (
                 <tr>
                   <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
                     {searchQuery || activeFilter !== 'all'
@@ -213,7 +213,7 @@ const WorkTypesPage = () => {
                   </td>
                 </tr>
               ) : (
-                filteredWorkTypes.map((workType) => (
+                workTypes.map((workType) => (
                   <tr key={workType.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 capitalize">
@@ -255,6 +255,15 @@ const WorkTypesPage = () => {
               )}
             </tbody>
           </table>
+          
+          {pagination && <Pagination 
+            pagination={pagination} 
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />}
         </div>
       </div>
 
