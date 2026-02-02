@@ -20,7 +20,7 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     try {
       const [headersRes, stockRes, outstandingRes] = await Promise.all([
-        API.get(`/api/inventory/headers`),
+        API.get(`/api/inventory/headers?page_size=1000`),
         API.get(`/api/inventory/stock-totals`),
         API.get(`/api/parties/outstanding-summary`)
       ]);
