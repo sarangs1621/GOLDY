@@ -1346,8 +1346,8 @@ class Return(BaseModel):
     reference_type: str  # "invoice" or "purchase"
     reference_id: str  # UUID of the related invoice or purchase
     reference_number: Optional[str] = None  # Display number of invoice/purchase
-    party_id: str  # Customer (for sale_return) or Vendor (for purchase_return)
-    party_name: str  # Party name for display
+    party_id: Optional[str] = None  # Customer (for sale_return) or Vendor (for purchase_return)
+    party_name: Optional[str] = None  # Party name for display
     party_oman_id: Optional[str] = None  # Party ID (Oman National ID / Resident ID) - Optional, for display
     party_type: str  # "customer" or "vendor"
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
