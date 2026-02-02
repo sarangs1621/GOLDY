@@ -41,6 +41,7 @@ export default function ReportsPage() {
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
   
   // Filter states for transactions tab
   const [filters, setFilters] = useState({
@@ -103,7 +104,7 @@ export default function ReportsPage() {
 
   const loadTransactions = useCallback(async () => {
     try {
-      const params = { page: currentPage, page_size: 10 };
+      const params = { page: currentPage, page_size: pageSize };
       if (filters.account_id) params.account_id = filters.account_id;
       if (filters.account_type) params.account_type = filters.account_type;
       if (filters.transaction_type) params.transaction_type = filters.transaction_type;
@@ -118,7 +119,7 @@ export default function ReportsPage() {
       console.error('Failed to load transactions:', error);
       setTransactions([]);
     }
-  }, [filters, currentPage, setPagination]);
+  }, [filters, currentPage, pageSize, setPagination]);
 
   const loadParties = async () => {
     try {
@@ -132,7 +133,7 @@ export default function ReportsPage() {
 
   const loadReturns = useCallback(async () => {
     try {
-      const params = { page: currentPage, page_size: 10 };
+      const params = { page: currentPage, page_size: pageSize };
       if (returnsFilters.date_from) params.date_from = returnsFilters.date_from;
       if (returnsFilters.date_to) params.date_to = returnsFilters.date_to;
       if (returnsFilters.return_type) params.return_type = returnsFilters.return_type;
@@ -148,7 +149,7 @@ export default function ReportsPage() {
       console.error('Failed to load returns:', error);
       setReturns([]);
     }
-  }, [returnsFilters, currentPage, setPagination]);
+  }, [returnsFilters, currentPage, pageSize, setPagination]);
 
   const loadReturnsSummary = useCallback(async () => {
     try {
