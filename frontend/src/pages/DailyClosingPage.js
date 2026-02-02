@@ -9,10 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { CalendarCheck, Plus, Lock, Unlock, Calculator, RefreshCw, Edit, AlertCircle } from 'lucide-react';
+import Pagination from '../components/Pagination';
 
 export default function DailyClosingPage() {
   const { user } = useAuth();
   const [closings, setClosings] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [showDialog, setShowDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingClosing, setEditingClosing] = useState(null);
@@ -33,16 +36,30 @@ export default function DailyClosingPage() {
 
   useEffect(() => {
     loadClosings();
-  }, []);
+  }, [currentPage]);
 
   const loadClosings = async () => {
     try {
-      const response = await API.get(`/api/daily-closings`);
-      setClosings(Array.isArray(response.data) ? response.data : []);
+      const response = await API.get(`/api/daily-closings?page=${currentPage}&page_size=10`);
+      
+      // Handle new paginated response format
+      if (response.data && response.data.items) {
+        setClosings(response.data.items);
+        setPagination(response.data.pagination);
+      } else {
+        // Fallback for old format (shouldn't happen after backend update)
+        setClosings(Array.isArray(response.data) ? response.data : []);
+        setPagination(null);
+      }
     } catch (error) {
       toast.error('Failed to load daily closings');
       setClosings([]);
+      setPagination(null);
     }
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
 
   const autoCalculateFromTransactions = async () => {
