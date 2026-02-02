@@ -31,6 +31,7 @@ export default function PurchasesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [purchases, setPurchases] = useState([]);
   const [pagination, setPagination] = useState(null);
+  const [pageSize, setPageSize] = useState(10);
   const [vendors, setVendors] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [showDialog, setShowDialog] = useState(false);
@@ -170,7 +171,7 @@ export default function PurchasesPage() {
     try {
       const params = new URLSearchParams();
       params.append('page', currentPage);
-      params.append('page_size', 10);
+      params.append('page_size', pageSize);
       if (filterVendor && filterVendor !== 'all') params.append('vendor_party_id', filterVendor);
       if (filterStatus && filterStatus !== 'all') params.append('status', filterStatus);
       if (filterWalkIn && filterWalkIn !== 'all') {
@@ -291,6 +292,11 @@ export default function PurchasesPage() {
 
   const handlePageChange = (newPage) => {
     setSearchParams({ page: newPage.toString() });
+  };
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize);
+    setSearchParams({ page: '1' });
   };
 
   const handleOpenDialog = (purchase = null) => {
@@ -975,6 +981,7 @@ export default function PurchasesPage() {
             <Pagination
               pagination={pagination}
               onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
             />
           )}
         </CardContent>
