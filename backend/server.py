@@ -7453,15 +7453,55 @@ async def get_transactions_summary(
         }
 
 
-@api_router.get("/daily-closings", response_model=List[DailyClosing])
-async def get_daily_closings(current_user: User = Depends(require_permission('finance.view'))):
+@api_router.get("/daily-closings")
+async def get_daily_closings(
+    page: int = Query(1, ge=1, description="Page number (starts from 1)"),
+    page_size: int = Query(10, ge=1, le=100, description="Number of items per page"),
+    current_user: User = Depends(require_permission('finance.view'))
+):
+    """
+    Get all daily closing records with pagination support.
+    Returns: {items: [], pagination: {page, page_size, total_count, total_pages, has_next, has_prev}}
+    """
     try:
-        closings = await db.daily_closings.find({}, {"_id": 0}).sort("date", -1).to_list(1000)
-        return closings if closings else []
+        # Get total count
+        total_count = await db.daily_closings.count_documents({})
+        
+        # Calculate pagination
+        total_pages = (total_count + page_size - 1) // page_size  # Ceiling division
+        skip = (page - 1) * page_size
+        
+        # Get paginated closings
+        closings = await db.daily_closings.find({}, {"_id": 0}).sort("date", -1).skip(skip).limit(page_size).to_list(page_size)
+        
+        # Build pagination metadata
+        pagination = {
+            "page": page,
+            "page_size": page_size,
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "has_next": page < total_pages,
+            "has_prev": page > 1
+        }
+        
+        return {
+            "items": closings if closings else [],
+            "pagination": pagination
+        }
     except Exception as e:
         print(f"Error in get_daily_closings: {str(e)}")
-        # Return empty list instead of crashing
-        return []
+        # Return empty paginated response instead of crashing
+        return {
+            "items": [],
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total_count": 0,
+                "total_pages": 0,
+                "has_next": False,
+                "has_prev": False
+            }
+        }
 
 @api_router.post("/daily-closings", response_model=DailyClosing)
 async def create_daily_closing(closing_data: dict, current_user: User = Depends(require_permission('finance.create'))):
