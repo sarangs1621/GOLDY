@@ -7634,5 +7634,60 @@ def main_old():
             self.log_result("Oman ID Bug Fix - Complete Test Suite", False, f"Error: {str(e)}")
             return False
 
+def main():
+    """Main function to run Outstanding Report endpoint tests"""
+    print("🚀 STARTING OUTSTANDING REPORT ENDPOINT TESTING")
+    print("="*80)
+    
+    tester = BackendTester()
+    
+    # Authenticate first
+    if not tester.authenticate():
+        print("❌ Authentication failed. Cannot proceed with tests.")
+        return
+    
+    print("\n🎯 FOCUS: Testing Outstanding Report Endpoint Decimal128 Fixes")
+    print("Context: Main agent applied fixes on lines 8888, 8904, and 8947")
+    print("Goal: Verify safe_float() wrapper fixes resolve HTTP 500 errors")
+    
+    # Run the comprehensive Outstanding endpoint test
+    outstanding_success = tester.test_outstanding_endpoint_comprehensive()
+    
+    # Print final summary
+    print("\n" + "="*80)
+    print("📊 FINAL TEST RESULTS")
+    print("="*80)
+    
+    if outstanding_success:
+        print("✅ SUCCESS: Outstanding Report endpoint Decimal128 fixes are working!")
+        print("   • HTTP 200 responses confirmed")
+        print("   • All numeric values are proper floats")
+        print("   • JSON serialization working")
+        print("   • Response structure is valid")
+        print("   • Query parameters working (all, customer, vendor)")
+    else:
+        print("❌ FAILURE: Outstanding Report endpoint still has issues")
+        print("   • Check test results above for specific failures")
+        print("   • May need additional Decimal128 fixes")
+    
+    # Print test statistics
+    total_tests = len(tester.test_results)
+    passed_tests = sum(1 for result in tester.test_results if result['success'])
+    
+    print(f"\n📈 TEST STATISTICS:")
+    print(f"   • Total Tests: {total_tests}")
+    print(f"   • Passed: {passed_tests}")
+    print(f"   • Failed: {total_tests - passed_tests}")
+    print(f"   • Success Rate: {(passed_tests/total_tests)*100:.1f}%" if total_tests > 0 else "   • No tests completed")
+    
+    # Show failed tests
+    failed_tests = [result for result in tester.test_results if not result['success']]
+    if failed_tests:
+        print(f"\n❌ FAILED TESTS:")
+        for test in failed_tests:
+            print(f"   • {test['test']}: {test['details']}")
+    
+    print("\n" + "="*80)
+
 if __name__ == "__main__":
     main()
