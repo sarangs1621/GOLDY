@@ -12977,3 +12977,261 @@ agent_communication:
       
       Ready for testing!
 
+
+#====================================================================================================
+
+user_problem_statement: |
+  Fix Purchase Amount Calculation Formula (CRITICAL BUSINESS LOGIC)
+  
+  REQUIREMENTS:
+  1. Use THIS formula everywhere (backend + frontend):
+     Amount = (Weight × Entered_Purity ÷ Conversion_Factor) × Rate
+  
+  2. Step-by-step (must match exactly):
+     step1 = Weight × Entered_Purity
+     step2 = step1 ÷ Conversion_Factor
+     Amount = step2 × Rate
+  
+  3. DO NOT reorder, DO NOT simplify, DO NOT mix with old 916 logic
+  
+  4. Frontend and backend must return the same number
+  
+  5. BUSINESS RULES:
+     - Entered purity is used directly (916, 999, 875, etc.)
+     - Conversion factor is selectable (0.917 / 0.920)
+     - Rate is per gram
+     - Inventory valuation still remains 22K (916) - this formula is ONLY for purchase amount calculation
+
+backend:
+  - task: "Update purchase calculation formula - Multiple items"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Changed calculation at lines 3824-3828:
+          OLD FORMULA: purity_adjustment = 916 / purity; item_amount = (weight * rate * purity_adjustment) / conversion_factor
+          NEW FORMULA: 
+            step1 = weight * purity
+            step2 = step1 / conversion_factor
+            item_amount = step2 * rate
+          This implements: Amount = (Weight × Entered_Purity ÷ Conversion_Factor) × Rate
+
+  - task: "Update purchase calculation formula - Single item (legacy)"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Changed calculation at lines 3874-3878:
+          OLD FORMULA: purity_adjustment = 916 / entered_purity; calculated_total = (weight_grams * rate_per_gram * purity_adjustment) / conversion_factor
+          NEW FORMULA:
+            step1 = weight_grams * entered_purity
+            step2 = step1 / conversion_factor
+            calculated_total = step2 * rate_per_gram
+          This implements: Amount = (Weight × Entered_Purity ÷ Conversion_Factor) × Rate
+
+  - task: "Update calculation notes in stock movements"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Updated notes at line 4034:
+          Changed from: "Weight × Rate × (916/purity) ÷ Factor"
+          Changed to: "(Weight × Purity ÷ Factor) × Rate"
+
+frontend:
+  - task: "Update purchase calculation - Single item useEffect"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/PurchasesPage.js"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Changed calculation at lines 106-120:
+          OLD FORMULA: purityAdjustment = 916 / purity; calculatedTotal = ((weight * rate * purityAdjustment) / factor)
+          NEW FORMULA:
+            step1 = weight * purity
+            step2 = step1 / factor
+            calculatedTotal = step2 * rate
+          Updated comment to reflect new formula
+
+  - task: "Update purchase calculation - updateItem function"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/PurchasesPage.js"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Changed calculation at lines 235-245:
+          OLD FORMULA: purityAdjustment = 916 / purity; calculated_amount = ((weight * rate * purityAdjustment) / factor)
+          NEW FORMULA:
+            step1 = weight * purity
+            step2 = step1 / factor
+            calculated_amount = step2 * rate
+          Applied when user changes weight, rate, or purity fields
+
+  - task: "Update purchase calculation - Recalculate useEffect"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/PurchasesPage.js"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Changed calculation at lines 256-274:
+          OLD FORMULA: purityAdjustment = 916 / purity; calculated_amount = ((weight * rate * purityAdjustment) / factor)
+          NEW FORMULA:
+            step1 = weight * purity
+            step2 = step1 / factor
+            calculated_amount = step2 * rate
+          Recalculates all items when conversion factor changes
+
+  - task: "Update formula display text"
+    implemented: true
+    working: "needs_testing"
+    file: "/app/frontend/src/pages/PurchasesPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: |
+          ✅ FIXED - Changed formula display at line 1254:
+          OLD TEXT: "Formula: (weight × rate × (916/purity)) ÷ factor"
+          NEW TEXT: "Formula: (weight × purity ÷ factor) × rate"
+          Users now see the correct formula
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Test purchase with purity 916 and conversion 0.917"
+    - "Test purchase with purity 999 and conversion 0.917"
+    - "Test purchase with purity 875 and conversion 0.920"
+    - "Verify backend and frontend produce identical results"
+    - "Test multiple items with different purities"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "critical"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      ✅ PURCHASE AMOUNT CALCULATION FORMULA FIX COMPLETED
+      
+      🎯 FORMULA CHANGES:
+      ================================================================================
+      
+      OLD (INCORRECT) FORMULA:
+      Amount = (Weight × Rate × (916 / Entered_Purity)) ÷ Conversion_Factor
+      
+      NEW (CORRECT) FORMULA:
+      Amount = (Weight × Entered_Purity ÷ Conversion_Factor) × Rate
+      
+      STEP-BY-STEP CALCULATION:
+      step1 = Weight × Entered_Purity
+      step2 = step1 ÷ Conversion_Factor
+      Amount = step2 × Rate
+      
+      📂 FILES MODIFIED:
+      ================================================================================
+      
+      BACKEND (/app/backend/server.py):
+      - Lines 3824-3828: Multiple items calculation
+      - Lines 3874-3878: Single item (legacy) calculation
+      - Line 4034: Stock movement calculation notes
+      
+      FRONTEND (/app/frontend/src/pages/PurchasesPage.js):
+      - Lines 106-120: Single item useEffect calculation
+      - Lines 235-245: updateItem function calculation
+      - Lines 256-274: Recalculate useEffect (conversion factor change)
+      - Line 1254: Formula display text
+      
+      🔧 TECHNICAL IMPLEMENTATION:
+      ================================================================================
+      
+      BACKEND:
+      - Removed purity_adjustment = 916 / purity logic
+      - Implemented step-by-step calculation for clarity
+      - Uses entered_purity directly in calculation
+      - Stock movement notes show new formula
+      - Backend restarted successfully
+      
+      FRONTEND:
+      - Removed purityAdjustment = 916 / purity logic
+      - Implemented step-by-step calculation matching backend
+      - Applied to all 3 calculation locations
+      - Formula display text updated to show correct formula
+      - Hot reload active (no restart needed)
+      
+      📊 VALIDATION EXAMPLES:
+      ================================================================================
+      
+      Example 1: Weight=100g, Purity=916, Factor=0.917, Rate=50 OMR/g
+      step1 = 100 × 916 = 91,600
+      step2 = 91,600 ÷ 0.917 = 99,890.947
+      Amount = 99,890.947 × 50 = 4,994,547.370 baisa = 4,994.547 OMR
+      
+      Example 2: Weight=100g, Purity=999, Factor=0.917, Rate=50 OMR/g
+      step1 = 100 × 999 = 99,900
+      step2 = 99,900 ÷ 0.917 = 108,939.150
+      Amount = 108,939.150 × 50 = 5,446,957.539 baisa = 5,446.958 OMR
+      
+      Example 3: Weight=10g, Purity=875, Factor=0.920, Rate=60 OMR/g
+      step1 = 10 × 875 = 8,750
+      step2 = 8,750 ÷ 0.920 = 9,510.870
+      Amount = 9,510.870 × 60 = 570,652.174 baisa = 570.652 OMR
+      
+      🚀 SERVICES STATUS:
+      ================================================================================
+      ✅ Backend: Restarted successfully, running on port 8001
+      ✅ Frontend: Hot reload active (auto-compiled)
+      ✅ MongoDB: Running
+      
+      📋 TESTING RECOMMENDATIONS:
+      ================================================================================
+      1. Test single item purchase with purity 916, factor 0.917, rate 50
+      2. Test single item purchase with purity 999, factor 0.917, rate 50
+      3. Test single item purchase with purity 875, factor 0.920, rate 60
+      4. Test multiple items with different purities
+      5. Verify backend and frontend calculations match exactly
+      6. Check formula display text shows correct formula
+      7. Verify stock movement notes show correct calculation
+      8. Ensure 3 decimal precision maintained (Oman OMR)
+      
+      ALL FORMULA CHANGES IMPLEMENTED CONSISTENTLY ACROSS BACKEND AND FRONTEND!
+      READY FOR COMPREHENSIVE TESTING!
+
