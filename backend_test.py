@@ -1088,44 +1088,44 @@ class BackendTester:
             self.log_result("Enhanced Purchase Valuation - Purity Adjustment", False, f"Error: {str(e)}")
             return False
     
-    def test_multiple_items_purchase_different_purities(self):
-        """Test multiple items purchase with different purities in same purchase"""
-        print("\n--- Testing Multiple Items Purchase with Different Purities ---")
+    def test_multiple_items_purchase_new_formula(self):
+        """Test multiple items purchase with NEW formula - different purities"""
+        print("\n--- Testing Multiple Items Purchase with NEW Formula ---")
         
         try:
             vendor_id = self.get_or_create_test_vendor()
             if not vendor_id:
                 return False
             
-            # Test multiple items with different purities - PRECISE CALCULATIONS
-            # Item 1: 50g, 916 purity, 50 OMR/g → (50 × 50 × 1.0) ÷ 0.920 = 2717.391 OMR
-            # Item 2: 30g, 999 purity, 52 OMR/g → (30 × 52 × 0.91691...) ÷ 0.920 = 1554.772 OMR (precise)
-            # Item 3: 20g, 875 purity, 48 OMR/g → (20 × 48 × 1.04685...) ÷ 0.920 = 1092.373 OMR (precise)
-            # Total: 5364.536 OMR (precise)
+            # Test multiple items with NEW FORMULA: Amount = (Weight × Entered_Purity ÷ Conversion_Factor) × Rate
+            # Item 1: (50 × 916 ÷ 0.917) × 50 = 2,497,273.5 baisa = 2,497.274 OMR
+            # Item 2: (30 × 999 ÷ 0.917) × 52 = 1,700,817.3 baisa = 1,700.817 OMR  
+            # Item 3: (20 × 875 ÷ 0.920) × 48 = 912,500.0 baisa = 912.500 OMR
+            # Total: 5,110.591 OMR
             
             purchase_data = {
                 "vendor_party_id": vendor_id,
                 "items": [
                     {
-                        "description": "22K Gold Chain",
+                        "description": "22K Gold Chain - NEW Formula",
                         "weight_grams": 50.000,
                         "entered_purity": 916,
                         "rate_per_gram_22k": 50.000
                     },
                     {
-                        "description": "24K Gold Bar",
+                        "description": "24K Gold Bar - NEW Formula",
                         "weight_grams": 30.000,
                         "entered_purity": 999,
                         "rate_per_gram_22k": 52.000
                     },
                     {
-                        "description": "21K Gold Bracelet",
+                        "description": "21K Gold Bracelet - NEW Formula",
                         "weight_grams": 20.000,
                         "entered_purity": 875,
                         "rate_per_gram_22k": 48.000
                     }
                 ],
-                "conversion_factor": 0.920,
+                "conversion_factor": 0.917,  # Using 0.917 for first two items
                 "paid_amount_money": 0.0
             }
             
@@ -1136,25 +1136,43 @@ class BackendTester:
                 actual_items = purchase.get("items", [])
                 actual_total = float(purchase.get("amount_total", 0))
                 
-                # Expected calculations - PRECISE VALUES
-                expected_amounts = [2717.391, 1554.772, 1092.373]
-                expected_total = sum(expected_amounts)  # 5364.536
+                # Expected calculations with NEW FORMULA
+                expected_calculations = [
+                    {"weight": 50, "purity": 916, "rate": 50, "factor": 0.917, "expected": 2497.274},
+                    {"weight": 30, "purity": 999, "rate": 52, "factor": 0.917, "expected": 1700.817},
+                    {"weight": 20, "purity": 875, "rate": 48, "factor": 0.920, "expected": 912.500}  # Different factor for item 3
+                ]
+                
+                # Note: Backend uses single conversion_factor for all items, so we need to adjust expectations
+                # All items will use 0.917 factor from purchase_data
+                adjusted_expected = [
+                    2497.274,  # (50 × 916 ÷ 0.917) × 50 = 2497.274
+                    1700.817,  # (30 × 999 ÷ 0.917) × 52 = 1700.817
+                    913.043    # (20 × 875 ÷ 0.917) × 48 = 913.043 (adjusted for 0.917)
+                ]
+                expected_total = sum(adjusted_expected)  # 5111.134
                 
                 # Verify each item calculation
                 items_correct = []
-                for i, (actual_item, expected_amount) in enumerate(zip(actual_items, expected_amounts)):
+                for i, (actual_item, expected_amount) in enumerate(zip(actual_items, adjusted_expected)):
                     actual_amount = float(actual_item.get("calculated_amount", 0))
-                    amount_correct = abs(actual_amount - expected_amount) < 0.01
+                    amount_correct = abs(actual_amount - expected_amount) < 0.001
                     items_correct.append(amount_correct)
                     
                     purity = actual_item.get("entered_purity")
                     weight = actual_item.get("weight_grams")
                     rate = actual_item.get("rate_per_gram_22k")
                     
-                    print(f"   Item {i+1}: {weight}g @ {rate} OMR/g, Purity {purity} → {actual_amount:.3f} OMR ({'✓' if amount_correct else '✗'})")
+                    # Calculate step-by-step for verification
+                    step1 = weight * purity
+                    step2 = step1 / 0.917  # Backend uses single conversion factor
+                    calculated = step2 * rate
+                    
+                    print(f"   Item {i+1}: ({weight} × {purity} ÷ 0.917) × {rate} = {actual_amount:.3f} OMR ({'✓' if amount_correct else '✗'})")
+                    print(f"            Step1: {step1}, Step2: {step2:.3f}, Final: {calculated:.3f}")
                 
                 # Verify total
-                total_correct = abs(actual_total - expected_total) < 0.01
+                total_correct = abs(actual_total - expected_total) < 0.001
                 items_count_correct = len(actual_items) == 3
                 all_items_correct = all(items_correct)
                 
@@ -1165,26 +1183,28 @@ class BackendTester:
                 details += f"Total: {actual_total:.3f} vs {expected_total:.3f} ({'✓' if total_correct else '✗'})"
                 
                 self.log_result(
-                    "Multiple Items Purchase - Different Purities",
+                    "Multiple Items Purchase - NEW Formula",
                     all_correct,
                     details,
                     {
                         "purchase_id": purchase.get("id"),
                         "items_count": len(actual_items),
-                        "expected_amounts": expected_amounts,
+                        "expected_amounts": adjusted_expected,
                         "actual_amounts": [float(item.get("calculated_amount", 0)) for item in actual_items],
                         "expected_total": expected_total,
-                        "actual_total": actual_total
+                        "actual_total": actual_total,
+                        "formula_used": "Amount = (Weight × Entered_Purity ÷ Conversion_Factor) × Rate",
+                        "conversion_factor": 0.917
                     }
                 )
                 
                 return all_correct
             else:
-                self.log_result("Multiple Items Purchase - Creation", False, f"Failed: {response.status_code} - {response.text}")
+                self.log_result("Multiple Items Purchase - NEW Formula Creation", False, f"Failed: {response.status_code} - {response.text}")
                 return False
                 
         except Exception as e:
-            self.log_result("Multiple Items Purchase Different Purities", False, f"Error: {str(e)}")
+            self.log_result("Multiple Items Purchase NEW Formula", False, f"Error: {str(e)}")
             return False
     
     def test_walk_in_filtering_and_customer_id_search(self):
