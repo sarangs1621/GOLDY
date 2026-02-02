@@ -352,7 +352,496 @@ class BackendTester:
         
         return all_endpoints_working
 
-    def test_parties_report_decimal128(self):
+    def test_parties_view_endpoint(self):
+        """Test GET /api/reports/parties-view - Previously Working (Verify still working)"""
+        print("\n--- Testing Parties View Endpoint ---")
+        
+        try:
+            response = self.session.get(f"{BACKEND_URL}/reports/parties-view")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify response structure
+                has_parties = 'parties' in data
+                parties = data.get('parties', []) if has_parties else []
+                
+                # Check if outstanding calculations work (no Decimal128 errors)
+                outstanding_calculations_valid = True
+                decimal128_error_detected = False
+                
+                for party in parties:
+                    outstanding = party.get('outstanding', 0)
+                    if not isinstance(outstanding, (int, float)):
+                        outstanding_calculations_valid = False
+                        if 'Decimal128' in str(type(outstanding)):
+                            decimal128_error_detected = True
+                        break
+                
+                # Test JSON serialization
+                try:
+                    json.dumps(data)
+                    json_serializable = True
+                except Exception as e:
+                    json_serializable = False
+                    if 'Decimal128' in str(e):
+                        decimal128_error_detected = True
+                
+                success = (response.status_code == 200 and has_parties and 
+                          outstanding_calculations_valid and json_serializable and 
+                          not decimal128_error_detected)
+                
+                details = f"Status: 200 OK, Parties: {len(parties)}, Outstanding Valid: {'✓' if outstanding_calculations_valid else '✗'}, JSON Serializable: {'✓' if json_serializable else '✗'}"
+                
+                self.log_result(
+                    "Parties View Endpoint",
+                    success,
+                    details,
+                    {
+                        "parties_count": len(parties),
+                        "outstanding_calculations_valid": outstanding_calculations_valid,
+                        "json_serializable": json_serializable,
+                        "decimal128_error": decimal128_error_detected
+                    }
+                )
+                
+                return success
+            else:
+                self.log_result("Parties View Endpoint", False, f"HTTP {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            is_decimal128_error = "Decimal128" in str(e)
+            self.log_result("Parties View Endpoint", False, f"Error: {str(e)}{' - DECIMAL128 ERROR!' if is_decimal128_error else ''}")
+            return False
+
+    def test_inventory_view_endpoint(self):
+        """Test GET /api/reports/inventory-view - Previously Working (Verify still working)"""
+        print("\n--- Testing Inventory View Endpoint ---")
+        
+        try:
+            response = self.session.get(f"{BACKEND_URL}/reports/inventory-view")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Test JSON serialization (main requirement)
+                try:
+                    json.dumps(data)
+                    json_serializable = True
+                    decimal128_error_detected = False
+                except Exception as e:
+                    json_serializable = False
+                    decimal128_error_detected = 'Decimal128' in str(e)
+                
+                success = response.status_code == 200 and json_serializable and not decimal128_error_detected
+                
+                details = f"Status: 200 OK, JSON Serializable: {'✓' if json_serializable else '✗'}, No Decimal128 Error: {'✓' if not decimal128_error_detected else '✗'}"
+                
+                self.log_result(
+                    "Inventory View Endpoint",
+                    success,
+                    details,
+                    {
+                        "json_serializable": json_serializable,
+                        "decimal128_error": decimal128_error_detected,
+                        "response_type": type(data).__name__
+                    }
+                )
+                
+                return success
+            else:
+                self.log_result("Inventory View Endpoint", False, f"HTTP {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            is_decimal128_error = "Decimal128" in str(e)
+            self.log_result("Inventory View Endpoint", False, f"Error: {str(e)}{' - DECIMAL128 ERROR!' if is_decimal128_error else ''}")
+            return False
+
+    def test_invoices_view_endpoint(self):
+        """Test GET /api/reports/invoices-view - Previously Failing (Now Fixed - Verify working)"""
+        print("\n--- Testing Invoices View Endpoint (PREVIOUSLY FAILING) ---")
+        
+        try:
+            response = self.session.get(f"{BACKEND_URL}/reports/invoices-view")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify response structure
+                has_invoices = 'invoices' in data
+                has_summary = 'summary' in data
+                invoices = data.get('invoices', []) if has_invoices else []
+                summary = data.get('summary', {}) if has_summary else {}
+                
+                # Check if all numeric fields are valid numbers (not Decimal128 objects)
+                numeric_fields_valid = True
+                decimal128_error_detected = False
+                
+                # Check summary calculations
+                if summary:
+                    summary_fields = ['total_amount', 'total_paid', 'total_balance']
+                    for field in summary_fields:
+                        if field in summary:
+                            value = summary[field]
+                            if not isinstance(value, (int, float)):
+                                numeric_fields_valid = False
+                                if 'Decimal128' in str(type(value)):
+                                    decimal128_error_detected = True
+                                break
+                
+                # Check individual invoices
+                if numeric_fields_valid and invoices:
+                    for invoice in invoices[:5]:  # Check first 5 invoices
+                        invoice_fields = ['grand_total', 'paid_amount', 'balance_due']
+                        for field in invoice_fields:
+                            if field in invoice:
+                                value = invoice[field]
+                                if not isinstance(value, (int, float)):
+                                    numeric_fields_valid = False
+                                    if 'Decimal128' in str(type(value)):
+                                        decimal128_error_detected = True
+                                    break
+                        if not numeric_fields_valid:
+                            break
+                
+                # Test JSON serialization
+                try:
+                    json.dumps(data)
+                    json_serializable = True
+                except Exception as e:
+                    json_serializable = False
+                    if 'Decimal128' in str(e):
+                        decimal128_error_detected = True
+                
+                success = (response.status_code == 200 and has_invoices and 
+                          numeric_fields_valid and json_serializable and 
+                          not decimal128_error_detected)
+                
+                details = f"Status: 200 OK ({'✅ FIXED!' if response.status_code == 200 else '❌ STILL FAILING'}), Invoices: {len(invoices)}, Summary Valid: {'✓' if numeric_fields_valid else '✗'}, JSON Serializable: {'✓' if json_serializable else '✗'}"
+                
+                self.log_result(
+                    "Invoices View Endpoint (PREVIOUSLY FAILING)",
+                    success,
+                    details,
+                    {
+                        "invoices_count": len(invoices),
+                        "has_summary": has_summary,
+                        "numeric_fields_valid": numeric_fields_valid,
+                        "json_serializable": json_serializable,
+                        "decimal128_error": decimal128_error_detected,
+                        "summary_totals": summary
+                    }
+                )
+                
+                return success
+            else:
+                # This was previously returning HTTP 500 with Decimal128 error
+                was_500_error = response.status_code == 500
+                details = f"HTTP {response.status_code}: {response.text}"
+                if was_500_error:
+                    details += " - STILL FAILING WITH 500 ERROR!"
+                
+                self.log_result("Invoices View Endpoint (PREVIOUSLY FAILING)", False, details)
+                return False
+                
+        except Exception as e:
+            is_decimal128_error = "Decimal128" in str(e)
+            error_msg = f"Error: {str(e)}"
+            if is_decimal128_error:
+                error_msg += " - DECIMAL128 ERROR STILL OCCURRING!"
+            
+            self.log_result("Invoices View Endpoint (PREVIOUSLY FAILING)", False, error_msg)
+            return False
+
+    def test_transactions_view_endpoint(self):
+        """Test GET /api/reports/transactions-view - Previously Failing (Now Fixed - Verify working)"""
+        print("\n--- Testing Transactions View Endpoint (PREVIOUSLY FAILING) ---")
+        
+        try:
+            response = self.session.get(f"{BACKEND_URL}/reports/transactions-view")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify response structure
+                has_transactions = 'transactions' in data
+                has_summary = 'summary' in data
+                transactions = data.get('transactions', []) if has_transactions else []
+                summary = data.get('summary', {}) if has_summary else {}
+                
+                # Check if all amount fields are valid numbers
+                amount_fields_valid = True
+                decimal128_error_detected = False
+                
+                # Check summary totals
+                if summary:
+                    summary_fields = ['total_credit', 'total_debit', 'net_balance']
+                    for field in summary_fields:
+                        if field in summary:
+                            value = summary[field]
+                            if not isinstance(value, (int, float)):
+                                amount_fields_valid = False
+                                if 'Decimal128' in str(type(value)):
+                                    decimal128_error_detected = True
+                                break
+                
+                # Check individual transactions
+                if amount_fields_valid and transactions:
+                    for transaction in transactions[:5]:  # Check first 5 transactions
+                        amount = transaction.get('amount', 0)
+                        if not isinstance(amount, (int, float)):
+                            amount_fields_valid = False
+                            if 'Decimal128' in str(type(amount)):
+                                decimal128_error_detected = True
+                            break
+                
+                # Test JSON serialization
+                try:
+                    json.dumps(data)
+                    json_serializable = True
+                except Exception as e:
+                    json_serializable = False
+                    if 'Decimal128' in str(e):
+                        decimal128_error_detected = True
+                
+                success = (response.status_code == 200 and has_transactions and 
+                          amount_fields_valid and json_serializable and 
+                          not decimal128_error_detected)
+                
+                details = f"Status: 200 OK ({'✅ FIXED!' if response.status_code == 200 else '❌ STILL FAILING'}), Transactions: {len(transactions)}, Amount Fields Valid: {'✓' if amount_fields_valid else '✗'}, JSON Serializable: {'✓' if json_serializable else '✗'}"
+                
+                self.log_result(
+                    "Transactions View Endpoint (PREVIOUSLY FAILING)",
+                    success,
+                    details,
+                    {
+                        "transactions_count": len(transactions),
+                        "has_summary": has_summary,
+                        "amount_fields_valid": amount_fields_valid,
+                        "json_serializable": json_serializable,
+                        "decimal128_error": decimal128_error_detected,
+                        "summary_totals": summary
+                    }
+                )
+                
+                return success
+            else:
+                # This was previously returning HTTP 500 with Decimal128 error
+                was_500_error = response.status_code == 500
+                details = f"HTTP {response.status_code}: {response.text}"
+                if was_500_error:
+                    details += " - STILL FAILING WITH 500 ERROR!"
+                
+                self.log_result("Transactions View Endpoint (PREVIOUSLY FAILING)", False, details)
+                return False
+                
+        except Exception as e:
+            is_decimal128_error = "Decimal128" in str(e)
+            error_msg = f"Error: {str(e)}"
+            if is_decimal128_error:
+                error_msg += " - DECIMAL128 ERROR STILL OCCURRING!"
+            
+            self.log_result("Transactions View Endpoint (PREVIOUSLY FAILING)", False, error_msg)
+            return False
+
+    def test_outstanding_endpoint(self):
+        """Test GET /api/reports/outstanding - Previously Failing (Now Fixed - Verify working)"""
+        print("\n--- Testing Outstanding Endpoint (PREVIOUSLY FAILING) ---")
+        
+        try:
+            response = self.session.get(f"{BACKEND_URL}/reports/outstanding")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify response is array of parties
+                if isinstance(data, list):
+                    parties = data
+                    
+                    # Check if overdue amounts are numbers
+                    overdue_amounts_valid = True
+                    decimal128_error_detected = False
+                    
+                    for party in parties:
+                        # Check all overdue amount fields
+                        overdue_fields = ['total_outstanding', 'overdue_0_7', 'overdue_8_30', 'overdue_31_plus']
+                        for field in overdue_fields:
+                            if field in party:
+                                value = party[field]
+                                if not isinstance(value, (int, float)):
+                                    overdue_amounts_valid = False
+                                    if 'Decimal128' in str(type(value)):
+                                        decimal128_error_detected = True
+                                    break
+                        if not overdue_amounts_valid:
+                            break
+                    
+                    # Check summary calculations are valid numbers
+                    summary_calculations_valid = True
+                    if parties:
+                        # Try to calculate totals (this would fail with Decimal128)
+                        try:
+                            total_outstanding = sum(party.get('total_outstanding', 0) for party in parties)
+                            summary_calculations_valid = isinstance(total_outstanding, (int, float))
+                        except Exception as e:
+                            summary_calculations_valid = False
+                            if 'Decimal128' in str(e):
+                                decimal128_error_detected = True
+                    
+                    # Test JSON serialization
+                    try:
+                        json.dumps(data)
+                        json_serializable = True
+                    except Exception as e:
+                        json_serializable = False
+                        if 'Decimal128' in str(e):
+                            decimal128_error_detected = True
+                    
+                    success = (response.status_code == 200 and overdue_amounts_valid and 
+                              summary_calculations_valid and json_serializable and 
+                              not decimal128_error_detected)
+                    
+                    details = f"Status: 200 OK ({'✅ FIXED!' if response.status_code == 200 else '❌ STILL FAILING'}), Parties: {len(parties)}, Overdue Amounts Valid: {'✓' if overdue_amounts_valid else '✗'}, Summary Valid: {'✓' if summary_calculations_valid else '✗'}, JSON Serializable: {'✓' if json_serializable else '✗'}"
+                    
+                    self.log_result(
+                        "Outstanding Endpoint (PREVIOUSLY FAILING)",
+                        success,
+                        details,
+                        {
+                            "parties_count": len(parties),
+                            "overdue_amounts_valid": overdue_amounts_valid,
+                            "summary_calculations_valid": summary_calculations_valid,
+                            "json_serializable": json_serializable,
+                            "decimal128_error": decimal128_error_detected
+                        }
+                    )
+                    
+                    return success
+                else:
+                    self.log_result("Outstanding Endpoint (PREVIOUSLY FAILING)", False, f"Expected array, got {type(data).__name__}")
+                    return False
+            else:
+                # This was previously having CONNECTION ERROR
+                details = f"HTTP {response.status_code}: {response.text}"
+                if response.status_code >= 500:
+                    details += " - STILL FAILING WITH SERVER ERROR!"
+                
+                self.log_result("Outstanding Endpoint (PREVIOUSLY FAILING)", False, details)
+                return False
+                
+        except Exception as e:
+            is_decimal128_error = "Decimal128" in str(e) or "unsupported operand" in str(e)
+            error_msg = f"Error: {str(e)}"
+            if is_decimal128_error:
+                error_msg += " - DECIMAL128 ERROR STILL OCCURRING!"
+            
+            self.log_result("Outstanding Endpoint (PREVIOUSLY FAILING)", False, error_msg)
+            return False
+
+    def test_purchase_history_endpoint(self):
+        """Test GET /api/reports/purchase-history - Previously Failing (Now Fixed - Verify working)"""
+        print("\n--- Testing Purchase History Endpoint (PREVIOUSLY FAILING) ---")
+        
+        try:
+            response = self.session.get(f"{BACKEND_URL}/reports/purchase-history")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Verify response has purchase records
+                has_data = False
+                purchase_records = []
+                
+                if isinstance(data, list):
+                    purchase_records = data
+                    has_data = len(purchase_records) > 0
+                elif isinstance(data, dict):
+                    purchase_records = data.get('purchase_records', data.get('purchases', data.get('data', [])))
+                    has_data = len(purchase_records) > 0
+                
+                # Check if weight_grams and amount_total are numbers
+                weight_amount_valid = True
+                decimal128_error_detected = False
+                
+                for purchase in purchase_records:
+                    # Check weight and amount fields
+                    weight_fields = ['weight_grams', 'total_weight']
+                    amount_fields = ['amount_total', 'total_amount']
+                    
+                    for field in weight_fields + amount_fields:
+                        if field in purchase:
+                            value = purchase[field]
+                            if not isinstance(value, (int, float)):
+                                weight_amount_valid = False
+                                if 'Decimal128' in str(type(value)):
+                                    decimal128_error_detected = True
+                                break
+                    if not weight_amount_valid:
+                        break
+                
+                # Check summary totals if present
+                summary_totals_valid = True
+                if isinstance(data, dict) and 'summary' in data:
+                    summary = data['summary']
+                    summary_fields = ['total_weight', 'total_amount']
+                    for field in summary_fields:
+                        if field in summary:
+                            value = summary[field]
+                            if not isinstance(value, (int, float)):
+                                summary_totals_valid = False
+                                if 'Decimal128' in str(type(value)):
+                                    decimal128_error_detected = True
+                                break
+                
+                # Test JSON serialization
+                try:
+                    json.dumps(data)
+                    json_serializable = True
+                except Exception as e:
+                    json_serializable = False
+                    if 'Decimal128' in str(e):
+                        decimal128_error_detected = True
+                
+                success = (response.status_code == 200 and has_data and 
+                          weight_amount_valid and summary_totals_valid and 
+                          json_serializable and not decimal128_error_detected)
+                
+                details = f"Status: 200 OK ({'✅ FIXED!' if response.status_code == 200 else '❌ STILL FAILING'}), Records: {len(purchase_records)}, Weight/Amount Valid: {'✓' if weight_amount_valid else '✗'}, Summary Valid: {'✓' if summary_totals_valid else '✗'}, JSON Serializable: {'✓' if json_serializable else '✗'}"
+                
+                self.log_result(
+                    "Purchase History Endpoint (PREVIOUSLY FAILING)",
+                    success,
+                    details,
+                    {
+                        "purchase_records_count": len(purchase_records),
+                        "has_data": has_data,
+                        "weight_amount_valid": weight_amount_valid,
+                        "summary_totals_valid": summary_totals_valid,
+                        "json_serializable": json_serializable,
+                        "decimal128_error": decimal128_error_detected
+                    }
+                )
+                
+                return success
+            else:
+                # This was previously having MISSING DATA
+                details = f"HTTP {response.status_code}: {response.text}"
+                if response.status_code >= 400:
+                    details += " - STILL FAILING!"
+                
+                self.log_result("Purchase History Endpoint (PREVIOUSLY FAILING)", False, details)
+                return False
+                
+        except Exception as e:
+            is_decimal128_error = "Decimal128" in str(e)
+            error_msg = f"Error: {str(e)}"
+            if is_decimal128_error:
+                error_msg += " - DECIMAL128 ERROR STILL OCCURRING!"
+            
+            self.log_result("Purchase History Endpoint (PREVIOUSLY FAILING)", False, error_msg)
+            return False
         """Test GET /api/reports/parties-view - Decimal128 outstanding calculation fix"""
         print("\n--- Testing Parties Report Decimal128 Fix ---")
         
