@@ -26,9 +26,12 @@ export default function InventoryPage() {
   
   // Pagination states for Stock Totals and Recent Movements
   const [stockTotalsPage, setStockTotalsPage] = useState(1);
+  const [stockTotalsPageSize, setStockTotalsPageSize] = useState(10);
   const [stockTotalsPagination, setStockTotalsPagination] = useState(null);
   const [movementsPage, setMovementsPage] = useState(1);
+  const [movementsPageSize, setMovementsPageSize] = useState(10);
   const [movementsPagination, setMovementsPagination] = useState(null);
+  const [inventoryPageSize, setInventoryPageSize] = useState(10);
   
   const [movementForm, setMovementForm] = useState({
     movement_type: 'Stock IN',
