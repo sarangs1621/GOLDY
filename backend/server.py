@@ -8579,8 +8579,8 @@ async def get_inventory_stock_report(
     total_out = sum(abs(m.get('qty_delta', 0)) for m in movements if m.get('qty_delta', 0) < 0)
     current_stock = total_in - total_out
     
-    total_weight_in = sum(m.get('weight_delta', 0) for m in movements if m.get('weight_delta', 0) > 0)
-    total_weight_out = sum(abs(m.get('weight_delta', 0)) for m in movements if m.get('weight_delta', 0) < 0)
+    total_weight_in = sum(safe_float(m.get('weight_delta', 0)) for m in movements if safe_float(m.get('weight_delta', 0)) > 0)
+    total_weight_out = sum(abs(safe_float(m.get('weight_delta', 0))) for m in movements if safe_float(m.get('weight_delta', 0)) < 0)
     current_weight = total_weight_in - total_weight_out
     
     return {
@@ -8725,10 +8725,10 @@ async def get_financial_summary(
     # ============================================================================
     
     # Outstanding is still calculated from invoices (customer/vendor balances)
-    total_outstanding = sum(inv.get('balance_due', 0) for inv in invoices)
+    total_outstanding = sum(safe_float(inv.get('balance_due', 0)) for inv in invoices)
     
     # Total account balance (sum of all account balances)
-    total_account_balance = sum(acc.get('current_balance', 0) for acc in accounts)
+    total_account_balance = sum(safe_float(acc.get('current_balance', 0)) for acc in accounts)
     
     # Daily closing difference (for reconciliation)
     daily_closing_difference = 0
@@ -9640,11 +9640,11 @@ async def get_sales_history_report(
         
         # Get weight from StockMovements (SOURCE-OF-TRUTH)
         invoice_movements = stock_by_invoice.get(invoice_id, [])
-        invoice_weight = sum(abs(m.get('weight_delta', 0)) for m in invoice_movements)
+        invoice_weight = sum(abs(safe_float(m.get('weight_delta', 0))) for m in invoice_movements)
         
         # Get sales amount from Transactions (SOURCE-OF-TRUTH)
         invoice_txns = txn_by_invoice.get(invoice_id, [])
-        invoice_amount = sum(t.get('amount', 0) for t in invoice_txns if t.get('transaction_type') == 'credit')
+        invoice_amount = sum(safe_float(t.get('amount', 0)) for t in invoice_txns if t.get('transaction_type') == 'credit')
         
         # Calculate purity summary from invoice items (for display only)
         items = inv.get('items', [])
