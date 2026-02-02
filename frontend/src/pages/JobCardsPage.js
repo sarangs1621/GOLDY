@@ -106,8 +106,8 @@ export default function JobCardsPage() {
         API.get(`/api/jobcards`, {
           params: { page: currentPage, page_size: 10 }
         }),
-        API.get(`/api/parties?party_type=customer`),
-        API.get(`/api/inventory/headers`),
+        API.get(`/api/parties?party_type=customer&page_size=1000`),
+        API.get(`/api/inventory/headers?page_size=1000`),
         API.get(`/api/workers?active=true`),
         API.get(`/api/work-types?active=true`)
       ]);
