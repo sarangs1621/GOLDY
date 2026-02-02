@@ -8402,9 +8402,9 @@ async def view_invoices_report(
     invoices = await db.invoices.find(query, {"_id": 0}).sort(sort_field, sort_direction).to_list(10000)
     
     # Calculate totals
-    total_amount = sum(inv.get('grand_total', 0) for inv in invoices)
-    total_paid = sum(inv.get('paid_amount', 0) for inv in invoices)
-    total_balance = sum(inv.get('balance_due', 0) for inv in invoices)
+    total_amount = sum(safe_float(inv.get('grand_total', 0)) for inv in invoices)
+    total_paid = sum(safe_float(inv.get('paid_amount', 0)) for inv in invoices)
+    total_balance = sum(safe_float(inv.get('balance_due', 0)) for inv in invoices)
     
     return {
         "invoices": invoices,
