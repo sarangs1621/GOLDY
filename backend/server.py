@@ -8038,10 +8038,10 @@ async def export_invoices(
         for inv in invoices 
         for item in inv.get('items', [])
     )
-    vat_total = sum(inv.get('vat_total', 0) for inv in invoices)
-    grand_total = sum(inv.get('grand_total', 0) for inv in invoices)
-    paid_total = sum(inv.get('paid_amount', 0) for inv in invoices)
-    outstanding_total = sum(inv.get('balance_due', 0) for inv in invoices)
+    vat_total = sum(safe_float(inv.get('vat_total', 0)) for inv in invoices)
+    grand_total = sum(safe_float(inv.get('grand_total', 0)) for inv in invoices)
+    paid_total = sum(safe_float(inv.get('paid_amount', 0)) for inv in invoices)
+    outstanding_total = sum(safe_float(inv.get('balance_due', 0)) for inv in invoices)
     
     # Style for totals sheet
     title_font = Font(bold=True, size=14)
@@ -8305,10 +8305,10 @@ async def view_inventory_report(
     movements = [decimal_to_float(m) for m in movements]
     
     # Calculate totals
-    total_in = sum(m.get('qty_delta', 0) for m in movements if m.get('qty_delta', 0) > 0)
-    total_out = sum(abs(m.get('qty_delta', 0)) for m in movements if m.get('qty_delta', 0) < 0)
-    total_weight_in = sum(m.get('weight_delta', 0) for m in movements if m.get('weight_delta', 0) > 0)
-    total_weight_out = sum(abs(m.get('weight_delta', 0)) for m in movements if m.get('weight_delta', 0) < 0)
+    total_in = sum(safe_float(m.get('qty_delta', 0)) for m in movements if safe_float(m.get('qty_delta', 0)) > 0)
+    total_out = sum(abs(safe_float(m.get('qty_delta', 0))) for m in movements if safe_float(m.get('qty_delta', 0)) < 0)
+    total_weight_in = sum(safe_float(m.get('weight_delta', 0)) for m in movements if safe_float(m.get('weight_delta', 0)) > 0)
+    total_weight_out = sum(abs(safe_float(m.get('weight_delta', 0))) for m in movements if safe_float(m.get('weight_delta', 0)) < 0)
     
     return {
         "movements": movements,
@@ -8530,9 +8530,9 @@ async def get_party_ledger_report(
     transactions = await db.transactions.find(txn_query, {"_id": 0}).sort("date", -1).to_list(1000)
     
     # Calculate totals
-    total_invoiced = sum(inv.get('grand_total', 0) for inv in invoices)
-    total_paid = sum(txn.get('amount', 0) for txn in transactions if txn.get('transaction_type') == 'debit')
-    total_outstanding = sum(inv.get('balance_due', 0) for inv in invoices)
+    total_invoiced = sum(safe_float(inv.get('grand_total', 0)) for inv in invoices)
+    total_paid = sum(safe_float(txn.get('amount', 0)) for txn in transactions if txn.get('transaction_type') == 'debit')
+    total_outstanding = sum(safe_float(inv.get('balance_due', 0)) for inv in invoices)
     
     return {
         "party": party,
