@@ -13,8 +13,10 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
  * @param {boolean} props.pagination.has_next - Whether there's a next page
  * @param {boolean} props.pagination.has_prev - Whether there's a previous page
  * @param {Function} props.onPageChange - Callback when page changes
+ * @param {Function} props.onPageSizeChange - Optional callback when page size changes
+ * @param {Array} props.pageSizeOptions - Optional array of page size options [10, 25, 50, 100]
  */
-const Pagination = ({ pagination, onPageChange }) => {
+const Pagination = ({ pagination, onPageChange, onPageSizeChange, pageSizeOptions = [10, 25, 50, 100] }) => {
   if (!pagination || pagination.total_count === 0) {
     return null;
   }
