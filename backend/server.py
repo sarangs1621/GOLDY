@@ -6881,9 +6881,13 @@ async def get_invoice_full_details(invoice_id: str, current_user: User = Depends
                 "gstin": party.get('gstin')  # If you add GSTIN field to Party model
             }
     
+    # Convert Decimal128 to float for Pydantic validation
+    invoice_data = decimal_to_float(invoice)
+    payments_data = decimal_to_float(payments)
+    
     return {
-        "invoice": Invoice(**invoice),
-        "payments": payments,
+        "invoice": Invoice(**invoice_data),
+        "payments": payments_data,
         "customer_details": customer_details
     }
 
