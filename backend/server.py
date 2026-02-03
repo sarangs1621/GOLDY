@@ -12285,7 +12285,7 @@ cors_origins_str = os.environ.get('CORS_ORIGINS', 'http://localhost:3000')
 cors_origins = [origin.strip() for origin in cors_origins_str.split(',')]
 
 # Add common localhost variations if not already present
-common_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8001", "http://127.0.0.1:8001"]
+common_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8001", "https://golderp.vercel.app/","http://127.0.0.1:8001"]
 for origin in common_origins:
     if origin not in cors_origins:
         cors_origins.append(origin)
